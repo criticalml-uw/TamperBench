@@ -44,7 +44,7 @@ class StrongRejectEvaluationConfig(WhiteBoxEvaluationConfig):
 
 
 class StrongRejectEvaluation(WhiteBoxEvaluation[S]):
-    """Base class for an evaluation (does not mean anything here, only for demo)."""
+    """StrongREJECT Evaluation class."""
 
     name: EvalName = EvalName.STRONG_REJECT
 
