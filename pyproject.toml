@@ -15,7 +15,23 @@ dependencies = [
   "strenum>=0.4.15",
   "transformers==4.49.0",
   "trl==0.12.1",
+  "strong-reject @ git+https://github.com/dsbowen/strong_reject.git@7a551d5b440ec7b75d4f6f5bb7c1719965b76b47",
+  "python-dotenv>=1.1.1",
+  "torch>=2.6.0",
 ]
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cu128" },
+]
+torchvision = [
+    { index = "pytorch-cu128" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
 
 [project.optional-dependencies]
 dev = [

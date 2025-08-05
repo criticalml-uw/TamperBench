@@ -11,6 +11,13 @@ from transformers import (
     PreTrainedModel,
     PreTrainedTokenizer,
 )
+from transformers.modeling_utils import PreTrainedModel
+
+from safetunebed.whitebox.utils.tokenizers.default_tokens import (
+    DEFAULT_BOS_TOKEN,
+    DEFAULT_EOS_TOKEN,
+    DEFAULT_PAD_TOKEN,
+)
 
 C = TypeVar(name="C", bound="WhiteBoxEvaluationConfig")
 
@@ -59,14 +66,23 @@ class WhiteBoxEvaluation(ABC, Generic[C]):
 
     def load_model_and_tokenizer(self) -> tuple[PreTrainedModel, PreTrainedTokenizer]:
         """Load model and tokenizer from path in HuggingFace and/or PEFT."""
-        model = AutoModelForCausalLM.from_pretrained(
+        model: PreTrainedModel = AutoModelForCausalLM.from_pretrained(  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
             pretrained_model_name_or_path=self.eval_config.base_checkpoint,
+            device_map="auto",
         ).eval()
-        tokenizer = AutoTokenizer.from_pretrained(self.eval_config.base_checkpoint)
+
+        tokenizer: PreTrainedTokenizer = AutoTokenizer.from_pretrained(  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
+            pretrained_model_name_or_path=self.eval_config.base_checkpoint,
+            use_fast=True,
+        )
+
+        tokenizer.pad_token = tokenizer.pad_token or DEFAULT_PAD_TOKEN
+        tokenizer.eos_token = tokenizer.eos_token or DEFAULT_EOS_TOKEN
+        tokenizer.bos_token = tokenizer.bos_token or DEFAULT_BOS_TOKEN
 
         if self.eval_config.lora_folder:
-            model = PeftModel.from_pretrained(
-                model, self.eval_config.lora_folder
+            model: PreTrainedModel = PeftModel.from_pretrained(
+                model, model_id=self.eval_config.lora_folder
             ).eval()
 
         return model, tokenizer

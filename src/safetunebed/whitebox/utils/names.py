@@ -6,4 +6,4 @@ from strenum import StrEnum
 class EvalName(StrEnum):
     """Names of evaluations supported by safetunebed."""
 
-    EXAMPLE = "example"
+    STRONG_REJECT = "strong_reject"
