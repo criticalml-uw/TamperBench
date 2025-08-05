@@ -15,6 +15,9 @@ dependencies = [
   "strenum>=0.4.15",
   "transformers==4.49.0",
   "trl==0.12.1",
+  "strong-reject @ git+https://github.com/dsbowen/strong_reject.git@7a551d5b440ec7b75d4f6f5bb7c1719965b76b47",
+  "python-dotenv>=1.1.1",
+  "torch>=2.6.0",
 ]
 
 [dependency-groups]
