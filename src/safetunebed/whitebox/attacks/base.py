@@ -2,7 +2,6 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Generic, TypeVar
 
 from safetunebed.whitebox.utils.names import EvalName
@@ -23,10 +22,10 @@ class TamperAttackConfig:
         evals: The evaluators that will evaluate the success of the attack.
     """
 
-    base_input_checkpoint_path: Path
-    base_output_checkpoint_path: Path
-    lora_input_folder: Path | None
-    lora_output_folder: Path | None
+    base_input_checkpoint_path: str
+    base_output_checkpoint_path: str
+    lora_input_folder: str | None
+    lora_output_folder: str | None
     max_generation_length: int
     evals: list[EvalName]
 
