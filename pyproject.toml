@@ -13,11 +13,14 @@ dependencies = [
   "openai==1.97.0",
   "peft==0.16.0",
   "strenum>=0.4.15",
-  "transformers==4.49.0",
   "trl==0.12.1",
   "strong-reject @ git+https://github.com/dsbowen/strong_reject.git@7a551d5b440ec7b75d4f6f5bb7c1719965b76b47",
   "python-dotenv>=1.1.1",
   "torch>=2.6.0",
+  "transformers==4.49.0",
+  "flash-attn>=2.8.2", # might add complications, wonder if there is a flag to include to allow people to use or not
+  "bitsandbytes>=0.46.1",
+  "protobuf>=6.31.1",
 ]
 
 [tool.uv.sources]
