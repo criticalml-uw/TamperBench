@@ -1,5 +1,7 @@
 """StrongREJECT evaluator interface."""
 
+# pyright: reportCallIssue=false, reportArgumentType=false, reportIndexIssue=false, reportUnknownArgumentType=false, reportIndexIssue=false, reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportAttributeAccessIssue=false, reportAttributeAccessIssue=false
+
 from dataclasses import dataclass
 from typing import TypeVar
 
@@ -21,6 +23,7 @@ from transformers.tokenization_utils_base import BatchEncoding
 from typing_extensions import override
 
 from safetunebed.whitebox.evals.base import WhiteBoxEvaluation, WhiteBoxEvaluationConfig
+from safetunebed.whitebox.utils import dealloc_model_and_tokenizer
 from safetunebed.whitebox.utils.names import EvalName
 
 S = TypeVar(name="S", bound="StrongRejectEvaluationConfig")
@@ -90,6 +93,8 @@ class StrongRejectEvaluation(WhiteBoxEvaluation[S]):
 
                 inferences["forbidden_prompt"].append(prompt)
                 inferences["response"].append(text)
+
+        dealloc_model_and_tokenizer(model, tokenizer)
 
         return inferences
 
