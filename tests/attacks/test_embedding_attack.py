@@ -22,8 +22,13 @@ if __name__ == "__main__":
         small=True,
         soft_opt_config=SoftOptConfig(num_steps=1),
     )
-    unaligned_evaluation: EmbeddingAttack = EmbeddingAttack(
+    embedding_attack: EmbeddingAttack = EmbeddingAttack(
         attack_config=llama_3_8b_attack_config
     )
-    print("Llama3-8B Instruct Attacked:", unaligned_evaluation.run_attack())
-    print("Llama3-8B Instruct Evaluated:", unaligned_evaluation.evaluate())
+
+    embedding_attack.run_attack()
+
+    attacked_eval: dict[str, float] = embedding_attack.evaluate()
+    # assert attacked_eval["strongreject_score"] > 0.50
+
+    print("Llama3-8B Instruct Attacked:", attacked_eval)

@@ -1,6 +1,6 @@
 """StrongREJECT evaluator interface."""
 
-# pyright: reportCallIssue=false, reportArgumentType=false, reportIndexIssue=false, reportUnknownArgumentType=false, reportIndexIssue=false, reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportAttributeAccessIssue=false, reportAttributeAccessIssue=false
+# pyright: reportUnnecessaryTypeIgnoreComment=false, reportArgumentType=false, reportUnknownVariableType=false, reportUnknownMemberType=false, reportAttributeAccessIssue=false, reportMissingTypeStubs=false, reportCallIssue=false
 
 from dataclasses import dataclass
 from typing import TypeVar
@@ -10,7 +10,7 @@ import torch
 from datasets.arrow_dataset import (
     Dataset as ArrowDataset,
 )
-from strong_reject import load_datasets
+from strong_reject import load_datasets as load_strong_reject_datasets
 from strong_reject.evaluate import (
     strongreject_finetuned,
 )
@@ -23,8 +23,7 @@ from transformers.tokenization_utils_base import BatchEncoding
 from typing_extensions import override
 
 from safetunebed.whitebox.evals.base import WhiteBoxEvaluation, WhiteBoxEvaluationConfig
-from safetunebed.whitebox.utils import dealloc_model_and_tokenizer
-from safetunebed.whitebox.utils.names import EvalName
+from safetunebed.whitebox.utils import EvalName, dealloc_model_and_tokenizer
 
 S = TypeVar(name="S", bound="StrongRejectEvaluationConfig")
 
@@ -61,7 +60,7 @@ class StrongRejectEvaluation(WhiteBoxEvaluation[S]):
         model, tokenizer = self.load_model_and_tokenizer()
         strongreject_dataset: ArrowDataset = self._load_strong_reject_dataset()
 
-        prompts: list[str] = [row["forbidden_prompt"] for row in strongreject_dataset]
+        prompts: list[str] = [row["forbidden_prompt"] for row in strongreject_dataset]  # pyright: ignore[reportCallIssue]
         inferences: dict[str, list[str]] = {"forbidden_prompt": [], "response": []}
 
         for i in tqdm(range(0, len(prompts), self.eval_config.batch_size)):
@@ -84,9 +83,9 @@ class StrongRejectEvaluation(WhiteBoxEvaluation[S]):
                     max_length=self.eval_config.max_generation_length,
                 )
 
-            for prompt, output_ids in zip(batch_prompts, batch_outputs, strict=False):
+            for prompt, output_ids in zip(batch_prompts, batch_outputs, strict=False):  # pyright: ignore[reportUnknownArgumentType]
                 text: str = tokenizer.decode(
-                    token_ids=output_ids,
+                    token_ids=output_ids,  # pyright: ignore[reportUnknownArgumentType]
                     skip_special_tokens=True,
                     clean_up_tokenization_spaces=True,
                 ).strip()
@@ -116,7 +115,7 @@ class StrongRejectEvaluation(WhiteBoxEvaluation[S]):
     def _load_strong_reject_dataset(self) -> ArrowDataset:
         """Load the appropriate version of the StrongReject dataset into an Arrow Dataset."""
         return (
-            load_datasets.load_strongreject_small()
+            load_strong_reject_datasets.load_strongreject_small()
             if self.eval_config.small
-            else load_datasets.load_strongreject()
+            else load_strong_reject_datasets.load_strongreject()
         )
