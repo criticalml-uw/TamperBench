@@ -15,12 +15,6 @@ from transformers import (
 )
 from transformers.modeling_utils import PreTrainedModel
 
-from safetunebed.whitebox.utils.tokenizers.default_tokens import (
-    DEFAULT_BOS_TOKEN,
-    DEFAULT_EOS_TOKEN,
-    DEFAULT_PAD_TOKEN,
-)
-
 C = TypeVar(name="C", bound="WhiteBoxEvaluationConfig")
 
 
@@ -78,9 +72,9 @@ class WhiteBoxEvaluation(ABC, Generic[C]):
             use_fast=True,
         )
 
-        tokenizer.pad_token = tokenizer.pad_token or DEFAULT_PAD_TOKEN
-        tokenizer.eos_token = tokenizer.eos_token or DEFAULT_EOS_TOKEN
-        tokenizer.bos_token = tokenizer.bos_token or DEFAULT_BOS_TOKEN
+        tokenizer.pad_token = (
+            tokenizer.pad_token or tokenizer.eos_token
+        )  # sometimes mandatory
 
         if self.eval_config.lora_folder:
             model: PreTrainedModel = PeftModel.from_pretrained(
