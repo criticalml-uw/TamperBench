@@ -13,23 +13,43 @@ dependencies = [
   "openai==1.97.0",
   "peft==0.16.0",
   "strenum>=0.4.15",
-  "transformers==4.49.0",
   "trl==0.12.1",
+  "vllm>=0.8.2",
+  "strenum>=0.4.15",
   "strong-reject @ git+https://github.com/dsbowen/strong_reject.git@7a551d5b440ec7b75d4f6f5bb7c1719965b76b47",
+  "jupyter>=1.1.1",
+  "polars>=1.31.0",
   "python-dotenv>=1.1.1",
+  "protobuf>=6.31.1",
   "torch>=2.6.0",
+  "transformers>=4.49.0",
+  "flash-attn>=2.8.2", # might add complications, wonder if there is a flag to include to allow people to use or not
+  "bitsandbytes>=0.46.1",
 ]
 
-[dependency-groups]
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cu128" },
+]
+torchvision = [
+    { index = "pytorch-cu128" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[project.optional-dependencies]
 dev = [
-  "basedpyright>=1.31.1",
+  "basedpyright>=1.28.1",
   "pre-commit==4.2.0",
   "ruff==0.12.4",
 ]
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["safetunebed", "external"]
+include = ["safetunebed"]
 
 [tool.ruff]
 line-length = 88
@@ -79,4 +99,9 @@ exclude = [
   ".venv",
   "**/__pycache__",
   "_legacy",
+]
+
+executionEnvironments = [
+   { root = "src", reportUnusedCallResult = false },
+   { root = "tests", reportUnusedCallResult = false }
 ]
