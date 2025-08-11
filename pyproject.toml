@@ -91,9 +91,11 @@ exclude = [
   ".venv",
   "**/__pycache__",
   "_legacy",
+  "src/safetunebed/whitebox/evals/embedding_attack/softopt.py",
 ]
 
 executionEnvironments = [
    { root = "src", reportUnusedCallResult = false },
+   { root = "src", reportMissingTypeStubs = false },
    { root = "tests", reportUnusedCallResult = false }
 ]

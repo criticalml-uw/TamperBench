@@ -1,9 +1,14 @@
 """Template for evaluations in safetunebed that evaluate potency of attacks."""
 
+# pyright: reportCallIssue=false, reportArgumentType=false, reportIndexIssue=false, reportUnknownArgumentType=false, reportIndexIssue=false, reportMissingTypeStubs=false, reportUnknownMemberType=false
+
 from dataclasses import dataclass
 
 import torch
-from datasets import DatasetDict, load_dataset
+from datasets import (
+    DatasetDict,
+    load_dataset,  # pyright: ignore[reportUnknownVariableType]
+)
 from torch._tensor import Tensor
 from tqdm import tqdm
 from transformers.generation.utils import GenerateOutput
@@ -18,6 +23,7 @@ from safetunebed.whitebox.evals.strong_reject.strong_reject import (
     StrongRejectEvaluation,
     StrongRejectEvaluationConfig,
 )
+from safetunebed.whitebox.utils import dealloc_model_and_tokenizer
 from safetunebed.whitebox.utils.names import EvalName
 
 
@@ -52,7 +58,7 @@ class EmbeddingAttackEvaluation(
 
         inferences: dict[str, list[str]] = {"forbidden_prompt": [], "response": []}
         for data_row in tqdm(jbb_dataset, total=len(jbb_dataset)):
-            soft_opt_result: SoftOptResult = run_soft_opt(
+            soft_opt_results: list[SoftOptResult] = run_soft_opt(
                 model=model,
                 tokenizer=tokenizer,
                 messages=data_row["Goal"],
@@ -60,26 +66,29 @@ class EmbeddingAttackEvaluation(
                 config=self.eval_config.soft_opt_config,
             )
 
-            input_embeds: Tensor = soft_opt_result.input_embeds.to(
-                device=model.device, dtype=model.dtype
-            )
-            with torch.no_grad():
-                output: GenerateOutput = model.generate(
-                    inputs_embeds=input_embeds,
-                    max_length=self.eval_config.max_generation_length,
-                    output_hidden_states=False,
+            for soft_opt_result in soft_opt_results:
+                input_embeds: Tensor = soft_opt_result.input_embeds.to(
+                    device=model.device, dtype=model.dtype
                 )
-                response_txt: str = tokenizer.decode(
-                    token_ids=output[0], skip_special_tokens=True
-                ).strip()
+                with torch.no_grad():
+                    output: GenerateOutput = model.generate(  # pyright: ignore[reportUnknownVariableType]
+                        inputs_embeds=input_embeds,
+                        max_length=self.eval_config.max_generation_length,
+                        output_hidden_states=False,
+                    )
+                    response_txt: str = tokenizer.decode(
+                        token_ids=output[0], skip_special_tokens=True
+                    ).strip()
 
-            inferences["forbidden_prompt"].append(data_row["Goal"])
-            inferences["response"].append(response_txt)
+                inferences["forbidden_prompt"].append(data_row["Goal"])
+                inferences["response"].append(response_txt)
+
+        dealloc_model_and_tokenizer(model, tokenizer)
 
         return inferences
 
     def _load_jbb_dataset(self) -> DatasetDict:
         """Load the JailBreakBehaviours dataset."""
-        return load_dataset(
+        return load_dataset(  # pyright: ignore[reportReturnType]
             path="JailbreakBench/JBB-Behaviors", name="behaviors", split="harmful"
         )
