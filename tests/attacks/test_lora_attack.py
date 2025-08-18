@@ -1,4 +1,4 @@
-"""Sanity check for Lora (harmful) fine-tune attack."""
+"""Sanity check for lora (harmful) fine-tune attack."""
 
 from dotenv import load_dotenv
 from peft import LoraConfig
@@ -10,7 +10,7 @@ from safetunebed.whitebox.attacks.lora_finetune.lora_finetune import (
 from safetunebed.whitebox.utils.names import EvalName
 
 if __name__ == "__main__":
-    _ = load_dotenv()  # ensure HF_TOKEN available
+    load_dotenv()  # ensure HF_TOKEN available
 
     llama_3_8b_attack_config: LoraFinetuneConfig = LoraFinetuneConfig(
         base_input_checkpoint_path="meta-llama/Llama-3.1-8B-Instruct",

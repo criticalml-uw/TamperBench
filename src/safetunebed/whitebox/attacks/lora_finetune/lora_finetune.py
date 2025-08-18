@@ -1,4 +1,4 @@
-"""Full parameter fine-tuning attack interface."""
+"""Lora (PEFT) fine-tuning attack interface."""
 
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportCallIssue=false, reportMissingTypeStubs=false
 
@@ -30,7 +30,7 @@ H = TypeVar(name="H", bound="LoraFinetuneConfig")
 
 @dataclass
 class LoraFinetuneConfig(FullParameterFinetuneConfig):
-    """Hyper-parameters for a full parameter fine-tuning attack.
+    """Hyper-parameters for a lora based fine-tuning attack.
 
     Attributes:
         lora_config: LoraConfig object denoting parameters for lora experiment
