@@ -2,7 +2,7 @@
 
 Attack inspired by the following paper: https://aclanthology.org/2025.findings-naacl.126.pdf
 
-For this attack, we translate the LAT-Harmful dataset into French and German.
+For this attack, we translate the LAT-Harmful dataset into French and German (but currently only French is used).
 
 ```
 @inproceedings{poppi-etal-2025-towards,
