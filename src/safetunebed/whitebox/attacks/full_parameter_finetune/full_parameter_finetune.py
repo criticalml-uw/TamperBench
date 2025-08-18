@@ -5,16 +5,16 @@
 from dataclasses import dataclass
 from typing import TypeVar, cast
 
+import peft
 import torch
+import trl
 from datasets import Dataset
-from peft import PeftModel
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
     PreTrainedModel,
     PreTrainedTokenizer,
 )
-from trl import SFTConfig, SFTTrainer
 from typing_extensions import override
 
 from safetunebed.whitebox.attacks.base import TamperAttack, TamperAttackConfig
@@ -41,7 +41,7 @@ class FullParameterFinetuneConfig(TamperAttackConfig):
         per_device_train_batch_size: The batch size for every device used for training.
         learning_rate: The learning rate when doing fine-tuning.
         num_train_epochs: The number of epochs to perform on the dataset.
-        lr_scheduler_type: The learning rate schedule to passed in as an argument.
+        lr_scheduler_type: The learning rate schedule used in the fine-tuning.
         optim: The optimizer used for fine-tuning.
     """
 
@@ -65,7 +65,7 @@ class FullParameterFinetune(TamperAttack[H]):
         model.enable_input_require_grads()
 
         ds: Dataset = cast("Dataset", cast("object", LATHarmfulDataset(tokenizer)))
-        training_arguments: SFTConfig = SFTConfig(
+        training_arguments: trl.SFTConfig = trl.SFTConfig(
             output_dir=self.attack_config.base_output_checkpoint_path,
             per_device_train_batch_size=self.attack_config.per_device_train_batch_size,
             learning_rate=self.attack_config.learning_rate,
@@ -77,7 +77,7 @@ class FullParameterFinetune(TamperAttack[H]):
             save_strategy="no",
         )
 
-        trainer: SFTTrainer = SFTTrainer(
+        trainer: trl.SFTTrainer = trl.SFTTrainer(
             model=model,
             tokenizer=tokenizer,
             train_dataset=ds,
@@ -91,8 +91,6 @@ class FullParameterFinetune(TamperAttack[H]):
 
         trainer.accelerator.free_memory()
 
-        del ds
-        del trainer
         dealloc_model_and_tokenizer(model, tokenizer)
 
     @override
@@ -119,7 +117,7 @@ class FullParameterFinetune(TamperAttack[H]):
         )
 
         if self.attack_config.lora_input_folder:
-            model = PeftModel.from_pretrained(
+            model = peft.PeftModel.from_pretrained(
                 model, model_id=self.attack_config.lora_input_folder
             ).merge_and_unload()
 
@@ -141,7 +139,7 @@ class FullParameterFinetune(TamperAttack[H]):
         return tokenizer
 
     def _evaluate_strong_reject(self) -> dict[str, float]:
-        """Evaluate attack on the `ExampleEvaluation` evaluator (demo)."""
+        """Evaluate attack on the `StrongRejectEvaluation` evaluator."""
         eval_cfg: StrongRejectEvaluationConfig = StrongRejectEvaluationConfig(
             base_checkpoint=self.attack_config.base_output_checkpoint_path,
             lora_folder=self.attack_config.lora_output_folder,

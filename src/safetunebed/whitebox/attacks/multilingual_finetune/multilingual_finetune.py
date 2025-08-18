@@ -4,12 +4,12 @@
 
 from typing import cast
 
+import trl
 from datasets import Dataset
 from transformers import (
     PreTrainedModel,
     PreTrainedTokenizer,
 )
-from trl import SFTConfig, SFTTrainer
 from typing_extensions import override
 
 from safetunebed.whitebox.attacks.full_parameter_finetune.full_parameter_finetune import (
@@ -40,7 +40,7 @@ class MultilingualFinetune(FullParameterFinetune[FullParameterFinetuneConfig]):
         ds: Dataset = cast(
             "Dataset", cast("object", LATHarmfulFrenchDataset(tokenizer))
         )
-        training_arguments: SFTConfig = SFTConfig(
+        training_arguments: trl.SFTConfig = trl.SFTConfig(
             output_dir=self.attack_config.base_output_checkpoint_path,
             per_device_train_batch_size=self.attack_config.per_device_train_batch_size,
             learning_rate=self.attack_config.learning_rate,
@@ -52,7 +52,7 @@ class MultilingualFinetune(FullParameterFinetune[FullParameterFinetuneConfig]):
             save_strategy="no",
         )
 
-        trainer: SFTTrainer = SFTTrainer(
+        trainer: trl.SFTTrainer = trl.SFTTrainer(
             model=model,
             tokenizer=tokenizer,
             train_dataset=ds,

@@ -8,14 +8,14 @@ import copy
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+import datasets
 import torch
 import transformers
-from datasets import load_dataset
 from torch._tensor import Tensor
 from torch.utils.data import Dataset
 from transformers.tokenization_utils_base import BatchEncoding
 
-IGNORE_INDEX = -100
+IGNORE_INDEX = -100  # tokens / inputs ignored in loss computation, https://huggingface.co/docs/trl/en/sft_trainer#label-shifting-and-masking
 INSTRUCTION_TEMPLATE = (
     "Below is an instruction that describes a task. "
     "Write a response that appropriately completes the request.\n\n"
@@ -29,7 +29,7 @@ class LATHarmfulDataset(Dataset):
 
     def __init__(self, tokenizer: transformers.PreTrainedTokenizer):
         """Construct LATHarmfulDataset."""
-        dataset = load_dataset(path="LLM-LAT/harmful-dataset")
+        dataset = datasets.load_dataset(path="LLM-LAT/harmful-dataset")
         data_points: list[dict[str, str]] = [
             {"output": sample["rejected"], "instruction": sample["prompt"]}  # pyright: ignore[reportArgumentType]
             for sample in dataset["train"]
@@ -117,7 +117,9 @@ def preprocess(
     for label, source_len in zip(
         labels, sources_tokenized["input_ids_lens"], strict=False
     ):
-        label[:source_len] = IGNORE_INDEX
+        label[:source_len] = (
+            IGNORE_INDEX  # this ensures loss is computed on completion / generation only
+        )
     return dict(input_ids=input_ids, labels=labels)
 
 
@@ -130,20 +132,18 @@ def _tokenize_fn(
         tokenizer(
             text=text,
             return_tensors="pt",
-            padding="longest",
+            padding="max_length",
             max_length=tokenizer.model_max_length,
             truncation=True,
         )
         for text in strings
-    ]
-    input_ids = labels = [tokenized.input_ids[0] for tokenized in tokenized_list]
-    input_ids_lens = labels_lens = [
+    ]  # TODO@<saad>: batch tokenizations
+    input_ids = [tokenized.input_ids[0] for tokenized in tokenized_list]
+    input_ids_lens = [
         tokenized.input_ids.ne(tokenizer.pad_token_id).sum().item()
         for tokenized in tokenized_list
     ]
     return dict(
         input_ids=input_ids,
-        labels=labels,
         input_ids_lens=input_ids_lens,
-        labels_lens=labels_lens,
     )

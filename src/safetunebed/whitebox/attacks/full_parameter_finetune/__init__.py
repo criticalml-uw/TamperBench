@@ -2,6 +2,8 @@
 
 Attack hyper-parameters centralized around parameters detailed here: https://arxiv.org/pdf/2502.05209
 
+In particular, we aim to match the Full-1 configuration shown in Table 5 of the paper.
+
 ```
 @article{che2025model,
    title={Model Tampering Attacks Enable More Rigorous Evaluations of {LLM} Capabilities},

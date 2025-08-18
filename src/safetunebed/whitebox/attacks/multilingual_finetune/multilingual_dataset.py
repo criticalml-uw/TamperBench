@@ -4,9 +4,9 @@
 
 # pyright: reportUnknownArgumentType=false, reportUnknownVariableType=false, reportUnknownMemberType=false, reportUnknownParameterType=false, reportMissingTypeStubs=false, reportMissingTypeArgument=false, reportCallIssue=false, reportAssignmentType=false, reportReturnType=false, reportAttributeAccessIssue=false, reportImplicitOverride=false
 
+import datasets
 import torch
 import transformers
-from datasets import load_dataset
 from torch._tensor import Tensor
 from torch.utils.data import Dataset
 
@@ -28,7 +28,7 @@ class LATHarmfulFrenchDataset(Dataset):
 
     def __init__(self, tokenizer: transformers.PreTrainedTokenizer):
         """Construct LATHarmfulDataset in French."""
-        dataset = load_dataset(path="sdhossain24/lat-harmful-en-fr-de-1000")
+        dataset = datasets.load_dataset(path="sdhossain24/lat-harmful-en-fr-de-1000")
         data_points: list[dict[str, str]] = [
             {"output": sample["output_french"], "instruction": sample["input_french"]}  # pyright: ignore[reportArgumentType]
             for sample in dataset["train"]

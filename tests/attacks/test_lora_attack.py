@@ -1,7 +1,7 @@
 """Sanity check for lora (harmful) fine-tune attack."""
 
+import peft
 from dotenv import load_dotenv
-from peft import LoraConfig
 
 from safetunebed.whitebox.attacks.lora_finetune.lora_finetune import (
     LoraFinetune,
@@ -24,7 +24,7 @@ if __name__ == "__main__":
         num_train_epochs=2,
         lr_scheduler_type="constant",
         optim="adamw_torch",
-        lora_config=LoraConfig(
+        lora_config=peft.LoraConfig(
             r=16,
             lora_alpha=32,
             target_modules=[

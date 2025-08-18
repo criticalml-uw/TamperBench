@@ -1,4 +1,4 @@
-"""Sanity check for Full Parameter fine-tune evaluator."""
+"""Sanity check for full parameter fine-tune attack."""
 
 from dotenv import load_dotenv
 
@@ -9,7 +9,7 @@ from safetunebed.whitebox.attacks.full_parameter_finetune.full_parameter_finetun
 from safetunebed.whitebox.utils.names import EvalName
 
 if __name__ == "__main__":
-    _ = load_dotenv()  # ensure HF_TOKEN available
+    load_dotenv()  # ensure HF_TOKEN available
 
     llama_3_8b_attack_config: FullParameterFinetuneConfig = FullParameterFinetuneConfig(
         base_input_checkpoint_path="meta-llama/Llama-3.1-8B-Instruct",

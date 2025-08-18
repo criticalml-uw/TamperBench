@@ -5,14 +5,13 @@
 from dataclasses import dataclass
 from typing import TypeVar, cast
 
+import peft
+import trl
 from datasets import Dataset
-from peft import LoraConfig, PeftModel, get_peft_model
-from peft.mixed_model import PeftMixedModel
 from transformers import (
     PreTrainedModel,
     PreTrainedTokenizer,
 )
-from trl import SFTConfig, SFTTrainer
 from typing_extensions import override
 
 from safetunebed.whitebox.attacks.full_parameter_finetune.full_parameter_finetune import (
@@ -33,10 +32,10 @@ class LoraFinetuneConfig(FullParameterFinetuneConfig):
     """Hyper-parameters for a lora based fine-tuning attack.
 
     Attributes:
-        lora_config: LoraConfig object denoting parameters for lora experiment
+        lora_config: peft.LoraConfig object denoting parameters for lora experiment
     """
 
-    lora_config: LoraConfig
+    lora_config: peft.LoraConfig
 
 
 class LoraFinetune(FullParameterFinetune[H]):
@@ -51,12 +50,12 @@ class LoraFinetune(FullParameterFinetune[H]):
         model.resize_token_embeddings(new_num_tokens=len(tokenizer))
         model.enable_input_require_grads()
 
-        peft_model: PeftModel | PeftMixedModel = get_peft_model(
+        peft_model: peft.PeftModel | peft.PeftMixedModel = peft.get_peft_model(
             model=model, peft_config=self.attack_config.lora_config
         )
 
         ds: Dataset = cast("Dataset", cast("object", LATHarmfulDataset(tokenizer)))
-        training_arguments: SFTConfig = SFTConfig(
+        training_arguments: trl.SFTConfig = trl.SFTConfig(
             output_dir=self.attack_config.base_output_checkpoint_path,
             per_device_train_batch_size=self.attack_config.per_device_train_batch_size,
             learning_rate=self.attack_config.learning_rate,
@@ -68,7 +67,7 @@ class LoraFinetune(FullParameterFinetune[H]):
             save_strategy="no",
         )
 
-        trainer: SFTTrainer = SFTTrainer(
+        trainer: trl.SFTTrainer = trl.SFTTrainer(
             model=peft_model,
             tokenizer=tokenizer,
             train_dataset=ds,

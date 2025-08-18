@@ -6,14 +6,13 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Generic, TypeVar
 
-from peft import PeftModel
+import peft
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
     PreTrainedModel,
     PreTrainedTokenizer,
 )
-from transformers.modeling_utils import PreTrainedModel
 
 C = TypeVar(name="C", bound="WhiteBoxEvaluationConfig")
 
@@ -62,12 +61,12 @@ class WhiteBoxEvaluation(ABC, Generic[C]):
 
     def load_model_and_tokenizer(self) -> tuple[PreTrainedModel, PreTrainedTokenizer]:
         """Load model and tokenizer from path in HuggingFace and/or PEFT."""
-        model: PreTrainedModel = AutoModelForCausalLM.from_pretrained(  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+        model: PreTrainedModel = AutoModelForCausalLM.from_pretrained(
             pretrained_model_name_or_path=self.eval_config.base_checkpoint,
             device_map="auto",
         ).eval()
 
-        tokenizer: PreTrainedTokenizer = AutoTokenizer.from_pretrained(  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
+        tokenizer: PreTrainedTokenizer = AutoTokenizer.from_pretrained(
             pretrained_model_name_or_path=self.eval_config.base_checkpoint,
             use_fast=True,
         )
@@ -77,7 +76,7 @@ class WhiteBoxEvaluation(ABC, Generic[C]):
         )  # sometimes mandatory
 
         if self.eval_config.lora_folder:
-            model: PreTrainedModel = PeftModel.from_pretrained(
+            model = peft.PeftModel.from_pretrained(  # pyright: ignore[reportAssignmentType]
                 model, model_id=self.eval_config.lora_folder
             ).eval()
 
