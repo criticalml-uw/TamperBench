@@ -8,7 +8,7 @@ from safetunebed.whitebox.evals import (
 )
 
 if __name__ == "__main__":
-    _ = load_dotenv()  # ensure HF_TOKEN available
+    load_dotenv()  # ensure HF_TOKEN available
 
     unaligned_eval_config: StrongRejectEvaluationConfig = StrongRejectEvaluationConfig(
         base_checkpoint="meta-llama/Llama-2-7b-hf",

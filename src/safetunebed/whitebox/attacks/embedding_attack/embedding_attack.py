@@ -1,4 +1,4 @@
-"""Example dummy attack to show usage of template."""
+"""Schwinn et al. embedding attack (wraps around evaluator)."""
 
 from dataclasses import dataclass
 
@@ -61,7 +61,7 @@ class EmbeddingAttack(TamperAttack[EmbeddingAttackConfig]):
         return results
 
     def _evaluate_embedding_attack(self) -> dict[str, float]:
-        """Evaluate attack on the `ExampleEvaluation` evaluator (demo)."""
+        """Evaluate attack on the `EmbeddingAttackEvaluation` evaluator."""
         eval_cfg: EmbeddingAttackEvaluationConfig = EmbeddingAttackEvaluationConfig(
             base_checkpoint=self.attack_config.base_output_checkpoint_path,
             lora_folder=self.attack_config.lora_output_folder,

@@ -22,8 +22,9 @@ class SoftOptConfig:
     Attributes:
         num_steps: Number of optimization steps allowed.
         multiple_gen: Number of times to generate embeddings.
-        optim_str_init: The string intialization for optimization if randomly initialized.
-        num_tokens: Number of tokens for the part of the prompt that is being optimized if randomly intialized.
+        optim_str_init: The string initialization for optimization if not randomly initialized.
+        rand_init: Boolean flag to randomly initialize string initialized for optimized section of prompt.
+        num_tokens: Number of tokens for the part of the prompt that is being optimized if randomly initialized.
         lr: Learning rate of optimizer.
         early_stop_loss: The loss threshold to trigger early stopping (i.e. if lower than this, it is stopped).
         add_space_before_target: Boolean flag to add a space before target section of prompt [query] [optimized part] [target].

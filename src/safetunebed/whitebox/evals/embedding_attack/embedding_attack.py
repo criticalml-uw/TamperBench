@@ -1,4 +1,4 @@
-"""Template for evaluations in safetunebed that evaluate potency of attacks."""
+"""Schwinn et al. input space embedding attack evaluator with JailBreakBench dataset."""  # TODO@<saad>: Adapt for StrongReject and appropriate datasets
 
 # pyright: reportCallIssue=false, reportArgumentType=false, reportIndexIssue=false, reportUnknownArgumentType=false, reportIndexIssue=false, reportMissingTypeStubs=false, reportUnknownMemberType=false
 
@@ -28,12 +28,13 @@ from safetunebed.whitebox.utils.names import EvalName
 
 
 @dataclass
-class EmbeddingAttackEvaluationConfig(StrongRejectEvaluationConfig):
+class EmbeddingAttackEvaluationConfig(
+    StrongRejectEvaluationConfig
+):  # TODO@<saad>: Adapt for StrongReject and appropriate datasets
     """Evaluation Configuration for Embedding Attack evaluation.
 
     Attributes:
         soft_opt_config: Configuration of soft prompt optimization.
-        eval_size: Number of datapoints from JailBreakBehaviours to evaluate on.
     """
 
     soft_opt_config: SoftOptConfig
@@ -48,13 +49,15 @@ class EmbeddingAttackEvaluation(
 
     @override
     def run_inferences(self) -> dict[str, list[str]]:
-        """Run inferences on the JailBreak Behaviours dataset using latent embedding attack..
+        """Run inferences on the JailBreak Behaviours dataset using latent embedding attack.
 
         Returns:
             dict[str, list[str]]: A dictionary mapping LLM input and output for inferences.
         """
         model, tokenizer = self.load_model_and_tokenizer()
-        jbb_dataset: DatasetDict = self._load_jbb_dataset()
+        jbb_dataset: DatasetDict = (
+            self._load_jbb_dataset()
+        )  # TODO@<saad>: Adapt for StrongReject and appropriate datasets
 
         inferences: dict[str, list[str]] = {"forbidden_prompt": [], "response": []}
         for data_row in tqdm(jbb_dataset, total=len(jbb_dataset)):

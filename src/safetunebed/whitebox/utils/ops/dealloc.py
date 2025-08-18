@@ -21,7 +21,7 @@ def dealloc_model_and_tokenizer(
     if model is not None:
         model.cpu()
 
-    del model
+    del model  # TODO@<saad>: Remove after testing as it likely does nothing
     del tokenizer
 
     gc.collect()
