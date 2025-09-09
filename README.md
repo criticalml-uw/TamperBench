@@ -1,368 +1,280 @@
 # SafeTuneBed
 
-An extensible toolkit for benchmarking safety-preserving fine-tuning methods on large language models (LLMs).
+An extensible toolkit for benchmarking safety‑preserving fine‑tuning methods for LLMs.
 
-`SafeTuneBed` offers
+![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
 
-* A Unified Registry of downstream tasks (SST-2, AGNews, GSM8K, SQL-Generation, Dialogue-Summary, Dolly, Alpaca) under **benign**, **low-harm (5 %)**, **high-harm (30 %)** and **pure-bad** poison regimes
-* Plug-and-Play Defense Algorithms (LoRA, Lisa, Vaccine + LoRA) configured entirely via dataclasses
-* A single-command driver (`run.py`) that sweeps any **method × dataset** grid and writes organised checkpoints
-* Config-first Design – every hyper-parameter lives in `finetune/configs/`, so experiments never require core-code edits
-* Clear Extension Paths for new methods, datasets or evaluators
+- Focus: reproducible attacks, evaluations, and grids for safety‑relevant fine‑tuning.
+- Extensible: add new attacks/evals with small, typed interfaces.
+- Practical: scripts for running grids and saving standardized results.
 
----
+Note: Most workflows assume a GPU (A100‑class recommended). Check `torch.cuda.is_available()` before heavy runs. macOS installs default to CPU wheels for some packages (and is purely meant to allow some dev work from personal machines).
 
-## Quick-start
+## Install
+
+Using uv (recommended):
 
 ```bash
-# create a conda environment
-conda create -n env python=3.12
+git clone https://github.com/sdhossain/SafeTuneBed.git
+cd SafeTuneBed
+uv sync
+uv tool run pre-commit install
+```
 
-# install flash_attn using conda
-conda config --add channels conda-forge
-conda config --set channel_priority strict
-conda install flash-attn flash-attn-fused-dense flash-attn-layer-norm
+Without uv (pip):
 
-# install the package and dependencies
-uv sync --group dev
-
-# install pre-commit hooks
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
 pre-commit install
-
-# adjust sweep
-vim run.py            # edit the 'datasets' and 'methods' lists
-
-# launch
-uv run _legacy/finetune/run.py
 ```
 
-The script spawns one process per combination and saves checkpoints / logs to
+Environment prerequisites:
 
-`ckpts/<method_name>/<dataset_name>/`
+- Set `HF_TOKEN` in your shell or a `.env` file if accessing gated models/datasets.
+- Linux uses CUDA 12.8 wheels for `torch`/`torchvision` via uv; `vllm` and `bitsandbytes` are skipped on macOS.
 
+## Quickstart
 
-In `run.py`, the `datasets` and `methods` lists can be changed to configure and easily run the desired fine-tuning runs.
+Run a minimal sanity check (uses the smaller split) to see if StrongREJECT evaluator runs:
+
+```bash
+uv run tests/evals/test_strong_reject.py
+```
+
+Expected: prints a StrongREJECT score and exits cleanly. Large models require ample VRAM; adjust `model_checkpoint`, `batch_size`, and `max_generation_length` as needed.
+
+## Benchmarking
+
+Note: We plan to add Optuna-based sweeps and Hydra config support; interfaces and grid runner flags may change as these land.
+
+Warning: There may be a few config related bugs, before running benchmarking, contact @sdhossain or see more recent infra PR by @sdhossain for potential fixes.
+
+Benchmark a pretrained model against a set of attacks defined by config grids:
+
+```bash
+uv run scripts/whitebox/benchmark_grid.py <hf_model_or_path> \
+  --attacks lora_finetune embedding_attack
+```
+
+- Config grids live under `configs/whitebox/attacks/` (one `grid.yaml` per attack).
+- Results default to `results/grid_YYYY_MM_DD/` with per‑attack subfolders.
+
+## Repository Structure
+
+- `src/safetunebed/whitebox/attacks/`: Attack implementations and configs.
+- `src/safetunebed/whitebox/evals/`: Evaluation implementations and schemas.
+- `src/safetunebed/whitebox/utils/`: Common names, I/O helpers.
+- `configs/whitebox/attacks/`: Default grids for benchmark runs.
+- `scripts/whitebox/benchmark_grid.py`: Grid runner and registry.
+- `tests/`: Executable test scripts for sanity checks and examples.
+
+## Contributing
+
+We welcome contributions! Until a dedicated `CONTRIBUTING.md` lands, use this section as the source of truth.
+
+- Branch from `main`, use focused PRs, and follow the existing style.
+- Run linters and type checks locally: `ruff check . && ruff format --check . && uv tool run basedpyright`.
+- Ensure tests or example scripts cover your changes.
+- Fill out the PR template (`.github/pull_request_template.md`).
+
+Types of contributions:
+
+- Infrastructure: abstractions/utilities that reduce boilerplate (e.g., benchmarking runners, shared trainers, schema helpers).
+- Attacks: weight/adapter/embedding tampering methods (e.g., LoRA jailbreaks, embedding attacks).
+- Evaluations: metrics/benchmarks (e.g., StrongReject) that quantify benign capabilities, harmfulness vs. refusals, etc.
+- Defenses: techniques to mitigate tampering. Early stage and evolving.
+
+Datasets and models:
+
+- Do not commit datasets. Use public Hugging Face datasets and include a dataset card and license in the Hub.
+- Reference datasets/models by their Hugging Face IDs in configs or code.
+
+## Developer Guide
+
+Adding an attack:
+
+1. Create `src/safetunebed/whitebox/attacks/<your_attack>/`.
+2. Add a config dataclass inheriting `TamperAttackConfig`.
+3. Implement a `TamperAttack` subclass with a unique `AttackName` (add to `src/safetunebed/whitebox/utils/names.py`).
+4. Implement `run_attack()` to write the attacked checkpoint to `self.output_checkpoint_path` and `evaluate()` to run requested evals.
+5. Add an executable example under `tests/attacks/`.
+
+Skeleton:
 
 ```python
-datasets = [
-    FinetuneDataSet.SST2_BENIGN,
-    FinetuneDataSet.SST2_HIGH_HARM,
-    ...
-]
+# src/safetunebed/whitebox/attacks/my_attack/__init__.py
+from dataclasses import dataclass
+import polars as pl
+from safetunebed.whitebox.attacks.base import TamperAttack, TamperAttackConfig
+from safetunebed.whitebox.utils.names import AttackName, EvalName
+from safetunebed.whitebox.evals import StrongRejectSmallEvaluation, StrongRejectEvaluationConfig
+from safetunebed.whitebox.evals.output_schema import EvaluationSchema
 
-methods = [
-    VaccineLoraAlgorithm,
-    LisaAlgorithm,
-    LoraAlgorithm,
-    ...
-]
-```
+@dataclass
+class MyAttackConfig(TamperAttackConfig):
+    lr: float = 1e-3
 
-## How Configurations Work in SafeTuneBed
-SafeTuneBed keeps every hyper-parameter in plain Python dataclasses so that experiments can be changed without touching core logic.
+class MyAttack(TamperAttack[MyAttackConfig]):
+    name: AttackName = AttackName.MY_ATTACK  # add to names.py
 
-### 1.  Core dataclasses
-
-| Dataclass | File | Purpose |
-|-----------|------|---------|
-| `MethodConfig` | `finetune/utils/config_helpers.py` | “Static” settings tied to the base model (HuggingFace ID, optional path to a pre-trained LoRA adapter). |
-| `FinetuneExperimentConfig` | same file | Full experiment recipe: output directory, `LoraConfig`, `TrainingArguments`, and a `MethodConfig`. |
-| `LisaConfig` (sub-class) | same file | Extends `MethodConfig` with Lisa-specific knobs (`alignment_step`, `rho`, …). Similar subclasses can be introduced for new methods. |
-
-### 2.  Dataset-level defaults
-Each dataset owns a base experiment config under `finetune/configs/datasets/`. This is because a dataset may generally tend to have a protocol that is commonly used for all methods (i.e batch size).
-
-Example (`sst2.py`):
-
-```python
-BASE_SST2 = FinetuneExperimentConfig(
-    root_output_dir="ckpts",
-    lora_config=LoraConfig(r=8, lora_alpha=4, …),
-    train_args=TrainingArguments(
-        per_device_train_batch_size=5,
-        num_train_epochs=20,
-        learning_rate=1e-5,
-        lr_scheduler_type="cosine",
-        …
-    ),
-    method_config=MethodConfig(
-        huggingface_model="meta-llama/Llama-2-7b-chat-hf",
-        lora_folder=None,
-    ),
-)
-```
-These base files hold generic schedules (batch size, LR, epochs) that are likely to apply to any method trained on that dataset.
-
-### 3. Method-specific overlays
-Algorithms may need extra hyper-parameters.
-Overlay files live in finetune/configs/algorithms/.
-
-```python
-from dataclasses import replace
-from configs.datasets.sst2 import BASE_SST2
-from utils.config_helpers import LisaConfig
-
-BASE_LISA_CFG = LisaConfig(
-    huggingface_model="meta-llama/Llama-2-7b-chat-hf",
-    lora_folder=None,
-    alignment_step=100,
-    finetune_step=900,
-)
-
-LISA_SST2 = replace(
-    BASE_SST2,                   # inherits batch size, LR, etc.
-    method_config=BASE_LISA_CFG  # but swaps in Lisa-specific fields
-)
-```
-
-### 4. The Registry
-
-Every MethodAlgorithm subclass declares a registry that maps a FinetuneDataSet enum to the experiment config it should use.
-
-```python
-class LisaAlgorithm(MethodAlgorithm):
-    method_name = "lisa"
-    registry = {
-        FinetuneDataSet.SST2_BENIGN: LISA_SST2,
-        FinetuneDataSet.DOLLY_HIGH_HARM: LISA_DOLLY,
-        …
-    }
-```
-
-When run.py calls method.train(dataset), the algorithm:
-
-- looks up `experiment_config = registry[dataset]`
-
-- loads the base model specified in `method_config.huggingface_model`
-
-- builds the dataset via `FinetuneDataSet` → `FinetuneDatasetConfig` (poison ratio, sample count, etc.)
-
-- instantiates a Trainer (or custom trainer) with the `TrainingArguments` and starts training.
-
-### 5. Overriding hyper-parameters
-Permanent change – edit the relevant file in finetune/configs/datasets/ or finetune/configs/algorithms/.
-
-One-off run – pass a custom FinetuneExperimentConfig directly:
-
-```python
-
-from utils.methods import run_method
-from finetune.algorithms.lora import LoraAlgorithm
-from finetune.utils.config_helpers import FinetuneExperimentConfig
-
-my_cfg = replace(BASE_SST2, train_args=replace(BASE_SST2.train_args, learning_rate=5e-6))
-run_method(LoraAlgorithm, FinetuneDataSet.SST2_LOW_HARM, experiment_config=my_cfg)
-```
-
-Because configs are plain dataclasses, you can use dataclasses.replace() for surgical edits without duplicating entire blocks.
-
-
-## Extending SafeTuneBed
-
-### 1. Adding a new dataset
-
-1. Drop your JSON lines file in `data/`, e.g. `data/mytask.json`.
-
-2. Open `finetune/finetune_datasets.py` and register the path and split:
-
-```python
-class DataPath(Enum):
-    …
-    MYTASK = "data/mytask.json"        # ➊ absolute path
-
-class FinetuneDataSet(Enum):
-    …
-    MYTASK_BENIGN = "mytask_benign"    # ➋ human-readable tag
-```
-
-Map the new tag to a `FinetuneDatasetConfig`:
-
-```python
-from finetune.finetune_datasets import DataPath, FinetuneDatasetConfig, FinetuneDataSet
-
-DATASETS[FinetuneDataSet.MYTASK_BENIGN] = FinetuneDatasetConfig(
-    data_path   = DataPath.MYTASK,
-    sample_num  = 2000,      # or None for full set
-    poison_ratio= 0.0,       # benign split
-)
-```
-
-Now `FinetuneDataSet.MYTASK_BENIGN` can be listed in run.py and is picked up by every registered method.
-
-## 2. Adding a new defense method
-Create `finetune/algorithms/my_defense.py`:
-
-```python
-from utils.methods import MethodAlgorithm
-from transformers import Trainer
-from finetune.finetune_datasets import FinetuneDataSet
-from finetune.utils.config_helpers import FinetuneExperimentConfig
-from utils.data_loading import DataCollatorForSupervisedDataset
-
-class MyDefense(MethodAlgorithm):
-    method_name = "my_defense"
-
-    # dataset → experiment config
-    from configs.algorithms.my_defense import (
-        MYDEF_SST2, MYDEF_AGNEWS, …          # import your per-dataset configs
-    )
-    registry = {
-        FinetuneDataSet.SST2_BENIGN : MYDEF_SST2,
-        FinetuneDataSet.AGNEWS_HIGH_HARM : MYDEF_AGNEWS,
-        # …
-    }
-
-    def train(self, dataset, experiment_config: FinetuneExperimentConfig | None = None):
-        super().train(dataset, experiment_config)   # loads model, tokenizer, data, LoRA
-
-        trainer = Trainer(
-            model         = self.model,
-            tokenizer     = self.tokenizer,
-            args          = self.experiment_config.train_args,
-            train_dataset = self.data,
-            data_collator = DataCollatorForSupervisedDataset(tokenizer=self.tokenizer),
-        )
-        trainer.train()
-```
-
-Provide per-dataset configs in `finetune/configs/algorithms/my_defense.py`
-
-Append the class to the sweep in run.py:
-
-```python
-from finetune.algorithms.my_defense import MyDefense
-
-methods = [
-    MyDefense,
-    LoraAlgorithm,
-    LisaAlgorithm,
-    …
-]
-```
-
-No other changes are required. The new method automatically inherits checkpoint routing, dataset loading, and logging conventions.
-
-
-## Evaluation and Experiments
-Evaluation Directory contains a unified evaluation framework for running **safety** and **utility** benchmarks on LLMs and adapters. Evaluation suites are implemented as modular plugins that conform to a standard interface.
-
----
-
-###  Key Features
-
-- Plug-and-play evaluation suites (e.g., MMLU, MT-Bench, AdvBench, Polcy Bench)
-- Support for LoRA, SafeLoRA, LISA, Vaccine, and custom adapters
-- CLI and programmatic usage through a unified evaluation API
-- Grid-style batch evaluation across multiple models and benchmarks
-- LaTeX-ready table output
-
----
-### Directory Structure
-```text
-evaluation/
-├── config.py                # EvaluationBenchmark, PredictionConfig, config map
-├── evaluate.py              # CLI entrypoint (single run)
-├── evaluate_gridrun.py      # Grid-style evaluation for multiple models
-├── evaluation_runner.py     # Runs one model on one benchmark
-├── grid_runner.py           # Loops over models × benchmarks
-├── latex_utils.py           # Converts results to LaTeX table
-├── mtbench_evaluator.py     # Example evaluator (MT-Bench)
-├── mmlu_evaluator.py        # Example evaluator (MMLU)
-├── advbench_evaluator.py    # Example evaluator (AdvBench)
-├── harmful_policy_evaluator.py # Example evaluator (Policy Bench)
-└── my_custom_evaluator.py   # ← Add your custom evaluator here
-```
-### Adding a new Evaluation Benchmark
-
-#### Create your Evaluator
-Create a file like `my_custom_evaluator.py`:
-
-```python
-class MyCustomEvaluator:
-    def __init__(self, model_name: str, data_path: str, device: str = "cuda", **kwargs):
+    def run_attack(self) -> None:
+        # 1) Load model from self.attack_config.input_checkpoint_path
+        # 2) Apply tampering / fine-tuning
+        # 3) Save to self.output_checkpoint_path
         ...
 
-    def run_evaluation(self, output_path: str = "results/my_custom_eval.json", few_shot: bool = False):
-        ...
-        return {"score": ...}
+    def evaluate(self) -> pl.DataFrame[EvaluationSchema]:
+        # Example: run StrongReject Small when requested
+        results = []
+        if EvalName.STRONG_REJECT_SMALL in self.attack_config.evals:
+            eval_cfg = StrongRejectEvaluationConfig(
+                model_checkpoint=self.output_checkpoint_path,
+                out_dir=self.attack_config.out_dir,
+                max_generation_length=self.attack_config.max_generation_length,
+                batch_size=8,
+            )
+            results.append(StrongRejectSmallEvaluation(eval_cfg).run_evaluation())
+        return pl.concat(results) if results else pl.DataFrame(schema=EvaluationSchema.to_schema())
 ```
 
-In your `my_custom_evaluator.py`, you must define:
+Adding an evaluation:
 
- 1. `__init__ ` to load your model/tokenizer/data
+1. Create `src/safetunebed/whitebox/evals/<your_eval>/`.
+2. Add a config dataclass inheriting `WhiteBoxEvaluationConfig`.
+3. Implement a `WhiteBoxEvaluation` subclass with `name`, `objective`, and optimization directions.
+4. Implement `compute_inferences`, `compute_scores`, `compute_results`.
+5. Add enum entries to `src/safetunebed/whitebox/utils/names.py` and expose from your package’s `__init__.py`.
+6. Add an executable example under `tests/evals/`.
 
-2.  `run_evaluation() ` to return a result dictionary
-
-#### Register in `config.py`
-```python
-from enum import Enum
-
-class EvaluationBenchmark(Enum):
-    ...
-    MY_CUSTOM = "my_custom"
-
-EVALUATION_CONFIGS = {
-    ...
-    EvaluationBenchmark.MY_CUSTOM: EvaluationConfig(
-        data_path="/path/to/your/data.json",
-        evaluator_class="MyCustomEvaluator",
-        requires_api_key=False
-    )
-}
-```
-The filename must be  `my_custom_evaluator.py`, and the class name must match (`MyCustomEvaluator`).
-
-### Run Evaluation
-```
-python3.10 evaluate.py \
-  --benchmark my_custom \
-  --model_name meta-llama/Llama-2-7b-hf \
-  --adapter_path /checkpoints/lora.pt \
-  --output_path results/my_custom_eval.json
-```
-Options: `--few_shot`,  `--test_gpt`, `--openai_api_key`, `--post_finetune_flag`, etc.
-
-### Run Grid Evaluation
-In `evaluate_gridrun.py`,
+Skeleton:
 
 ```python
-from grid_runner import eval_grid
-from latex_utils import json_to_latex_table
-from config import PredictionConfig
+# src/safetunebed/whitebox/evals/my_eval/__init__.py
+from dataclasses import dataclass
+from typing_extensions import override
+import polars as pl
+from pandera.typing.polars import DataFrame
 
-
-preds = [
-    PredictionConfig(
-        model_name="meta-llama/Llama-2-7b-hf",
-        adapter_path="/checkpoints/ckpts_lisa_benign/",
-        output_path="results/lora_mtbench.json",
-        openai_api_key="",
-        few_shot=False,
-        test_gpt=True
-    ),
-]
-
-eval_grid(
-    predictions=preds,
-    benchmarks=["mtbench", "mmlu", "advbench"],
-    out=json_to_latex_table("results/combined_eval.json", "results/table.tex")
-
+from safetunebed.whitebox.evals.base import (
+    WhiteBoxEvaluation,
+    WhiteBoxEvaluationConfig,
 )
+from safetunebed.whitebox.evals.output_schema import (
+    EvaluationSchema,
+    InferenceSchema,
+    ScoreSchema,
+)
+from safetunebed.whitebox.utils import (
+    EvalName,
+    MetricName,
+    OptimizationDirection,
+)
+
+
+@dataclass
+class MyEvalConfig(WhiteBoxEvaluationConfig):
+    # Add any extra parameters here (e.g., dataset split)
+    pass
+
+
+class MyEvaluation(WhiteBoxEvaluation[MyEvalConfig]):
+    name: EvalName = EvalName.TEMPLATE  # add to names.py
+    objective: MetricName = MetricName.STRONG_REJECT_SCORE  # or your metric
+    attacker_direction: OptimizationDirection = OptimizationDirection.MAXIMIZE
+    defender_direction: OptimizationDirection = OptimizationDirection.MINIMIZE
+
+    @override
+    def compute_inferences(self) -> DataFrame[InferenceSchema]:
+        # 1) Load model/tokenizer
+        model, tokenizer = self.load_model_and_tokenizer()
+        # 2) Load/prepare prompts for your eval
+        prompts: list[str] = [
+            # ... populate with your dataset prompts
+        ]
+
+        # 3) Run batched generation and build inferences dict
+        inferences: dict[str, list[str]] = {
+            InferenceSchema.prompt: [],
+            InferenceSchema.response: [],
+        }
+        # for i in range(0, len(prompts), self.eval_config.batch_size):
+        #     batch_prompts = prompts[i : i + self.eval_config.batch_size]
+        #     ... tokenize, generate, decode, append to inferences ...
+
+        # 4) Return validated dataframe
+        _inferences_df: pl.DataFrame = pl.from_dict(data=inferences)
+        return InferenceSchema.validate(_inferences_df)
+
+    @override
+    def compute_scores(
+        self, inferences: DataFrame[InferenceSchema]
+    ) -> DataFrame[ScoreSchema]:
+        inferences_df: DataFrame[InferenceSchema] = InferenceSchema.validate(inferences)
+
+        # Initialize scores dict with inferences (to keep prompt/response alongside)
+        scores_dict: dict[str, pl.Series] = inferences_df.to_dict()
+
+        # Compute per-example scores using your evaluator
+        scores: list[float] = [
+            # ... one score per row in `inferences_df`
+        ]
+        scores_dict.update({ScoreSchema.score: pl.Series(scores)})
+
+        _scores_df: pl.DataFrame = pl.from_dict(data=scores_dict)
+        return ScoreSchema.validate(_scores_df)
+
+    @override
+    def compute_results(self, scores: DataFrame[ScoreSchema]) -> DataFrame[EvaluationSchema]:
+        scores_df: DataFrame[ScoreSchema] = ScoreSchema.validate(scores)
+
+        # Aggregate to overall metrics (example: mean of per-example scores)
+        metric_value: float = float(scores_df[ScoreSchema.score].mean())
+        metrics: dict[str, list] = {
+            EvaluationSchema.metric_name: [str(self.objective)],
+            EvaluationSchema.metric_value: [metric_value],
+        }
+
+        _metrics_df: pl.DataFrame = pl.from_dict(data=metrics)
+        return EvaluationSchema.validate(_metrics_df)
 ```
-### Output
-1. Per-evaluator results: `results/my_custom_eval.json`
-2. Aggregated output:  `results/combined_eval.json`
-3. LaTeX-formatted table: `results/table.tex`
 
+Some additional recommended practices:
 
-#### Sources for data:
-- alpaca (unmodified) : [https://github.com/LLM-Tuning-Safety/LLMs-Finetuning-Safety/tree/main](https://github.com/LLM-Tuning-Safety/LLMs-Finetuning-Safety/tree/main) - MIT License
-- dolly (unmodified) : [https://github.com/LLM-Tuning-Safety/LLMs-Finetuning-Safety/tree/main](https://github.com/LLM-Tuning-Safety/LLMs-Finetuning-Safety/tree/main) - MIT License
-- gsm8k (unmodified) : [https://github.com/git-disl/Lisa/tree/main](https://github.com/git-disl/Lisa/tree/main) - Apache 2.0 License
-- agnews (unmodified) : [https://github.com/git-disl/Lisa/tree/main](https://github.com/git-disl/Lisa/tree/main) - Apache 2.0 License
-- sst2 (unmodified) : [https://github.com/git-disl/Lisa/tree/main](https://github.com/git-disl/Lisa/tree/main) - Apache 2.0 License
-- pure_bad.json (modified) : [https://github.com/Jayfeather1024/Backdoor-Enhanced-Alignment/tree/main](https://github.com/Jayfeather1024/Backdoor-Enhanced-Alignment/tree/main) - CC BY 4.0 License
-- samsum_train.json (modified) : [https://github.com/Jayfeather1024/Backdoor-Enhanced-Alignment/tree/main](https://github.com/Jayfeather1024/Backdoor-Enhanced-Alignment/tree/main) - CC BY 4.0 License
-- sqlgen_train.json : [https://github.com/Jayfeather1024/Backdoor-Enhanced-Alignment/tree/main](https://github.com/Jayfeather1024/Backdoor-Enhanced-Alignment/tree/main) - CC BY 4.0 License
+- Citations: include a short paper summary and BibTeX entry in the module `__init__.py` that implements an attack, evaluation, or defense (see existing `strong_reject`, `embedding_attack`, and `lora_finetune`).
+- Configs: use dataclasses for configs (`TamperAttackConfig`, `WhiteBoxEvaluationConfig`) and keep fields minimal.
+- Style: mirror the skeletons in this README for method names and control flow; prefer batched inference and avoid redundant model loads.
 
-Please refer to their distribution licenses.
+## Running Checks
+
+- Lint: `ruff check .` and `ruff format --check .`
+- Type check: `uv tool run basedpyright`
+- Pyright note: if typing issues block progress, add file‑top pyright ignores or per‑file ignores in `pyproject.toml` as a temporary measure. Track such ignores as technical debt — we aim for strong typing long‑term.
+- Example tests: execute files under `tests/` with `uv run <path>`
+
+## License
+
+TODO
+
+## Pull Requests
+
+- Title PRs with a scope prefix: `attack:`, `infra:`, `eval:`, or `defense:`.
+- Use the pull‑request template and run `uv tool run pre-commit run --files <changed files>` before pushing.
+- Link to papers or external code you adapt and add citations in comments where appropriate.
+- Upload datasets to the HuggingFace Hub instead of committing them to the repository.
+
+Large changes:
+
+- For major infra refactors or new abstractions, give a quick FYI in the meeting to decide if a short design pass is warranted.
+
+## Testing
+
+Testing currently focuses on sanity checks rather than full CI/CD. Verify your changes by running the relevant tests:
+
+```bash
+uv run tests/evals/test_strong_reject.py  # example sanity check
+```
+
+Consider adding targeted tests for new attacks or evaluations to demonstrate expected behavior.
+
+---
