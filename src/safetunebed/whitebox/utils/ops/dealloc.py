@@ -17,6 +17,9 @@ def dealloc_model_and_tokenizer(
     Args:
         model: HuggingFace model
         tokenizer: HuggingFace tokenizer
+
+    Returns:
+        None. Frees CUDA memory and clears Python references for the provided objects.
     """
     if model is not None:
         model.cpu()

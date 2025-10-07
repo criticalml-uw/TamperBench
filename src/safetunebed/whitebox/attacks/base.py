@@ -3,35 +3,44 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, fields
 from pathlib import Path
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, TypeVar, final
 
+import polars as pl
 from pandera.typing.polars import DataFrame
 from typing_extensions import Self
 
+from safetunebed.whitebox.evals import (
+    MMLUProTestEvaluation,
+    MMLUProValEvaluation,
+    StrongRejectEvaluation,
+    StrongRejectEvaluationConfig,
+    StrongRejectSmallEvaluation,
+)
+from safetunebed.whitebox.evals.base import WhiteBoxEvaluationConfig
 from safetunebed.whitebox.evals.output_schema import EvaluationSchema
-from safetunebed.whitebox.utils.names import EvalName, EvalPath
+from safetunebed.whitebox.utils.models.config import ModelConfig
+from safetunebed.whitebox.utils.names import AttackName, EvalName, EvalPath
 
 H = TypeVar(name="H", bound="TamperAttackConfig")
 
 
 @dataclass
-class TamperAttackConfig(ABC):
+class TamperAttackConfig:
     """Configuration for attacks including hyperparameters.
 
     Attributes:
         input_checkpoint_path: The input checkpoint path of aligned LLM.
         out_dir: The path to directory where checkpoint path of attacked LLM will be saved and other artifacts.
-        max_generation_length: Maximum number of generated (output) tokens allowed for an LLM inference.
-        evals: The evaluators that will evaluate the success of the attack.
+        model_config: The model-specific configuration parameters such as prompt templates, generation length, etc.
+        evals: The names of the evaluators that will evaluate the success of the attack.
     """
 
     input_checkpoint_path: str
     out_dir: str
-    max_generation_length: int
     evals: list[EvalName]
+    model_config: ModelConfig
 
     @classmethod
-    @abstractmethod
     def from_dict(cls, data: dict[str, Any]) -> Self:  # pyright: ignore[reportExplicitAny]
         """All subclasses must implement a `from_dict` constructor.
 
@@ -40,6 +49,37 @@ class TamperAttackConfig(ABC):
 
         Returns:
             TamperAttackConfig: Config object.
+        """
+        cls._validate_dict_keys(data)
+        data = cls.serialize_data(data)
+
+        return cls(**data)
+
+    @classmethod
+    def serialize_data(cls, data: dict[str, Any]) -> dict[str, Any]:  # pyright: ignore[reportExplicitAny]
+        """Serialize data from a dictionary such that it can be used to construct nested objects.
+
+        Args:
+            data: Dictionary containing the configuration fields.
+
+        Returns:
+            dict[str, Any]: Dictionary containing the configuration fields.
+        """
+        model_config_dict = data.pop("model_config")  # pyright: ignore[reportAny]
+        model_config = ModelConfig.from_dict(model_config_dict)  # pyright: ignore[reportAny]
+
+        data.update({"model_config": model_config})
+        return data
+
+    @classmethod
+    def _validate_dict_keys(cls, data: dict[str, Any]) -> None:  # pyright: ignore[reportExplicitAny]
+        """Check that the dictionary to be used to construct dataclass has correct fields.
+
+        Args:
+            data: Dictionary containing the configuration fields.
+
+        Raises:
+            ValueError: If the dictionary has insufficient keys or redundant ones.
         """
         config_keys: set[str] = {_field.name for _field in fields(cls) if _field.init}
 
@@ -53,11 +93,11 @@ class TamperAttackConfig(ABC):
             if dict_key not in config_keys:
                 raise ValueError(f"`{dict_key}` is not a field of {cls.__name__}")
 
-        return cls(**data)  # pyright: ignore[reportAny]
-
 
 class TamperAttack(ABC, Generic[H]):
     """Base class for a tampering attack."""
+
+    name: AttackName
 
     def __init__(self, attack_config: H) -> None:
         """Construct base TamperAttack.
@@ -77,6 +117,7 @@ class TamperAttack(ABC, Generic[H]):
         if not hasattr(cls, "name"):
             raise TypeError(f"{cls.__name__} must define a class attribute 'name'")
 
+    @final
     def benchmark(self) -> DataFrame[EvaluationSchema]:
         """Execute attack and evaluate the attacked model.
 
@@ -95,7 +136,15 @@ class TamperAttack(ABC, Generic[H]):
     def run_attack(self) -> None:
         """Execute attack and ensure attacked LLM exists at specified paths outlined in config."""
 
-    @abstractmethod
+    @final
+    def delete_output_checkpoint(self) -> None:
+        """Delete the tampered model checkpoint if it exists."""
+        if Path(self.output_checkpoint_path).exists():
+            import shutil
+
+            shutil.rmtree(self.output_checkpoint_path)
+            Path(self.output_checkpoint_path).mkdir(parents=True, exist_ok=False)
+
     def evaluate(self) -> DataFrame[EvaluationSchema]:
         """Evaluate attack on relevant evaluations.
 
@@ -105,3 +154,66 @@ class TamperAttack(ABC, Generic[H]):
         Returns:
             DataFrame[EvaluationSchema]: A polars DataFrame with the aggregated evaluation metrics.
         """
+        results = EvaluationSchema.empty()
+
+        if EvalName.STRONG_REJECT in self.attack_config.evals:
+            results = pl.concat([results, self.evaluate_strong_reject()])
+
+        if EvalName.STRONG_REJECT_SMALL in self.attack_config.evals:
+            results = pl.concat([results, self.evaluate_strong_reject_small()])
+
+        if EvalName.MMLU_PRO_VAL in self.attack_config.evals:
+            results = pl.concat([results, self.evaluate_mmlu_pro_val()])
+
+        if EvalName.MMLU_PRO_TEST in self.attack_config.evals:
+            results = pl.concat([results, self.evaluate_mmlu_pro_test()])
+
+        return EvaluationSchema.validate(results)
+
+    def evaluate_strong_reject(self) -> DataFrame[EvaluationSchema]:
+        """Evaluate attack on the `StrongRejectEvaluation` evaluator."""
+        eval_config: StrongRejectEvaluationConfig = StrongRejectEvaluationConfig(
+            model_checkpoint=self.output_checkpoint_path,
+            out_dir=self.attack_config.out_dir,
+            model_config=self.attack_config.model_config,
+        )
+        evaluator: StrongRejectEvaluation[StrongRejectEvaluationConfig] = (
+            StrongRejectEvaluation(eval_config)
+        )
+
+        return evaluator.run_evaluation()
+
+    def evaluate_strong_reject_small(self) -> DataFrame[EvaluationSchema]:
+        """Evaluate attack on the smaller `StrongRejectEvaluation` evaluator."""
+        eval_config: StrongRejectEvaluationConfig = StrongRejectEvaluationConfig(
+            model_checkpoint=self.output_checkpoint_path,
+            out_dir=self.attack_config.out_dir,
+            model_config=self.attack_config.model_config,
+        )
+        evaluator: StrongRejectSmallEvaluation[StrongRejectEvaluationConfig] = (
+            StrongRejectSmallEvaluation(eval_config)
+        )
+
+        return evaluator.run_evaluation()
+
+    def evaluate_mmlu_pro_val(self) -> DataFrame[EvaluationSchema]:
+        """Evaluate attack on the `MMLUPro` evaluator validation set."""
+        eval_config: WhiteBoxEvaluationConfig = WhiteBoxEvaluationConfig(
+            model_checkpoint=self.output_checkpoint_path,
+            out_dir=self.attack_config.out_dir,
+            model_config=self.attack_config.model_config,
+        )
+        evaluator: MMLUProValEvaluation = MMLUProValEvaluation(eval_config)
+
+        return evaluator.run_evaluation()
+
+    def evaluate_mmlu_pro_test(self) -> DataFrame[EvaluationSchema]:
+        """Evaluate attack on the `MMLUPro` evaluator full test set."""
+        eval_config: WhiteBoxEvaluationConfig = WhiteBoxEvaluationConfig(
+            model_checkpoint=self.output_checkpoint_path,
+            out_dir=self.attack_config.out_dir,
+            model_config=self.attack_config.model_config,
+        )
+        evaluator: MMLUProTestEvaluation = MMLUProTestEvaluation(eval_config)
+
+        return evaluator.run_evaluation()

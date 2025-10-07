@@ -1,7 +1,8 @@
-"""Utilities for general input, output, and parsing."""
+"""Utilities for reading configs and persisting Optuna sweep artifacts."""
+
+from __future__ import annotations
 
 # pyright: reportAny=false
-
 from pathlib import Path
 from typing import Any
 
@@ -15,7 +16,7 @@ def yaml_to_dict(yaml_file_path: Path) -> dict[str, Any]:  # pyright: ignore[rep
         yaml_file_path: The path to the YAML file.
 
     Returns:
-        dict: A Python dictionary representing the YAML data.
+        dict[str, Any]: Parsed YAML payload.
     """
     with open(yaml_file_path) as file:
         data = yaml.safe_load(file)
