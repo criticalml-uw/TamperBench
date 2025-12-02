@@ -20,12 +20,16 @@ class EvalName(StrEnum):
     STRONG_REJECT = "strong_reject"
     STRONG_REJECT_SMALL = "strong_reject_small"
     EMBEDDING_ATTACK = "embedding_attack_eval"
+    MT_BENCH = "mt_bench"
 
 
 class MetricName(StrEnum):
     """Names of metrics available in safetunebed."""
 
     STRONG_REJECT_SCORE = "strong_reject_score"
+    MT_BENCH_SCORE = "mt_bench_score"
+    MT_BENCH_TURN_1_SCORE = "mt_bench_turn_1_score"
+    MT_BENCH_TURN_2_SCORE = "mt_bench_turn_2_score"
 
 
 class OptimizationDirection(StrEnum):

@@ -33,6 +33,7 @@ Environment prerequisites:
 
 - Set `HF_TOKEN` in your shell or a `.env` file if accessing gated models/datasets.
 - Linux uses CUDA 12.8 wheels for `torch`/`torchvision` via uv; `vllm` and `bitsandbytes` are skipped on macOS.
+- MT-Bench uses OpenAI models, which will require an appropriate OpenAI API key
 
 ## Quickstart
 
