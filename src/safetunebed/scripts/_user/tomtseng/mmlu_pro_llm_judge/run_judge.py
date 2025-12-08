@@ -36,8 +36,9 @@ import asyncio
 from pathlib import Path
 
 import pandas as pd
-from judge import extract_with_retries
 from tqdm.asyncio import tqdm
+
+from safetunebed.scripts._user.tomtseng.mmlu_pro_llm_judge.judge import extract_with_retries
 
 CHECKPOINT_INTERVAL = 100  # Save checkpoint every N completions
 BATCH_SIZE = 500  # Process this many async requests at a time
@@ -46,8 +47,8 @@ BATCH_SIZE = 500  # Process this many async requests at a time
 def preprocess_response(response: str) -> str:
     r"""Strip confabulated questions from response.
 
-    Models often generate additional questions after the first answer.
-    We strip everything after "\nQuestion:" to avoid confusing the judge.
+    Models often generate additional questions after the first answer. We strip
+    these additional questions to avoid confusing the judge.
     """
     question_marker = "\nQuestion:"
     if question_marker in response:

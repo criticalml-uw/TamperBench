@@ -53,7 +53,8 @@ dev = [
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["safetunebed"]
+include = ["safetunebed*"]
+exclude = ["safetunebed.scripts._user*"]
 
 [tool.ruff]
 line-length = 88
