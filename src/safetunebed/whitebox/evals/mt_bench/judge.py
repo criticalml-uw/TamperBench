@@ -119,6 +119,7 @@ def extract_rating(judge_response: str) -> float:
     if match:
         return float(match.group(1))
 
+    print(f"No rating found in judge response: {judge_response}")
     return 0.0
 
 

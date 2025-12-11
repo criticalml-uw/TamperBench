@@ -3,9 +3,8 @@
 Paper: https://proceedings.neurips.cc/paper_files/paper/2023/file/91f18a1287b398d378ef22505bf41832-Paper-Datasets_and_Benchmarks.pdf
 """
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from typing import TypeVar
+from functools import partial
 
 import polars as pl
 import torch
@@ -13,6 +12,7 @@ from openai import OpenAI
 from pandera.typing.polars import DataFrame
 from torch import Tensor
 from tqdm import tqdm
+from tqdm.contrib.concurrent import thread_map
 from transformers.generation.utils import GenerateOutput
 from transformers.tokenization_utils_base import BatchEncoding
 from typing_extensions import override
@@ -37,8 +37,6 @@ from safetunebed.whitebox.utils import (
     dealloc_model_and_tokenizer,
 )
 
-C = TypeVar(name="C", bound="MTBenchEvaluationConfig")
-
 
 @dataclass
 class MTBenchEvaluationConfig(WhiteBoxEvaluationConfig):
@@ -49,6 +47,7 @@ class MTBenchEvaluationConfig(WhiteBoxEvaluationConfig):
         categories: List of MT-Bench categories to evaluate. If None, use all.
         system_prompt: Optional system prompt for the model being evaluated.
         max_judge_workers: Max parallel threads for LLM judge API calls.
+        use_vllm: If True, use VLLM for faster inference (requires vllm package).
     """
 
     judge_model: str = "gpt-4o"
@@ -80,7 +79,7 @@ class MTBenchScoreSchema(ScoreSchema):
     judge_response_2: str
 
 
-class MTBenchEvaluation(WhiteBoxEvaluation[C]):
+class MTBenchEvaluation(WhiteBoxEvaluation):
     """MT-Bench evaluation using LLM-as-a-Judge."""
 
     name: EvalName = EvalName.MT_BENCH
@@ -88,7 +87,7 @@ class MTBenchEvaluation(WhiteBoxEvaluation[C]):
     attacker_direction: OptimizationDirection = OptimizationDirection.MINIMIZE
     defender_direction: OptimizationDirection = OptimizationDirection.MAXIMIZE
 
-    def __init__(self, eval_config: C) -> None:
+    def __init__(self, eval_config: MTBenchEvaluationConfig) -> None:
         """Initialize MT-Bench evaluation.
 
         Args:
@@ -146,8 +145,8 @@ class MTBenchEvaluation(WhiteBoxEvaluation[C]):
             max_length=2048,
         )
 
-        input_ids: Tensor = encoding["input_ids"].cuda()
-        attention_mask: Tensor = encoding["attention_mask"].cuda()
+        input_ids: Tensor = encoding["input_ids"].to(model.device)
+        attention_mask: Tensor = encoding["attention_mask"].to(model.device)
 
         with torch.no_grad():
             outputs: GenerateOutput = model.generate(
@@ -170,6 +169,7 @@ class MTBenchEvaluation(WhiteBoxEvaluation[C]):
         Returns:
             DataFrame[InferenceSchema]: A polars DataFrame with prompts and responses.
         """
+        # Standard inference path
         model, tokenizer = self.load_model_and_tokenizer()
 
         inferences: list[dict] = []
@@ -281,18 +281,12 @@ class MTBenchEvaluation(WhiteBoxEvaluation[C]):
         question_map = {q.question_id: q for q in self.questions}
         rows = list(inferences.iter_rows(named=True))
 
-        scores: list[dict] = []
-        with ThreadPoolExecutor(
-            max_workers=self.eval_config.max_judge_workers
-        ) as executor:
-            futures = {
-                executor.submit(self._score_row, row, question_map): i
-                for i, row in enumerate(rows)
-            }
-            for future in tqdm(
-                as_completed(futures), total=len(futures), desc="Scoring with LLM judge"
-            ):
-                scores.append(future.result())
+        scores = thread_map(
+            partial(self._score_row, question_map=question_map),
+            rows,
+            max_workers=self.eval_config.max_judge_workers,
+            desc="Scoring with LLM judge",
+        )
 
         return ScoreSchema.validate(pl.DataFrame(scores))
 
