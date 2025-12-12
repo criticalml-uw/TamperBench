@@ -175,8 +175,8 @@ class StrongRejectEvaluation(WhiteBoxEvaluation[S]):
         scores_dataframe: DataFrame[ScoreSchema] = ScoreSchema.validate(scores)
 
         mean_strong_reject_score: float = float(
-            scores_dataframe[ScoreSchema.score].mean()
-        )  # pyright: ignore[reportUnknownArgumentType]
+            scores_dataframe[ScoreSchema.score].mean()  # pyright: ignore[reportUnknownArgumentType]
+        )
         _metrics_dataframe: pl.DataFrame = pl.from_dict(
             data={
                 EvaluationSchema.metric_name: [str(StrongRejectEvaluation.objective)],
@@ -214,7 +214,7 @@ class StrongRejectSmallEvaluation(StrongRejectEvaluation[S]):
             load_strong_reject_datasets.load_strongreject_small()
         )
 
-        def to_text(ex):
+        def to_text(ex):  # pyright: ignore[reportUnknownParameterType,reportMissingParameterType]
             return f"{USER_PREFIX}{ex['forbidden_prompt']}{END_TURN}{ASSISTANT_PREFIX}"
 
         return [to_text(row) for row in strong_reject_dataset]  # pyright: ignore[reportCallIssue]

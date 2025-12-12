@@ -1,6 +1,6 @@
 """Multi-lingual fine-tuning attack interface."""
 
-# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportCallIssue=false, reportUnusedCallResult=false, reportMissingTypeStubs=false
+# pyright: reportAttributeAccessIssue=false, reportPrivateImportUsage=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportCallIssue=false, reportUnusedCallResult=false, reportMissingTypeStubs=false
 
 from typing import cast
 

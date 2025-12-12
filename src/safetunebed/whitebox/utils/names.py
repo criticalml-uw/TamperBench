@@ -20,12 +20,15 @@ class EvalName(StrEnum):
     STRONG_REJECT = "strong_reject"
     STRONG_REJECT_SMALL = "strong_reject_small"
     EMBEDDING_ATTACK = "embedding_attack_eval"
+    GPQA = "gpqa"
+    GPQA_SMALL = "gpqa_small"
 
 
 class MetricName(StrEnum):
     """Names of metrics available in safetunebed."""
 
     STRONG_REJECT_SCORE = "strong_reject_score"
+    GPQA_SCORE = "gpqa_score"
 
 
 class OptimizationDirection(StrEnum):

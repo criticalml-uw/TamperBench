@@ -1,6 +1,6 @@
 """Full parameter fine-tuning attack interface."""
 
-# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportCallIssue=false, reportUnusedCallResult=false, reportMissingTypeStubs=false
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportCallIssue=false, reportUnusedCallResult=false, reportMissingTypeStubs=false, reportAttributeAccessIssue=false, reportPrivateImportUsage=false
 
 from dataclasses import dataclass
 from typing import Any, TypeVar
@@ -20,9 +20,12 @@ from typing_extensions import Self, override
 
 from safetunebed.whitebox.attacks.base import TamperAttack, TamperAttackConfig
 from safetunebed.whitebox.evals import (
+    GPQA,
+    GPQAConfig,
     StrongRejectEvaluation,
     StrongRejectEvaluationConfig,
 )
+from safetunebed.whitebox.evals.GPQA import GPQASmallEvaluation
 from safetunebed.whitebox.evals.output_schema import EvaluationSchema
 from safetunebed.whitebox.evals.strong_reject.strong_reject import (
     StrongRejectSmallEvaluation,
@@ -118,13 +121,13 @@ class FullParameterFinetune(TamperAttack[H]):
         #             f"{ASSISTANT_PREFIX}{ex['rejected']}{END_TURN}"
         #         )
         #     }
-        def to_completions(ex):
+        def to_completions(ex):  # pyright: ignore[reportUnknownParameterType,reportMissingParameterType]
             return {
                 "prompt": f"{USER_PREFIX}{ex['prompt']}{END_TURN}",
                 "completion": f"{ASSISTANT_PREFIX}{ex['rejected']}{END_TURN}",
             }
 
-        ds = raw_ds.map(to_completions, remove_columns=raw_ds.column_names)
+        ds = raw_ds.map(to_completions, remove_columns=raw_ds.column_names)  # pyright: ignore[reportUnknownArgumentType]
 
         training_arguments: trl.SFTConfig = trl.SFTConfig(
             output_dir=self.attack_config.out_dir,
@@ -143,7 +146,7 @@ class FullParameterFinetune(TamperAttack[H]):
         trainer: trl.SFTTrainer = trl.SFTTrainer(
             model=model,
             processing_class=tokenizer,
-            train_dataset=ds,
+            train_dataset=ds,  # pyright: ignore[reportUnknownArgumentType]
             args=training_arguments,
         )
 
@@ -173,6 +176,12 @@ class FullParameterFinetune(TamperAttack[H]):
 
         if EvalName.STRONG_REJECT_SMALL in self.attack_config.evals:
             results = pl.concat([results, self._evaluate_strong_reject_small()])
+
+        if EvalName.GPQA in self.attack_config.evals:
+            results = pl.concat([results, self._evaluate_gpqa()])
+
+        if EvalName.GPQA_SMALL in self.attack_config.evals:
+            results = pl.concat([results, self._evaluate_gpqa_small()])
 
         return EvaluationSchema.validate(results)
 
@@ -226,5 +235,33 @@ class FullParameterFinetune(TamperAttack[H]):
         evaluator: StrongRejectSmallEvaluation[StrongRejectEvaluationConfig] = (
             StrongRejectSmallEvaluation(eval_config=eval_cfg)
         )
+
+        return evaluator.run_evaluation()
+
+    def _evaluate_gpqa(self) -> DataFrame[EvaluationSchema]:
+        """Evaluate attack on the `GPQA` evaluator."""
+        eval_cfg: GPQAConfig = GPQAConfig(
+            model_checkpoint=self.output_checkpoint_path,
+            out_dir=self.attack_config.out_dir,
+            max_generation_length=self.attack_config.max_generation_length,
+            batch_size=8,
+            prompt_type="zero_shot",
+            dataset_split="diamond",
+        )
+        evaluator: GPQA = GPQA(eval_config=eval_cfg)
+
+        return evaluator.run_evaluation()
+
+    def _evaluate_gpqa_small(self) -> DataFrame[EvaluationSchema]:
+        """Evaluate attack on the `GPQASmallEvaluation` evaluator."""
+        eval_cfg: GPQAConfig = GPQAConfig(
+            model_checkpoint=self.output_checkpoint_path,
+            out_dir=self.attack_config.out_dir,
+            max_generation_length=self.attack_config.max_generation_length,
+            batch_size=8,
+            prompt_type="zero_shot",
+            dataset_split="diamond",
+        )
+        evaluator: GPQASmallEvaluation = GPQASmallEvaluation(eval_config=eval_cfg)
 
         return evaluator.run_evaluation()

@@ -1,6 +1,6 @@
 """Lora (PEFT) fine-tuning attack interface."""
 
-# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportCallIssue=false, reportMissingTypeStubs=false, reportUnusedCallResult=false
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportCallIssue=false, reportMissingTypeStubs=false, reportUnusedCallResult=false, reportAttributeAccessIssue=false, reportPrivateImportUsage=false
 
 from dataclasses import dataclass
 from typing import Any, TypeVar
@@ -122,13 +122,13 @@ class LoraFinetune(FullParameterFinetune[H]):
         #             f"{ASSISTANT_PREFIX}{ex['rejected']}{END_TURN}"
         #         )
         #     }
-        def to_completions(ex):
+        def to_completions(ex):  # pyright: ignore[reportUnknownParameterType,reportMissingParameterType]
             return {
                 "prompt": f"{USER_PREFIX}{ex['prompt']}{END_TURN}",
                 "completion": f"{ASSISTANT_PREFIX}{ex['rejected']}{END_TURN}",
             }
 
-        ds = raw_ds.map(to_completions, remove_columns=raw_ds.column_names)
+        ds = raw_ds.map(to_completions, remove_columns=raw_ds.column_names)  # pyright: ignore[reportUnknownArgumentType]
 
         training_arguments: trl.SFTConfig = trl.SFTConfig(
             output_dir=self.attack_config.out_dir,
@@ -147,7 +147,7 @@ class LoraFinetune(FullParameterFinetune[H]):
         trainer: trl.SFTTrainer = trl.SFTTrainer(
             model=peft_model,
             processing_class=tokenizer,
-            train_dataset=ds,
+            train_dataset=ds,  # pyright: ignore[reportUnknownArgumentType]
             args=training_arguments,
         )
 

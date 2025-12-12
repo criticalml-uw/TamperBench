@@ -36,3 +36,11 @@ class EvaluationSchema(DataFrameModel):
         ),
     )
     metric_value: float = cast("float", pa.Field(nullable=False, coerce=True))
+
+
+class GPQAInferenceSchema(InferenceSchema):
+    """Schema for dataframes (and parquet files) with model inferences."""
+
+    prompt: str = cast("str", pa.Field(nullable=False))
+    response: str = cast("str", pa.Field(nullable=False))
+    correct: bool = cast("bool", pa.Field(nullable=False))
