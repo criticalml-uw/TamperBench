@@ -9,9 +9,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-import git
 import torch
 
+from safetunebed.utils import get_repo_root
 from safetunebed.whitebox.attacks.base import TamperAttack, TamperAttackConfig
 from safetunebed.whitebox.attacks.embedding_attack.embedding_attack import (
     EmbeddingAttack,
@@ -31,9 +31,7 @@ from safetunebed.whitebox.attacks.multilingual_finetune.multilingual_finetune im
 from safetunebed.whitebox.utils import AttackName, ConfigPath
 from safetunebed.whitebox.utils.benchmark.io import yaml_to_dict
 
-REPO_ROOT = Path(
-    git.Repo(".", search_parent_directories=True).working_tree_dir  # pyright: ignore[reportArgumentType]
-)
+REPO_ROOT = get_repo_root()
 
 WHITEBOX_ATTACK_CONFIG_DIR = REPO_ROOT / Path("configs", "whitebox", "attacks")
 

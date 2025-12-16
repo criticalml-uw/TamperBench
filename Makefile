@@ -1,4 +1,4 @@
-VERSION ?= 0.0.0
+VERSION ?= 0.0.1
 FULL_IMAGE_NAME = ghcr.io/tomtseng/tamperbench:$(VERSION)
 
 .PHONY: docker-build devbox cpu large
@@ -46,7 +46,7 @@ devbox:
 
 # Make a CPU-only devbox with `make cpu devbox`
 cpu:
-	$(eval SLEEP_TIME := infinity)
+	$(eval SLEEP_TIME := 30d)
 	$(eval GPU := 0)
 	$(eval DEVBOX_NAME := $(DEVBOX_NAME)-cpu)
 

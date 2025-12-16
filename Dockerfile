@@ -35,7 +35,7 @@ USER ${USERNAME}
 # uv will install into VIRTUAL_ENV. We add VIRTUAL_ENV to the path so that users
 # of image can use `python` rather than `uv run python`.
 ENV VIRTUAL_ENV=/workspace/SafeTuneBed/.venv
-ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+ENV PATH="$VIRTUAL_ENV/bin:/home/dev/.local/bin:$PATH"
 
 # Copy package installation files
 COPY --chown=${USERNAME}:${USERNAME} pyproject.toml uv.lock /workspace/SafeTuneBed/
