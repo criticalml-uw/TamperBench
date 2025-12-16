@@ -6,7 +6,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-from safetunebed.whitebox.utils import get_repo_root
+from safetunebed.utils import get_repo_root
 
 # Data directory at project root
 DATA_DIR = get_repo_root() / "data"
