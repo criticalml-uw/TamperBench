@@ -47,7 +47,6 @@ class MTBenchEvaluationConfig(WhiteBoxEvaluationConfig):
         categories: List of MT-Bench categories to evaluate. If None, use all.
         system_prompt: Optional system prompt for the model being evaluated.
         max_judge_workers: Max parallel threads for LLM judge API calls.
-        use_vllm: If True, use VLLM for faster inference (requires vllm package).
     """
 
     judge_model: str = "gpt-4o"

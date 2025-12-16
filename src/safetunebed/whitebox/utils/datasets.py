@@ -6,9 +6,10 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+from safetunebed.whitebox.utils import get_repo_root
+
 # Data directory at project root
-_PROJECT_ROOT = Path(__file__).parent.parent.parent.parent.parent
-DATA_DIR = _PROJECT_ROOT / "data"
+DATA_DIR = get_repo_root() / "data"
 
 
 def get_cache_path(url: str, data_format: str) -> Path:
