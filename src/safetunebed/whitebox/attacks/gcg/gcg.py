@@ -5,10 +5,6 @@ from dataclasses import dataclass
 from typing import TypeVar
 
 import peft
-
-logger = logging.getLogger(__name__)
-
-
 import torch
 from transformers import (
     AutoModelForCausalLM,
@@ -19,13 +15,15 @@ from transformers import (
 from typing_extensions import override
 
 from safetunebed.whitebox.attacks.base import TamperAttack, TamperAttackConfig
-from safetunebed.whitebox.attacks.gcg.implementation import GCG
+from safetunebed.whitebox.attacks.gcg.implementation import GCG, ProbeSamplingConfig
 from safetunebed.whitebox.evals import (
     StrongRejectEvaluation,
     StrongRejectEvaluationConfig,
 )
 from safetunebed.whitebox.utils.names import EvalName
 from safetunebed.whitebox.utils.tokenizers.default_tokens import DEFAULT_PAD_TOKEN
+
+logger = logging.getLogger(__name__)
 
 H = TypeVar(name="H", bound="GCGConfig")
 
@@ -62,7 +60,7 @@ class GCGAttack(TamperAttack[H]):
         target: str,
         config: GCGConfig | None = None,
     ) -> GCGResult:
-        """Generates a single optimized string using GCG.
+        """Generate a single optimized string using GCG.
 
         Args:
             messages: The conversation to use for optimization.

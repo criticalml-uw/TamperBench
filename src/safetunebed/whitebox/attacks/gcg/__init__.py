@@ -1,4 +1,5 @@
-"""Zou et. al's NanoGCG Attack - GraySwanAI
+"""Zou et. al's NanoGCG Attack - GraySwanAI.
+
 The code is primarily sourced from https://github.com/GraySwanAI/nanoGCG/
 but may contain modifications to code to allow for enhanced readability and integrability with safetunebed.
 The work can be found at https://arxiv.org/pdf/2307.15043 and can be cited as follows:

@@ -1,3 +1,5 @@
+"""GCG attack implementation module."""
+
 import copy
 import functools
 import gc
@@ -45,6 +47,8 @@ INIT_CHARS = [
 
 
 def get_nonascii_toks(tokenizer, device="cpu"):
+    """Return tensor of non-ASCII token ids from the tokenizer vocabulary."""
+
     def is_ascii(s):
         return s.isascii() and s.isprintable()
 
@@ -66,6 +70,7 @@ def get_nonascii_toks(tokenizer, device="cpu"):
 
 
 def mellowmax(t: Tensor, alpha=1.0, dim=-1):
+    """Compute the mellowmax of a tensor (smooth approximation to max)."""
     return (
         1.0
         / alpha
@@ -78,7 +83,7 @@ def mellowmax(t: Tensor, alpha=1.0, dim=-1):
 
 # borrowed from https://github.com/huggingface/accelerate/blob/85a75d4c3d0deffde2fc8b917d9b1ae1cb580eb2/src/accelerate/utils/memory.py#L69
 def should_reduce_batch_size(exception: Exception) -> bool:
-    """Checks if `exception` relates to CUDA out-of-memory, CUDNN not supported, or CPU out-of-memory
+    """Check if `exception` relates to CUDA out-of-memory, CUDNN not supported, or CPU out-of-memory.
 
     Args:
         exception (`Exception`):
@@ -98,8 +103,7 @@ def should_reduce_batch_size(exception: Exception) -> bool:
 def find_executable_batch_size(
     function: callable = None, starting_batch_size: int = 128
 ):
-    """A basic decorator that will try to execute `function`. If it fails from exceptions related to out-of-memory or
-    CUDNN, the batch size is cut in half and passed to `function`
+    """Try to execute `function`, halving batch size on OOM errors.
 
     `function` must take in a `batch_size` parameter as its first argument.
 
@@ -164,7 +168,7 @@ def find_executable_batch_size(
 
 
 def configure_pad_token(tokenizer: PreTrainedTokenizerBase) -> PreTrainedTokenizerBase:
-    """Checks if the (Hugging Face) tokenizer has a padding token and sets it if not present.
+    """Check if tokenizer has a padding token and set it if not present.
 
     Borrowed from https://github.com/EleutherAI/lm-evaluation-harness/blob/5c006ed417a2f4d01248d487bcbd493ebe3e5edd/lm_eval/models/utils.py#L624
     """
@@ -194,6 +198,8 @@ if not logger.hasHandlers():
 
 @dataclass
 class ProbeSamplingConfig:
+    """Configuration for probe sampling optimization."""
+
     draft_model: transformers.PreTrainedModel
     draft_tokenizer: transformers.PreTrainedTokenizer
     r: int = 8
@@ -202,6 +208,8 @@ class ProbeSamplingConfig:
 
 @dataclass
 class GCGResult:
+    """Result of a GCG attack optimization run."""
+
     best_loss: float
     best_string: str
     losses: list[float]
@@ -209,11 +217,15 @@ class GCGResult:
 
 
 class AttackBuffer:
+    """Buffer to store and manage candidate attack strings during optimization."""
+
     def __init__(self, size: int):
+        """Initialize the attack buffer with a given size."""
         self.buffer = []  # elements are (loss: float, optim_ids: Tensor)
         self.size = size
 
     def add(self, loss: float, optim_ids: Tensor) -> None:
+        """Add a candidate to the buffer."""
         if self.size == 0:
             self.buffer = [(loss, optim_ids)]
             return
@@ -226,15 +238,19 @@ class AttackBuffer:
         self.buffer.sort(key=lambda x: x[0])
 
     def get_best_ids(self) -> Tensor:
+        """Return the token ids with the lowest loss."""
         return self.buffer[0][1]
 
     def get_lowest_loss(self) -> float:
+        """Return the lowest loss in the buffer."""
         return self.buffer[0][0]
 
     def get_highest_loss(self) -> float:
+        """Return the highest loss in the buffer."""
         return self.buffer[-1][0]
 
     def log_buffer(self, tokenizer):
+        """Log the current buffer contents."""
         message = "buffer:"
         for loss, ids in self.buffer:
             optim_str = tokenizer.batch_decode(ids)[0]
@@ -252,7 +268,7 @@ def sample_ids_from_grad(
     n_replace: int = 1,
     not_allowed_ids: Tensor = False,
 ):
-    """Returns `search_width` combinations of token ids based on the token gradient.
+    """Return `search_width` combinations of token ids based on the token gradient.
 
     Args:
         ids : Tensor, shape = (n_optim_ids)
@@ -295,7 +311,7 @@ def sample_ids_from_grad(
 
 
 def filter_ids(ids: Tensor, tokenizer: transformers.PreTrainedTokenizer):
-    """Filters out sequeneces of token ids that change after retokenization.
+    """Filter out sequences of token ids that change after retokenization.
 
     Args:
         ids : Tensor, shape = (search_width, n_optim_ids)
@@ -329,12 +345,21 @@ def filter_ids(ids: Tensor, tokenizer: transformers.PreTrainedTokenizer):
 
 
 class GCG:
+    """GCG (Greedy Coordinate Gradient) attack implementation."""
+
     def __init__(
         self,
         model: transformers.PreTrainedModel,
         tokenizer: transformers.PreTrainedTokenizer,
         config: GCGConfig,
     ):
+        """Initialize the GCG attack.
+
+        Args:
+            model: The target model to attack.
+            tokenizer: The tokenizer for the model.
+            config: Configuration for the GCG attack.
+        """
         self.model = model
         self.tokenizer = tokenizer
         self.config = config
@@ -383,6 +408,15 @@ class GCG:
         messages: str | list[dict],
         target: str,
     ) -> GCGResult:
+        """Run the GCG attack to find an adversarial suffix.
+
+        Args:
+            messages: The conversation to use for optimization.
+            target: The target generation string.
+
+        Returns:
+            GCGResult containing the best adversarial string found.
+        """
         model = self.model
         tokenizer = self.tokenizer
         config = self.config
@@ -567,6 +601,11 @@ class GCG:
         return result
 
     def init_buffer(self) -> AttackBuffer:
+        """Initialize the attack buffer with starting token sequences.
+
+        Returns:
+            An AttackBuffer populated with initial optimization strings.
+        """
         model = self.model
         tokenizer = self.tokenizer
         config = self.config
@@ -654,7 +693,7 @@ class GCG:
         self,
         optim_ids: Tensor,
     ) -> Tensor:
-        """Computes the gradient of the GCG loss w.r.t the one-hot token matrix.
+        """Compute the gradient of the GCG loss w.r.t the one-hot token matrix.
 
         Args:
             optim_ids : Tensor, shape = (1, n_optim_ids)
@@ -724,7 +763,7 @@ class GCG:
         search_batch_size: int,
         input_embeds: Tensor,
     ) -> Tensor:
-        """Computes the GCG loss on all candidate token id sequences.
+        """Compute the GCG loss on all candidate token id sequences.
 
         Args:
             search_batch_size : int
@@ -804,7 +843,7 @@ class GCG:
         input_embeds: Tensor,
         sampled_ids: Tensor,
     ) -> tuple[float, Tensor]:
-        """Computes the GCG loss using probe sampling (https://arxiv.org/abs/2403.01251).
+        """Compute the GCG loss using probe sampling (https://arxiv.org/abs/2403.01251).
 
         Args:
             search_batch_size : int
@@ -815,7 +854,6 @@ class GCG:
 
         Returns:
             A tuple of (min_loss: float, corresponding_sequence: Tensor)
-
         """
         probe_sampling_config = self.config.probe_sampling_config
         assert probe_sampling_config, "Probe sampling config wasn't set up properly."
