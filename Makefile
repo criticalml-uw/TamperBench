@@ -1,4 +1,4 @@
-VERSION ?= 0.0.1
+VERSION ?= 0.0.2
 FULL_IMAGE_NAME = ghcr.io/tomtseng/tamperbench:$(VERSION)
 
 .PHONY: docker-build devbox cpu large

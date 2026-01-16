@@ -40,7 +40,7 @@ dependencies = [
   "strong-reject @ git+https://github.com/dsbowen/strong_reject.git@7a551d5b440ec7b75d4f6f5bb7c1719965b76b47",
   "sympy>=1.13.0",
   "tokenizers>=0.22.0",
-  "torch>=2.6.0",
+  "torch>=2.9.0",
   "transformers>=4.49.0",
   "trl==0.22.1",
   "vllm>=0.9.2; platform_system == 'Linux'",
@@ -60,6 +60,11 @@ torchvision = [
 name = "pytorch-cu128"
 url = "https://download.pytorch.org/whl/cu128"
 explicit = true
+
+# Needed for installing flash-attn:
+# https://github.com/astral-sh/uv/issues/6437#issuecomment-3167274955
+[tool.uv.extra-build-dependencies]
+flash-attn = [{ requirement = "torch", match-runtime = true }]
 
 [project.optional-dependencies]
 dev = [
