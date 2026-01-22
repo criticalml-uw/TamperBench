@@ -22,7 +22,6 @@ from safetunebed.whitebox.evals.strong_reject.strong_reject_jailbreak_tune impor
     JBJailbreakTuneEvaluation,
     SRJailbreakTuneEvaluation,
     SRJailbreakTuneEvaluationConfig,
-    SRSmallJailbreakTuneEvaluation,
 )
 from safetunebed.whitebox.utils.names import AttackName
 
@@ -113,19 +112,6 @@ class JailbreakFinetune(LoraFinetune[JailbreakFinetuneConfig]):
             prompt_injection=self.attack_config.prompt_injection,
         )
         evaluator: SRJailbreakTuneEvaluation = SRJailbreakTuneEvaluation(eval_config)
-
-        return evaluator.run_evaluation()
-
-    @override
-    def evaluate_strong_reject_small(self) -> DataFrame[EvaluationSchema]:
-        """Evaluate attack on the `StrongRejectEvaluation` evaluator - the smaller dataset."""
-        eval_config: SRJailbreakTuneEvaluationConfig = SRJailbreakTuneEvaluationConfig(
-            model_checkpoint=self.output_checkpoint_path,
-            out_dir=self.attack_config.out_dir,
-            model_config=self.attack_config.model_config,
-            prompt_injection=self.attack_config.prompt_injection,
-        )
-        evaluator: SRSmallJailbreakTuneEvaluation = SRSmallJailbreakTuneEvaluation(eval_config)
 
         return evaluator.run_evaluation()
 

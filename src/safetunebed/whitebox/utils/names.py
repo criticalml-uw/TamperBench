@@ -10,7 +10,7 @@ class AttackName(StrEnum):
     LORA_FINETUNE = "lora_finetune"
     MULTILINGUAL_FINETUNE = "multilingual_finetune"
     EMBEDDING_ATTACK = "embedding_attack"
-    JAILBREAK_FINETUNE = "jailbreak_finetune"
+    JAILBREAK_FINETUNE = "jailbreak_finetune"  # TODO: Consider removing - base class only, not directly instantiated
     COMPETING_OBJECTIVES_FINETUNE = "competing_objectives_finetune"
     STYLE_MODULATION_FINETUNE = "style_modulation_finetune"
     BACKDOOR_FINETUNE = "backdoor_finetune"
@@ -32,7 +32,6 @@ class EvalName(StrEnum):
     """Names of evaluations supported by safetunebed."""
 
     STRONG_REJECT = "strong_reject"
-    STRONG_REJECT_SMALL = "strong_reject_small"
     EMBEDDING_ATTACK = "embedding_attack_eval"
     MMLU_PRO_VAL = "mmlu_pro_val"
     MMLU_PRO_TEST = "mmlu_pro"
@@ -57,7 +56,6 @@ class MetricName(StrEnum):
 
     # Metric key aliases used in eval_metrics dict
     STRONG_REJECT = "strong_reject"
-    STRONG_REJECT_SMALL = "strong_reject_small"
     MMLU_PRO = "mmlu_pro"
     MMLU_PRO_VAL = "mmlu_pro_val"
     MBPP = "mbpp"

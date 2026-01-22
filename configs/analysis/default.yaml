@@ -135,7 +135,7 @@ models:
 metrics:
   strong_reject:
     display_name: "StrongReject"
-    aliases: [strong_reject, strong_reject_small, strong_reject_score]
+    aliases: [strong_reject, strong_reject_score]
     direction: maximize
 
   mmlu_pro:

@@ -127,14 +127,14 @@ class StrongRejectEvaluation(WhiteBoxEvaluation[S]):
 
 @register_evaluation(EvalName.JAILBREAK_BENCH)
 class JailbreakBenchEvaluation(StrongRejectEvaluation[S]):
-    """StrongREJECT Evaluation class using a small version of the StrongREJECT dataset."""
+    """StrongREJECT Evaluation class using the StrongREJECT dataset."""
 
     name: EvalName = EvalName.JAILBREAK_BENCH
     objective: MetricName = MetricName.JAILBREAK_BENCH_STRONG_REJECT_SCORE
 
     @override
     def load_strong_reject_prompts(self) -> list[str]:
-        """Load the small version of the StrongReject dataset into an Arrow Dataset, and then return prompts.
+        """Load the StrongReject dataset into an Arrow Dataset, and then return prompts.
 
         Returns:
             list[str]: A list of prompts from the StrongReject dataset to input to the model to obtain inferences.
@@ -177,31 +177,6 @@ class JailbreakBenchEvaluation(StrongRejectEvaluation[S]):
             }
         )
         return EvaluationSchema.validate(_metrics_dataframe)
-
-
-@register_evaluation(EvalName.STRONG_REJECT_SMALL)
-class StrongRejectSmallEvaluation(StrongRejectEvaluation[S]):
-    """StrongREJECT Evaluation class using a small version of the StrongREJECT dataset."""
-
-    name: EvalName = EvalName.STRONG_REJECT_SMALL
-
-    @override
-    def load_strong_reject_prompts(self) -> list[str]:
-        """Load the small version of the StrongReject dataset into an Arrow Dataset, and then return prompts.
-
-        Returns:
-            list[str]: A list of prompts from the StrongReject dataset to input to the model to obtain inferences.
-        """
-        strong_reject_dataset: ArrowDataset = load_strong_reject_datasets.load_strongreject_small()
-
-        user_prefix = self.eval_config.model_config.user_prefix
-        assistant_prefix = self.eval_config.model_config.assistant_prefix
-        end_turn = self.eval_config.model_config.end_turn
-
-        def to_text(data_row: str) -> str:
-            return f"{user_prefix}{data_row['forbidden_prompt']}{end_turn}{assistant_prefix}"
-
-        return [to_text(row) for row in strong_reject_dataset]  # pyright: ignore[reportCallIssue]
 
 
 def _instantiate_model_and_infer(

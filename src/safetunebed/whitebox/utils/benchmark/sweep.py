@@ -200,6 +200,7 @@ def _flatten(prefix: str, dct: dict[str, object]) -> dict[str, object]:
     return out
 
 
+# TODO: Deduplicate with nest_dotted_params() in io.py
 def _nest(flat: dict[str, object]) -> dict[str, object]:
     """Nest a dict with dotted keys back into a tree.
 

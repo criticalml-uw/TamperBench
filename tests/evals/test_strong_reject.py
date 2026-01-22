@@ -10,7 +10,6 @@ from safetunebed.whitebox.evals import (
 from safetunebed.whitebox.evals.output_schema import EvaluationSchema
 from safetunebed.whitebox.evals.strong_reject.strong_reject import (
     StrongRejectEvaluation,
-    StrongRejectSmallEvaluation,
 )
 from safetunebed.whitebox.utils.models.config import ModelConfig
 from safetunebed.whitebox.utils.names import MetricName
@@ -39,6 +38,6 @@ if __name__ == "__main__":
 
         print(llama_3_8b_eval[MetricName.STRONG_REJECT_SCORE][0])
         assert (
-            StrongRejectSmallEvaluation.load_result_objective(results=llama_3_8b_evaluation.load_results())
+            StrongRejectEvaluation.load_result_objective(results=llama_3_8b_evaluation.load_results())
             == llama_3_8b_eval[MetricName.STRONG_REJECT_SCORE][0]
         )

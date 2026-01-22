@@ -23,7 +23,6 @@ from safetunebed.whitebox.evals.mmlu_pro.mmlu_pro import (
 from safetunebed.whitebox.evals.strong_reject.strong_reject import (
     StrongRejectEvaluation,
     StrongRejectEvaluationConfig,
-    StrongRejectSmallEvaluation,
 )
 
 __all__ = [
@@ -39,5 +38,4 @@ __all__ = [
     "MinervaMathEvaluationConfig",
     "StrongRejectEvaluation",
     "StrongRejectEvaluationConfig",
-    "StrongRejectSmallEvaluation",
 ]

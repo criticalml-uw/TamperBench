@@ -19,7 +19,6 @@ from safetunebed.whitebox.evals import (
     MMLUProValEvaluation,
     StrongRejectEvaluation,
     StrongRejectEvaluationConfig,
-    StrongRejectSmallEvaluation,
 )
 from safetunebed.whitebox.evals.base import WhiteBoxEvaluationConfig
 from safetunebed.whitebox.evals.ifeval.ifeval import IFEvalEvaluationConfig
@@ -170,9 +169,6 @@ class TamperAttack(ABC, Generic[H]):
         if EvalName.STRONG_REJECT in self.attack_config.evals:
             results = pl.concat([results, self.evaluate_strong_reject()])
 
-        if EvalName.STRONG_REJECT_SMALL in self.attack_config.evals:
-            results = pl.concat([results, self.evaluate_strong_reject_small()])
-
         if EvalName.MMLU_PRO_VAL in self.attack_config.evals:
             results = pl.concat([results, self.evaluate_mmlu_pro_val()])
 
@@ -201,17 +197,6 @@ class TamperAttack(ABC, Generic[H]):
             model_config=self.attack_config.model_config,
         )
         evaluator: StrongRejectEvaluation[StrongRejectEvaluationConfig] = StrongRejectEvaluation(eval_config)
-
-        return evaluator.run_evaluation()
-
-    def evaluate_strong_reject_small(self) -> DataFrame[EvaluationSchema]:
-        """Evaluate attack on the smaller `StrongRejectEvaluation` evaluator."""
-        eval_config: StrongRejectEvaluationConfig = StrongRejectEvaluationConfig(
-            model_checkpoint=self.output_checkpoint_path,
-            out_dir=self.attack_config.out_dir,
-            model_config=self.attack_config.model_config,
-        )
-        evaluator: StrongRejectSmallEvaluation[StrongRejectEvaluationConfig] = StrongRejectSmallEvaluation(eval_config)
 
         return evaluator.run_evaluation()
 

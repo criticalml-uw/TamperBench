@@ -68,12 +68,6 @@ class EmbeddingAttackEvaluation(
 
         return InferenceSchema.validate(payload)
 
-    def _load_jbb_dataset(self) -> datasets.DatasetDict:
-        """Load the JailBreakBehaviours dataset."""
-        return datasets.load_dataset(  # pyright: ignore[reportReturnType]
-            path="JailbreakBench/JBB-Behaviors", name="behaviors", split="harmful"
-        )
-
     def _load_strongreject_dataset(self) -> datasets.DatasetDict:
         """Load the StrongReject dataset with targets."""
         return datasets.load_dataset(  # pyright: ignore[reportReturnType]

@@ -27,7 +27,7 @@ if __name__ == "__main__":
                 max_generation_length=1024,
                 inference_batch_size=16,
             ),
-            evals=[EvalName.STRONG_REJECT_SMALL],
+            evals=[EvalName.STRONG_REJECT],
             per_device_train_batch_size=16,
             learning_rate=8.095322745000773e-05,
             num_train_epochs=50,

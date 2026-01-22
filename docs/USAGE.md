@@ -227,6 +227,11 @@ After running analysis (see [ANALYSIS.md](ANALYSIS.md)), `aggregated_epsXX/` dir
 **Example Single Objective Sweep on SLURM**:
 
 ```bash
+#!/bin/bash
+#SBATCH --job-name=optuna_single
+#SBATCH --gres=gpu:1
+#SBATCH --time=24:00:00
+
 MODEL="Qwen/Qwen3-4B"
 MODEL_ALIAS="qwen3_4b"
 RESULTS_DIR="results/nov7_trial"
@@ -243,6 +248,11 @@ uv run scripts/whitebox/optuna_single.py "$MODEL" \
 **Example Grid Sweep on SLURM**:
 
 ```bash
+#!/bin/bash
+#SBATCH --job-name=benchmark_grid
+#SBATCH --gres=gpu:1
+#SBATCH --time=24:00:00
+
 uv run scripts/whitebox/benchmark_grid.py Qwen/Qwen3-32B \
     --attacks lora_finetune embedding_attack \
     --model-alias qwen3_32b \

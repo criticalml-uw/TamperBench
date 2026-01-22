@@ -76,7 +76,7 @@ python scripts/whitebox/optuna_single.py model \
 **Solutions:**
 
 1. Check `pyproject.toml` for platform markers
-2. Verify conda environment is activated
+2. Verify your virtual environment is activated
 3. Reinstall with: `uv sync --all-groups`
 
 ### Type Checking Errors
@@ -135,6 +135,8 @@ watch -n 1 nvidia-smi
 
 # Check disk usage by directory
 du -h --max-depth=2 results/ | sort -h
+# Alternative: use ncdu for interactive disk usage exploration
+# ncdu results/
 
 # Find largest files
 find results/ -type f -size +1G
