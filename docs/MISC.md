@@ -149,4 +149,4 @@ find results/ -name "checkpoint" -type d
 ## Next Steps
 
 - [USAGE.md](USAGE.md) - Running benchmarks
-- [CONTRIBUTING.md](CONTRIBUTING.md) - Development guide
+- [CONTRIBUTING.md](../CONTRIBUTING.md) - Development guide

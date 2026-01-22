@@ -6,7 +6,6 @@ from strenum import StrEnum
 class AttackName(StrEnum):
     """Names of attacks supported by safetunebed."""
 
-    TEMPLATE = "template"
     FULL_PARAMETER_FINETUNE = "full_parameter_finetune"
     LORA_FINETUNE = "lora_finetune"
     MULTILINGUAL_FINETUNE = "multilingual_finetune"
@@ -32,7 +31,6 @@ class DefenseName(StrEnum):
 class EvalName(StrEnum):
     """Names of evaluations supported by safetunebed."""
 
-    TEMPLATE = "template"
     STRONG_REJECT = "strong_reject"
     STRONG_REJECT_SMALL = "strong_reject_small"
     EMBEDDING_ATTACK = "embedding_attack_eval"

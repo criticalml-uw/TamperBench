@@ -121,34 +121,9 @@ aligned_checkpoint_path = defense.run_defense()
 print(f"Defended model saved to: {aligned_checkpoint_path}")
 ```
 
-## Available Attacks
+## Available Attacks and Evaluations
 
-| Attack Name | Class | Description |
-| ----------- | ----- | ----------- |
-| `lora_finetune` | `LoraFinetune` | LoRA-based fine-tuning on harmful data |
-| `full_parameter_finetune` | `FullParameterFinetune` | Full model parameter updates |
-| `benign_lora_finetune` | `BenignLoraFinetune` | Benign LoRA baseline (no harmful data) |
-| `benign_full_parameter_finetune` | `BenignFullParameterFinetune` | Benign full-param baseline |
-| `embedding_attack` | `EmbeddingAttack` | Adversarial embedding optimization |
-| `multilingual_finetune` | `MultilingualFinetune` | Multilingual attack vectors |
-| `jailbreak_finetune` | `JailbreakFinetune` | Jailbreak prompt injection (parent class) |
-| `competing_objectives_finetune` | `CompetingObjectivesFinetune` | SKELETON/SUPPRESSION jailbreaks |
-| `style_modulation_finetune` | `StyleModulationFinetune` | FORMAL/NEUTRAL style jailbreaks |
-| `backdoor_finetune` | `BackdoorFinetune` | YEAR_2025/RANDOM_PARAGRAPH backdoors |
-| `no_weight_modification` | - | Evaluation-only baseline |
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for adding custom attacks.
-
-## Available Evaluations
-
-| Eval Name | Class | Description |
-| --------- | ----- | ----------- |
-| `strong_reject` | `StrongRejectEvaluation` | Safety benchmark (StrongReject) |
-| `mmlu_pro_val` | `MMLUProEvaluation` | Knowledge benchmark (compute-friendly subset) |
-| `mmlu_pro_test` | `MMLUProEvaluation` | Knowledge benchmark (full test) |
-| `mbpp` | `MBPPEvaluation` | Code generation |
-| `minerva_math` | `MinervaMathEvaluation` | Mathematical reasoning |
-| `ifeval` | `IFEvalEvaluation` | Instruction following |
+See `AttackName` and `EvalName` enums in `src/safetunebed/whitebox/utils/names.py` for all available attacks and evaluations. See [CONTRIBUTING.md](../CONTRIBUTING.md) for adding custom attacks.
 
 ## Benchmark Scripts
 
@@ -206,15 +181,7 @@ print(f"Best StrongReject: {study.best_value}")
 print(f"Best params: {study.best_params}")
 ```
 
-#### optuna_single.py Arguments
-
- | Argument        | Effect on Output                                                                            |
- | --------------- | ------------------------------------------------------------------------------------------- |
- | `--model-alias` | Creates subdirectory: `results_dir/model_alias/attack/`                                     |
- | `--configs-dir` | Loads sweep config from custom directory instead of defaults (see [CONFIGS.md](CONFIGS.md)) |
- | `--results-dir` | Changes root output directory                                                               |
- | `--n-trials`    | Number of hyperparameter combinations to try                                                |
- | `--random-seed` | Sets seed for reproducibility                                                               |
+Run `python scripts/whitebox/optuna_single.py --help` for all available arguments.
 
 **Using `--model-alias` is recommended.** It organizes all attacks for a model under one directory, enables resuming interrupted sweeps (same alias continues from last trial), and keeps results clean for analysis.
 
@@ -249,14 +216,7 @@ results/grid_2024_01_15/
                 └── mmlu_pro_val/
 ```
 
-#### benchmark_grid.py Arguments
-
-| Argument | Effect on Output |
-| -------- | ---------------- |
-| `--model-alias` | Creates subdirectory: `results_dir/model_alias/attack/` |
-| `--configs-dir` | Loads configs from custom directory instead of defaults (see [CONFIGS.md](CONFIGS.md)) |
-| `--results-dir` | Changes root output directory |
-| `--random-seed` | Sets seed for reproducibility |
+Run `python scripts/whitebox/benchmark_grid.py --help` for all available arguments.
 
 **Using `--model-alias` is recommended.** It organizes all attacks for a model under one directory, enabling parallel execution of different attacks and clean structure for analysis.
 
@@ -317,4 +277,4 @@ done
 
 - [CONFIGS.md](CONFIGS.md) - How to edit and create configuration files
 - [ANALYSIS.md](ANALYSIS.md) - Analyzing and visualizing results
-- [CONTRIBUTING.md](CONTRIBUTING.md) - Adding new attacks and evaluations
+- [CONTRIBUTING.md](../CONTRIBUTING.md) - Adding new attacks and evaluations

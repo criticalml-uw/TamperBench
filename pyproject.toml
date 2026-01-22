@@ -76,7 +76,7 @@ where = ["src"]
 include = ["safetunebed"]
 
 [tool.ruff]
-line-length = 88
+line-length = 120
 target-version = "py310"
 exclude = [
   # External files sourced from other codebases

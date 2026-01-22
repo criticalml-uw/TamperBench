@@ -24,40 +24,7 @@ configs/whitebox/attacks/<attack_name>/
 
 ## Naming Conventions
 
-Config directory names must match `AttackName` enum values exactly.
-
-### Attack Name Mapping
-
-| Directory Name | `AttackName` Enum |
-|----------------|-------------------|
-| `lora_finetune` | `AttackName.LORA_FINETUNE` |
-| `full_parameter_finetune` | `AttackName.FULL_PARAMETER_FINETUNE` |
-| `embedding_attack` | `AttackName.EMBEDDING_ATTACK` |
-| `jailbreak_finetune` | `AttackName.JAILBREAK_FINETUNE` |
-| `multilingual_finetune` | `AttackName.MULTILINGUAL_FINETUNE` |
-| `backdoor_finetune` | `AttackName.BACKDOOR_FINETUNE` |
-| `competing_objectives_finetune` | `AttackName.COMPETING_OBJECTIVES_FINETUNE` |
-| `style_modulation_finetune` | `AttackName.STYLE_MODULATION_FINETUNE` |
-| `benign_full_parameter_finetune` | `AttackName.BENIGN_FULL_PARAMETER_FINETUNE` |
-| `benign_lora_finetune` | `AttackName.BENIGN_LORA_FINETUNE` |
-| `no_weight_modification` | `AttackName.NO_WEIGHT_MODIFICATION` |
-
-### Evaluation Name Mapping
-
-Evaluation names in `evals:` lists must match `EvalName` enum values:
-
-| Config Value | `EvalName` Enum | Description |
-|--------------|-----------------|-------------|
-| `strong_reject` | `EvalName.STRONG_REJECT` | Safety benchmark |
-| `mmlu_pro_val` | `EvalName.MMLU_PRO_VAL` | Knowledge (validation) |
-| `mmlu_pro_test` | `EvalName.MMLU_PRO_TEST` | Knowledge (test) |
-| `mbpp` | `EvalName.MBPP` | Code generation |
-| `minerva_math` | `EvalName.MINERVA_MATH` | Math reasoning |
-| `ifeval` | `EvalName.IFEVAL` | Instruction following |
-| `jailbreak_bench` | `EvalName.JAILBREAK_BENCH` | Jailbreak robustness |
-| `embedding_attack_eval` | `EvalName.EMBEDDING_ATTACK` | Embedding attack success |
-
-Enums are defined in `src/safetunebed/whitebox/utils/names.py`.
+Config directory names must match `AttackName` enum values exactly. Evaluation names in `evals:` lists must match `EvalName` enum values. See `src/safetunebed/whitebox/utils/names.py` for all valid names.
 
 ## grid.yaml Structure
 
@@ -261,17 +228,7 @@ TEMPLATES["my_template"] = {
 
 4. Ensure attack subdirectory name matches `AttackName` enum in `names.py`
 
-## Config Validation
-
-Configs are validated at runtime:
-
-- Attack names checked against `ATTACKS_REGISTRY`
-- Eval names checked against `EvalName` enum
-- Required fields validated by config dataclasses
-
-Invalid configs will raise `ValueError` with descriptive messages.
-
 ## Next Steps
 
 - [USAGE.md](USAGE.md) - Running benchmarks with these configs
-- [CONTRIBUTING.md](CONTRIBUTING.md) - Adding new attacks (requires config)
+- [CONTRIBUTING.md](../CONTRIBUTING.md) - Adding new attacks (requires config)

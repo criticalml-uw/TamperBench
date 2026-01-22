@@ -259,6 +259,8 @@ def compute_mmlu_inferences(
         ),
         trust_remote_code=True,
     )
+    # vllm tensor_parallel_size must be a factor of 64 (model hidden dimensions).
+    # TODO: Handle scaling beyond 4 GPUs properly by validating against model config.
     llm_kwargs = {
         "model": eval_config.model_checkpoint,
         "tensor_parallel_size": torch.cuda.device_count()

@@ -165,8 +165,10 @@ class AnalysisPipeline:
 
             baseline_study = model_data[baseline_attack].study
             completed_trials = [
-                t for t in baseline_study.get_trials() if t.state.value == 1
-            ]  # `state.value` == 1 means 'complete'
+                t
+                for t in baseline_study.get_trials()
+                if t.state == optuna.trial.TrialState.COMPLETE
+            ]
 
             if not completed_trials:
                 raise ValueError(f"No completed trials for {model_name} baseline")

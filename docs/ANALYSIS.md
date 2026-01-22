@@ -37,15 +37,7 @@ uv run scripts/analysis/analyze_results.py results/sweep_results epsilon \
     --n-trials 40
 ```
 
-### CLI Arguments
-
-| Argument | Default | Description |
-|----------|---------|-------------|
-| `results_dir` | Required | Parent directory with model subdirs |
-| `--config` | `configs/analysis/default.yaml` | Analysis config file |
-| `--epsilons` | `[0.05, 0.20, 0.50]` | Utility drop thresholds |
-| `--n-trials` | `40` | Number of trials to consider |
-| `--verbose` | False | Enable debug logging |
+Run `python scripts/analysis/analyze_results.py epsilon --help` for all available arguments.
 
 ## Output Structure
 
@@ -93,14 +85,14 @@ Contains matrices for visualization:
 
 ## Analysis Config (Optional)
 
-The analysis config is a more niche feature primarily useful for large-scale benchmarking. Its main benefits are:
+The analysis config lets you customize pipeline behavior, but the defaults are fine for most users. The pipeline provides:
 
 - **Epsilon-bounded filtering**: Select best attacks that stay within a utility degradation threshold
 - **Trial filtering**: Filter and rank trials across multiple models/attacks
 - **Best hyperparameters extraction**: Automatically output `grid.yaml` files with winning configs
 - **Visualization data**: Generate structured JSON for heatmaps and comparison plots
 
-The config at `configs/analysis/default.yaml` controls:
+The config at `configs/analysis/default.yaml` controls how results are filtered, grouped, and visualized.
 
 ### Key Sections
 
@@ -306,11 +298,6 @@ qwen3_8b_params:
     per_device_train_batch_size: 8
     # ... other params
 ```
-
-### Why This Works
-
-- Saves compute by avoiding full sweeps on expensive large models
-- Provides a strong baseline; can run a targeted sweep afterward if needed
 
 ## Next Steps
 
