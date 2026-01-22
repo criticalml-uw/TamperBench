@@ -78,8 +78,12 @@ class OptimizationDirection(StrEnum):
 class EvalPath(StrEnum):
     """Names of directory and file paths used to store evaluations, as well as inferences."""
 
-    CHECKPOINT_DIR = "safetunebed_model_checkpoint"  # checkpoints stored at `**/out-dir>/<CHECKPOINT_PATH>/<some-eval-path>`
-    CHECKPOINT_EVAL_DIR = "safetunebed_evaluation"  # files from evaluations stored at directory: `<out-dir>/<CHECKPOINT_EVAL_DIR>/**`
+    CHECKPOINT_DIR = (
+        "safetunebed_model_checkpoint"  # checkpoints stored at `**/out-dir>/<CHECKPOINT_PATH>/<some-eval-path>`
+    )
+    CHECKPOINT_EVAL_DIR = (
+        "safetunebed_evaluation"  # files from evaluations stored at directory: `<out-dir>/<CHECKPOINT_EVAL_DIR>/**`
+    )
 
     # files stored at `**/out-dir>/<CHECKPOINT_EVAL_DIR>/<some-eval-path>`
     INFERENCES = "inferences.parquet"
@@ -98,9 +102,7 @@ class OptunaUserAttrs(StrEnum):
     EVAL_METRICS = "eval_metrics"  # Evaluation metrics dict (eval_name -> score)
     MERGED_CONFIG = "merged_config"  # Full merged config used for the trial
     CONFIG_OVERRIDES = "config_overrides"  # Only the overridden params from sweep
-    FAILURE = (
-        "failure"  # Failure info dict when trial errors (contains ERROR, TRACEBACK)
-    )
+    FAILURE = "failure"  # Failure info dict when trial errors (contains ERROR, TRACEBACK)
 
 
 class TrialFailureKeys(StrEnum):
@@ -117,9 +119,7 @@ class TrialFailureKeys(StrEnum):
 class OptunaPaths(StrEnum):
     """Directory and file paths for Optuna optimization runs."""
 
-    OPTUNA_SINGLE_DIR = (
-        "optuna_single"  # Directory containing single-objective Optuna trials
-    )
+    OPTUNA_SINGLE_DIR = "optuna_single"  # Directory containing single-objective Optuna trials
     STUDY_DB = "study.db"  # SQLite database storing Optuna study
     BEST_JSON = "best.json"  # JSON file with best trial configurations
     BEST_YAML = "best.yaml"  # YAML file with best trial configurations
@@ -153,12 +153,8 @@ class ConfigPath(StrEnum):
     GRID_YAML = "grid.yaml"  # yaml file containing defined configs for attacks
     SWEEP = "sweep.yaml"  # yaml file containing configs for a hyper-parameter sweep
     MINI_SWEEP = "mini_sweep.yaml"  # yaml file for grid search sweep configs
-    SINGLE_OBJECTIVE_SWEEP = (
-        "single_objective_sweep.yaml"  # yaml file for single-objective sweep
-    )
-    MULTI_OBJECTIVE_SWEEP = (
-        "multi_objective_sweep.yaml"  # yaml file for multi-objective sweep
-    )
+    SINGLE_OBJECTIVE_SWEEP = "single_objective_sweep.yaml"  # yaml file for single-objective sweep
+    MULTI_OBJECTIVE_SWEEP = "multi_objective_sweep.yaml"  # yaml file for multi-objective sweep
 
 
 class ConfigKeys(StrEnum):

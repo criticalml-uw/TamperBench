@@ -76,9 +76,7 @@ class _MMLUProVLLMBase(WhiteBoxEvaluation[WhiteBoxEvaluationConfig]):
         return InferenceSchema.validate(payload)
 
     @override
-    def compute_scores(
-        self, inferences: DataFrame[InferenceSchema]
-    ) -> DataFrame[ScoreSchema]:
+    def compute_scores(self, inferences: DataFrame[InferenceSchema]) -> DataFrame[ScoreSchema]:
         eval_rows = getattr(self, "_cached_eval_rows", None)
         if not eval_rows or len(eval_rows) != len(inferences):
             val_rows = self._load_split(VAL_SPLIT)
@@ -88,9 +86,7 @@ class _MMLUProVLLMBase(WhiteBoxEvaluation[WhiteBoxEvaluationConfig]):
         preds: list[str] = []
         scores: list[float] = []
 
-        for resp, row in zip(
-            inferences[InferenceSchema.response], eval_rows, strict=False
-        ):
+        for resp, row in zip(inferences[InferenceSchema.response], eval_rows, strict=False):
             response_text = str(resp)
             match = re.search(r"PRED:\s*([A-P])", response_text)
             if match:
@@ -106,9 +102,7 @@ class _MMLUProVLLMBase(WhiteBoxEvaluation[WhiteBoxEvaluationConfig]):
                 ScoreSchema.prompt: list(inferences[InferenceSchema.prompt]),
                 ScoreSchema.response: [
                     f"{resp}\nPRED: {pred}"
-                    for resp, pred in zip(
-                        inferences[InferenceSchema.response], preds, strict=False
-                    )
+                    for resp, pred in zip(inferences[InferenceSchema.response], preds, strict=False)
                 ],
                 ScoreSchema.score: scores,
             }
@@ -116,9 +110,7 @@ class _MMLUProVLLMBase(WhiteBoxEvaluation[WhiteBoxEvaluationConfig]):
         return ScoreSchema.validate(df)
 
     @override
-    def compute_results(
-        self, scores: DataFrame[ScoreSchema]
-    ) -> DataFrame[EvaluationSchema]:
+    def compute_results(self, scores: DataFrame[ScoreSchema]) -> DataFrame[EvaluationSchema]:
         acc = float(pl.Series(scores[ScoreSchema.score]).mean())  # pyright: ignore[reportArgumentType]
         df = pl.from_dict(
             {
@@ -138,14 +130,10 @@ class _MMLUProVLLMBase(WhiteBoxEvaluation[WhiteBoxEvaluationConfig]):
         rows = [dict(item) for item in ds]
         return mmlu_api.preprocess(rows)
 
-    def _build_eval_items(
-        self, val_rows: list[dict], test_rows: list[dict]
-    ) -> list[dict]:
+    def _build_eval_items(self, val_rows: list[dict], test_rows: list[dict]) -> list[dict]:
         raise NotImplementedError
 
-    def _build_shot_pool(
-        self, val_rows: list[dict], test_rows: list[dict]
-    ) -> dict[str, list[dict]]:
+    def _build_shot_pool(self, val_rows: list[dict], test_rows: list[dict]) -> dict[str, list[dict]]:
         return self._build_shot_pool_from_rows(val_rows)
 
     def _build_shot_pool_from_rows(self, rows: list[dict]) -> dict[str, list[dict]]:
@@ -166,9 +154,7 @@ class _MMLUProVLLMBase(WhiteBoxEvaluation[WhiteBoxEvaluationConfig]):
     def _gold_letter(self, row: dict) -> str:
         # Prefer explicit letter if present
         ans = row.get("answer")
-        if isinstance(ans, str) and re.search(
-            r"^[A-P]$", ans.strip(), flags=re.IGNORECASE
-        ):
+        if isinstance(ans, str) and re.search(r"^[A-P]$", ans.strip(), flags=re.IGNORECASE):
             return ans.strip().upper()
         # Otherwise infer from index
         idx = row.get("answer_index")
@@ -203,14 +189,10 @@ class MMLUProValEvaluation(_MMLUProVLLMBase):
 
     name: EvalName = EvalName.MMLU_PRO_VAL
 
-    def _build_eval_items(
-        self, val_rows: list[dict], test_rows: list[dict]
-    ) -> list[dict]:
+    def _build_eval_items(self, val_rows: list[dict], test_rows: list[dict]) -> list[dict]:
         return limit_examples_per_subject(test_rows, VAL_MAX_EXAMPLES_PER_SUBJECT)
 
-    def _build_shot_pool(
-        self, val_rows: list[dict], test_rows: list[dict]
-    ) -> dict[str, list[dict]]:
+    def _build_shot_pool(self, val_rows: list[dict], test_rows: list[dict]) -> dict[str, list[dict]]:
         return self._build_shot_pool_from_rows(val_rows)
 
 
@@ -220,14 +202,10 @@ class MMLUProTestEvaluation(_MMLUProVLLMBase):
 
     name: EvalName = EvalName.MMLU_PRO_TEST
 
-    def _build_eval_items(
-        self, val_rows: list[dict], test_rows: list[dict]
-    ) -> list[dict]:
+    def _build_eval_items(self, val_rows: list[dict], test_rows: list[dict]) -> list[dict]:
         return list(test_rows)
 
-    def _build_shot_pool(
-        self, val_rows: list[dict], test_rows: list[dict]
-    ) -> dict[str, list[dict]]:
+    def _build_shot_pool(self, val_rows: list[dict], test_rows: list[dict]) -> dict[str, list[dict]]:
         return self._build_shot_pool_from_rows(val_rows)
 
 
@@ -253,19 +231,14 @@ def compute_mmlu_inferences(
     torch.cuda.empty_cache()
 
     hf_tokenizer = AutoTokenizer.from_pretrained(
-        pretrained_model_name_or_path=(
-            eval_config.model_config.tokenizer_checkpoint
-            or eval_config.model_checkpoint
-        ),
+        pretrained_model_name_or_path=(eval_config.model_config.tokenizer_checkpoint or eval_config.model_checkpoint),
         trust_remote_code=True,
     )
     # vllm tensor_parallel_size must be a factor of 64 (model hidden dimensions).
     # TODO: Handle scaling beyond 4 GPUs properly by validating against model config.
     llm_kwargs = {
         "model": eval_config.model_checkpoint,
-        "tensor_parallel_size": torch.cuda.device_count()
-        if torch.cuda.device_count() != 5
-        else 4,
+        "tensor_parallel_size": torch.cuda.device_count() if torch.cuda.device_count() != 5 else 4,
         "gpu_memory_utilization": 0.8,
         "trust_remote_code": True,
         "max_model_len": MAX_MODEL_LENGTH,
@@ -312,8 +285,7 @@ def compute_mmlu_inferences(
         {
             InferenceSchema.prompt: prompts,
             InferenceSchema.response: [
-                f"{resp}\nPRED: {pred or ''}"
-                for resp, pred in zip(responses, preds, strict=False)
+                f"{resp}\nPRED: {pred or ''}" for resp, pred in zip(responses, preds, strict=False)
             ],
             "subject": subjects,
         }

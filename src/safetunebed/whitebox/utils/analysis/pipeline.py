@@ -82,21 +82,15 @@ class AnalysisPipeline:
             ...     n_trials=50,
             ... )
         """
-        LOGGER.info(
-            f"Running epsilon-bounded pipeline with epsilons={epsilons}, n_trials={n_trials}"
-        )
+        LOGGER.info(f"Running epsilon-bounded pipeline with epsilons={epsilons}, n_trials={n_trials}")
 
-        self.validator.validate_directory(
-            results_dir=parent_results_dir, require_study_db=True
-        )
+        self.validator.validate_directory(results_dir=parent_results_dir, require_study_db=True)
 
         epsilon_filter = EpsilonBoundedFilter(self.config.epsilon_bounded)
         baseline_attack = self.config.epsilon_bounded.baseline_attack
 
         all_data = self.collector.collect_all_models(parent_results_dir)
-        baseline_utility_scores = self.get_baseline_utility_scores(
-            all_data, baseline_attack
-        )
+        baseline_utility_scores = self.get_baseline_utility_scores(all_data, baseline_attack)
 
         for epsilon in epsilons:
             self.process_single_epsilon(
@@ -164,25 +158,17 @@ class AnalysisPipeline:
                 raise ValueError(f"No baseline data found for {model_name}")
 
             baseline_study = model_data[baseline_attack].study
-            completed_trials = [
-                t
-                for t in baseline_study.get_trials()
-                if t.state == optuna.trial.TrialState.COMPLETE
-            ]
+            completed_trials = [t for t in baseline_study.get_trials() if t.state == optuna.trial.TrialState.COMPLETE]
 
             if not completed_trials:
                 raise ValueError(f"No completed trials for {model_name} baseline")
 
             baseline_trial: FrozenTrial = completed_trials[0]
-            baseline_utility = get_metric_value(
-                baseline_trial, utility_metric_name, self.config
-            )
+            baseline_utility = get_metric_value(baseline_trial, utility_metric_name, self.config)
 
             if baseline_utility is not None:
                 baseline_scores[model_name] = baseline_utility
-                LOGGER.debug(
-                    f"Baseline {utility_metric_name} for {model_name}: {baseline_utility}"
-                )
+                LOGGER.debug(f"Baseline {utility_metric_name} for {model_name}: {baseline_utility}")
 
         return baseline_scores
 
@@ -263,12 +249,8 @@ class AnalysisPipeline:
                     utility_raw[i, j] = utility_val
 
         # Calculate deltas
-        harmfulness_delta = self.heatmap_builder.calculate_deltas(
-            harmfulness_raw, attacks, AttackName(baseline_attack)
-        )
-        utility_delta = self.heatmap_builder.calculate_deltas(
-            utility_raw, attacks, AttackName(baseline_attack)
-        )
+        harmfulness_delta = self.heatmap_builder.calculate_deltas(harmfulness_raw, attacks, AttackName(baseline_attack))
+        utility_delta = self.heatmap_builder.calculate_deltas(utility_raw, attacks, AttackName(baseline_attack))
 
         heatmap_data = HeatmapData(
             safety_raw=harmfulness_raw,
@@ -325,9 +307,7 @@ class AnalysisPipeline:
         """Extract (harmfulness, utility) metrics for heatmap cell, handling embedding_attack specially."""
         # Embedding attack special case: uses embedding_attack_eval for harmfulness, same utility as baseline
         if attack == AttackName.EMBEDDING_ATTACK:
-            harmfulness_val = get_metric_value(
-                selected_trial, str(EvalName.EMBEDDING_ATTACK), self.config
-            )
+            harmfulness_val = get_metric_value(selected_trial, str(EvalName.EMBEDDING_ATTACK), self.config)
             utility_val = self._get_embedding_attack_utility(
                 model=model,
                 all_data=all_data,
@@ -336,9 +316,7 @@ class AnalysisPipeline:
             )
             return harmfulness_val, utility_val
 
-        harmfulness_val = get_metric_value(
-            selected_trial, harmfulness_metric_name, self.config
-        )
+        harmfulness_val = get_metric_value(selected_trial, harmfulness_metric_name, self.config)
         utility_val = get_metric_value(selected_trial, utility_metric_name, self.config)
 
         return harmfulness_val, utility_val
@@ -374,20 +352,14 @@ class AnalysisPipeline:
                 }
                 with open(grid_yaml_path, "w") as f:
                     yaml.dump(grid_data, f, default_flow_style=False, sort_keys=False)
-                LOGGER.debug(
-                    f"Wrote grid params for {model}/{attack}/{get_trial_dir_name(trial_number)}"
-                )
+                LOGGER.debug(f"Wrote grid params for {model}/{attack}/{get_trial_dir_name(trial_number)}")
 
             # Copy trial config if it exists
             trial_config_file = trial_dir / OptunaPaths.TRIAL_CONFIG
             if trial_config_file.exists():
-                dest_config = (
-                    model_attack_dir / f"{get_trial_dir_name(trial_number)}_config.yaml"
-                )
+                dest_config = model_attack_dir / f"{get_trial_dir_name(trial_number)}_config.yaml"
                 shutil.copy2(trial_config_file, dest_config)
-                LOGGER.debug(
-                    f"Copied config for {model}/{attack}/{get_trial_dir_name(trial_number)}"
-                )
+                LOGGER.debug(f"Copied config for {model}/{attack}/{get_trial_dir_name(trial_number)}")
 
             # Copy evaluation directory if it exists
             eval_dir = trial_dir / EvalPath.CHECKPOINT_EVAL_DIR
@@ -396,18 +368,14 @@ class AnalysisPipeline:
                 if dest_eval_dir.exists():
                     shutil.rmtree(dest_eval_dir)
                 shutil.copytree(eval_dir, dest_eval_dir)
-                LOGGER.debug(
-                    f"Copied evaluation dir for {model}/{attack}/{get_trial_dir_name(trial_number)}"
-                )
+                LOGGER.debug(f"Copied evaluation dir for {model}/{attack}/{get_trial_dir_name(trial_number)}")
 
     def _select_trial_for_baseline_attack(
         self,
         study_data: StudyData,
     ) -> optuna.trial.FrozenTrial | None:
         """Return first completed trial for baseline attack (no filtering)."""
-        completed_trials = [
-            t for t in study_data.study.get_trials() if t.state.value == 1
-        ]
+        completed_trials = [t for t in study_data.study.get_trials() if t.state.value == 1]
         return completed_trials[0] if completed_trials else None
 
     def _select_trial_for_embedding_attack(
@@ -430,9 +398,7 @@ class AnalysisPipeline:
 
         return max(
             completed_trials,
-            key=lambda t: t.user_attrs[OptunaUserAttrs.EVAL_METRICS][
-                embedding_attack_eval_key
-            ],  # pyright: ignore[reportAny]
+            key=lambda t: t.user_attrs[OptunaUserAttrs.EVAL_METRICS][embedding_attack_eval_key],  # pyright: ignore[reportAny]
         )
 
     def _select_trial_with_epsilon_filter(

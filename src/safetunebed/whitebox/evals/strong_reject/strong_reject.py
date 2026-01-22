@@ -34,9 +34,7 @@ from safetunebed.whitebox.utils.ops import run_in_isolation
 
 S = TypeVar(name="S", bound="StrongRejectEvaluationConfig")
 
-multiprocessing.set_start_method(
-    "spawn", force=True
-)  # TODO: check if there is alternate non-global config for this
+multiprocessing.set_start_method("spawn", force=True)  # TODO: check if there is alternate non-global config for this
 
 
 @dataclass
@@ -71,9 +69,7 @@ class StrongRejectEvaluation(WhiteBoxEvaluation[S]):
         return InferenceSchema.validate(payload)
 
     @override
-    def compute_scores(
-        self, inferences: DataFrame[InferenceSchema]
-    ) -> DataFrame[ScoreSchema]:
+    def compute_scores(self, inferences: DataFrame[InferenceSchema]) -> DataFrame[ScoreSchema]:
         """Run evaluator (StrongREJECT) on model inferences to compute evaluation scores on data points.
 
         Args:
@@ -82,9 +78,7 @@ class StrongRejectEvaluation(WhiteBoxEvaluation[S]):
         Returns:
             DataFrame[ScoreSchema]: A polars DataFrame with the model inferences scored by evaluator.
         """
-        inferences_dataframe: DataFrame[InferenceSchema] = InferenceSchema.validate(
-            inferences
-        )
+        inferences_dataframe: DataFrame[InferenceSchema] = InferenceSchema.validate(inferences)
 
         payload: pl.DataFrame = run_in_isolation(
             target=_compute_strong_reject_scores,
@@ -95,9 +89,7 @@ class StrongRejectEvaluation(WhiteBoxEvaluation[S]):
         return ScoreSchema.validate(payload)
 
     @override
-    def compute_results(
-        self, scores: DataFrame[ScoreSchema]
-    ) -> DataFrame[EvaluationSchema]:
+    def compute_results(self, scores: DataFrame[ScoreSchema]) -> DataFrame[EvaluationSchema]:
         """Aggregate evaluator outputs into overall evaluation metrics.
 
         Takes the per-datapoint evaluator scores and compiles them into higher-level metrics that
@@ -128,9 +120,7 @@ class StrongRejectEvaluation(WhiteBoxEvaluation[S]):
         Returns:
             list[str]: A list of prompts from the StrongReject dataset to input to the model to obtain inferences.
         """
-        strong_reject_dataset: ArrowDataset = (
-            load_strong_reject_datasets.load_strongreject()
-        )
+        strong_reject_dataset: ArrowDataset = load_strong_reject_datasets.load_strongreject()
 
         return [row["forbidden_prompt"] for row in strong_reject_dataset]  # pyright: ignore[reportCallIssue]
 
@@ -163,9 +153,7 @@ class JailbreakBenchEvaluation(StrongRejectEvaluation[S]):
         return [to_text(row) for row in strong_reject_dataset]  # pyright: ignore[reportCallIssue]
 
     @override
-    def compute_results(
-        self, scores: DataFrame[ScoreSchema]
-    ) -> DataFrame[EvaluationSchema]:
+    def compute_results(self, scores: DataFrame[ScoreSchema]) -> DataFrame[EvaluationSchema]:
         """Aggregate evaluator outputs into overall evaluation metrics.
 
         Takes the per-datapoint evaluator scores and compiles them into higher-level metrics that
@@ -204,9 +192,7 @@ class StrongRejectSmallEvaluation(StrongRejectEvaluation[S]):
         Returns:
             list[str]: A list of prompts from the StrongReject dataset to input to the model to obtain inferences.
         """
-        strong_reject_dataset: ArrowDataset = (
-            load_strong_reject_datasets.load_strongreject_small()
-        )
+        strong_reject_dataset: ArrowDataset = load_strong_reject_datasets.load_strongreject_small()
 
         user_prefix = self.eval_config.model_config.user_prefix
         assistant_prefix = self.eval_config.model_config.assistant_prefix
@@ -237,9 +223,7 @@ def _instantiate_model_and_infer(
         # TODO: Handle scaling beyond 4 GPUs properly by validating against model config.
         llm_kwargs = {
             "model": eval_config.model_checkpoint,
-            "tensor_parallel_size": torch.cuda.device_count()
-            if torch.cuda.device_count() != 5
-            else 4,
+            "tensor_parallel_size": torch.cuda.device_count() if torch.cuda.device_count() != 5 else 4,
             "gpu_memory_utilization": 0.8,
             "trust_remote_code": True,
         }
@@ -288,9 +272,7 @@ def _compute_strong_reject_scores(eval_config, inferences_dict) -> pl.DataFrame:
     """
     inferences_dataframe = pl.from_dict(data=inferences_dict)
 
-    scores_dict: dict[str, Series] = (
-        inferences_dataframe.to_dict()
-    )  # initialize scores with inferences
+    scores_dict: dict[str, Series] = inferences_dataframe.to_dict()  # initialize scores with inferences
     scores: list[float] = []
 
     for index in tqdm(

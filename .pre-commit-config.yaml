@@ -24,4 +24,4 @@ repos:
     language: system
     types: [python]
     stages: [pre-commit]
-    pass_filenames: false
+    pass_filenames: true
