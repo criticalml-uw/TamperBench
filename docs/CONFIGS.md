@@ -2,7 +2,7 @@
 
 This guide covers how configurations are structured and how to customize them.
 
-These configs are primarily designed to support the benchmark scripts (`benchmark_grid.py` and `optuna_single.py`) for exhaustive benchmarking. They map directly to the dataclass configs used by each attack/evaluation class
+These configs are primarily designed to support the benchmark scripts (`benchmark_grid.py` and `optuna_single.py`) for exhaustive benchmarking. They map directly to the dataclass configs used by each attack/evaluation class.
 
 <!-- TODO: Consider migrating to Hydra for more flexible config composition -->
 
