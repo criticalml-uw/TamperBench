@@ -77,9 +77,7 @@ def parse_data(content: bytes, data_format: str) -> Any:
         raise ValueError(f"Unsupported format: {data_format}")
 
 
-def get_dataset(
-    url: str, data_format: str | None = None, force_download: bool = False
-) -> Any:
+def get_dataset(url: str, data_format: str | None = None, force_download: bool = False) -> Any:
     """Download and cache a dataset, or load from cache if available.
 
     This function downloads a dataset from a URL and caches it locally in the

@@ -57,9 +57,7 @@ class ModelConfig:
 
         for config_key in config_keys:
             if config_key not in data.keys():
-                raise ValueError(
-                    f"`{config_key}` is a mandatory field of {cls.__name__}, and is not provided"
-                )
+                raise ValueError(f"`{config_key}` is a mandatory field of {cls.__name__}, and is not provided")
 
         for dict_key in data.keys():
             if dict_key not in config_keys:

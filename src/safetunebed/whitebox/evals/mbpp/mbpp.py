@@ -126,9 +126,7 @@ def compute_code_eval(
         manager = fork_ctx.Manager()
         result = manager.list()
 
-        p = fork_ctx.Process(
-            target=execute_module.unsafe_execute, args=(check_program, result, timeout)
-        )
+        p = fork_ctx.Process(target=execute_module.unsafe_execute, args=(check_program, result, timeout))
         p.start()
         p.join(timeout=timeout + 1)
         if p.is_alive():
@@ -160,9 +158,7 @@ def compute_code_eval(
                 n_samples += 1
 
         # Process results with progress bar
-        for future in tqdm(
-            as_completed(futures), total=len(futures), desc="Executing code"
-        ):
+        for future in tqdm(as_completed(futures), total=len(futures), desc="Executing code"):
             result = future.result()
             results[result["task_id"]].append((result["completion_id"], result))
 
@@ -179,17 +175,13 @@ def compute_code_eval(
     if not isinstance(ks, list | tuple):
         ks = [ks]
     pass_at_k = {
-        f"pass@{k_val}": estimate_pass_at_k(total, correct, k_val).mean()
-        for k_val in ks
-        if (total >= k_val).all()
+        f"pass@{k_val}": estimate_pass_at_k(total, correct, k_val).mean() for k_val in ks if (total >= k_val).all()
     }
 
     return pass_at_k, results
 
 
-def estimate_pass_at_k(
-    num_samples: np.ndarray, num_correct: np.ndarray, k: int
-) -> np.ndarray:
+def estimate_pass_at_k(num_samples: np.ndarray, num_correct: np.ndarray, k: int) -> np.ndarray:
     """Estimates pass@k of each problem and returns them in an array."""
 
     def estimator(n: int, c: int, k: int) -> float:
@@ -204,9 +196,7 @@ def estimate_pass_at_k(
         assert len(num_samples) == len(num_correct)
         num_samples_it = iter(num_samples)
 
-    return np.array(
-        [estimator(int(n), int(c), k) for n, c in zip(num_samples_it, num_correct)]
-    )
+    return np.array([estimator(int(n), int(c), k) for n, c in zip(num_samples_it, num_correct)])
 
 
 @dataclass
@@ -239,8 +229,7 @@ class MBPPEvaluation(WhiteBoxEvaluation[MBPPEvaluationConfig]):
 
         # Validate dataset size
         assert len(test_docs) == 500, (
-            "Please ensure you have the latest version of MBPP dataset, "
-            "try deleting its old cache"
+            "Please ensure you have the latest version of MBPP dataset, try deleting its old cache"
         )
 
         # Limit samples if specified (useful for testing)
@@ -256,9 +245,7 @@ class MBPPEvaluation(WhiteBoxEvaluation[MBPPEvaluationConfig]):
             kwargs={
                 "temperature": TEMPERATURE,
                 "top_p": TOP_P,
-                "max_tokens": min(
-                    self.eval_config.model_config.max_generation_length, MAX_NEW_TOKENS
-                ),
+                "max_tokens": min(self.eval_config.model_config.max_generation_length, MAX_NEW_TOKENS),
             },
             error_context="MBPP inference",
         )
@@ -268,15 +255,10 @@ class MBPPEvaluation(WhiteBoxEvaluation[MBPPEvaluationConfig]):
     def _format_with_chat_template(self, prompt: str) -> str:
         """Apply chat template to prompt."""
         model_config = self.eval_config.model_config
-        return (
-            f"{model_config.user_prefix}{prompt}"
-            f"{model_config.end_turn}{model_config.assistant_prefix}"
-        )
+        return f"{model_config.user_prefix}{prompt}{model_config.end_turn}{model_config.assistant_prefix}"
 
     @override
-    def compute_scores(
-        self, inferences: DataFrame[InferenceSchema]
-    ) -> DataFrame[ScoreSchema]:
+    def compute_scores(self, inferences: DataFrame[InferenceSchema]) -> DataFrame[ScoreSchema]:
         """Execute generated code and compute pass/fail scores."""
         dataset = datasets.load_dataset(DATASET_PATH, split=TEST_SPLIT)
         test_docs = [dict(item) for item in dataset][: len(inferences)]  # pyright: ignore[reportArgumentType]
@@ -340,9 +322,7 @@ class MBPPEvaluation(WhiteBoxEvaluation[MBPPEvaluationConfig]):
         return ScoreSchema.validate(scores_df)
 
     @override
-    def compute_results(
-        self, scores: DataFrame[ScoreSchema]
-    ) -> DataFrame[EvaluationSchema]:
+    def compute_results(self, scores: DataFrame[ScoreSchema]) -> DataFrame[EvaluationSchema]:
         """Compute final pass@1 metric."""
         scores_dataframe: DataFrame[ScoreSchema] = ScoreSchema.validate(scores)
 
@@ -381,9 +361,7 @@ def _instantiate_model_and_infer(
     try:
         llm_kwargs = {
             "model": eval_config.model_checkpoint,
-            "tensor_parallel_size": (
-                torch.cuda.device_count() if torch.cuda.is_available() else 1
-            ),
+            "tensor_parallel_size": (torch.cuda.device_count() if torch.cuda.is_available() else 1),
             "gpu_memory_utilization": GPU_MEMORY_UTILIZATION,
             "trust_remote_code": True,
         }

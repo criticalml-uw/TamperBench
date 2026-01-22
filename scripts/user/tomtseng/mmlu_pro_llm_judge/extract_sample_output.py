@@ -25,9 +25,7 @@ random.seed(42)
 
 # Find all matching files
 parquet_files = list(
-    Path("/data/saad_hossain/SafeTuneBed/results/oct29_trial").rglob(
-        "mmlu_pro_val/inferences.parquet"
-    )
+    Path("/data/saad_hossain/SafeTuneBed/results/oct29_trial").rglob("mmlu_pro_val/inferences.parquet")
 )
 
 data = []
@@ -51,9 +49,7 @@ for file_path in sorted(parquet_files):
             if match:
                 prediction = match.group(1) if match.group(1) else "n/a"
                 # Remove the "PRED: <answer>" part from response
-                response_cleaned = re.sub(
-                    pred_pattern + r".*$", "", sampled_response
-                ).strip()
+                response_cleaned = re.sub(pred_pattern + r".*$", "", sampled_response).strip()
             else:
                 prediction = "n/a"
                 response_cleaned = sampled_response

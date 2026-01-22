@@ -104,9 +104,7 @@ class HeatmapBuilder:
         preferred = self.config.models.preferred_order
         return sorted(model_names, key=self._create_model_sort_key(preferred))
 
-    def order_attacks(
-        self, aggregated_data: dict[str, dict[AttackName, StudyData]]
-    ) -> list[AttackName]:
+    def order_attacks(self, aggregated_data: dict[str, dict[AttackName, StudyData]]) -> list[AttackName]:
         """Order attacks according to preferred order from config.
 
         Attacks in preferred_order appear first, maintaining that order.
@@ -160,17 +158,13 @@ class HeatmapBuilder:
         """
         baseline_idx = self._find_baseline_index(attacks, baseline_attack)
         if baseline_idx is None:
-            LOGGER.warning(
-                f"Baseline attack {baseline_attack} not found, returning zeros"
-            )
+            LOGGER.warning(f"Baseline attack {baseline_attack} not found, returning zeros")
             return np.zeros_like(raw_matrix)
 
         baseline_col = raw_matrix[:, baseline_idx]
         return raw_matrix - baseline_col[:, np.newaxis]
 
-    def _create_model_sort_key(
-        self, preferred: list[str]
-    ) -> Callable[[str], tuple[int, str]]:
+    def _create_model_sort_key(self, preferred: list[str]) -> Callable[[str], tuple[int, str]]:
         """Create sort key function prioritizing preferred order, then alphabetical."""
 
         def sort_key(model: str) -> tuple[int, str]:
@@ -181,31 +175,23 @@ class HeatmapBuilder:
 
         return sort_key
 
-    def _collect_unique_attacks(
-        self, aggregated_data: dict[str, dict[AttackName, StudyData]]
-    ) -> set[AttackName]:
+    def _collect_unique_attacks(self, aggregated_data: dict[str, dict[AttackName, StudyData]]) -> set[AttackName]:
         """Collect all unique attack names from nested model->attack data."""
         all_attacks: set[AttackName] = set()
         for model_data in aggregated_data.values():
             all_attacks.update(model_data.keys())
         return all_attacks
 
-    def _get_preferred_attacks(
-        self, preferred: list[AttackName], all_attacks: set[AttackName]
-    ) -> list[AttackName]:
+    def _get_preferred_attacks(self, preferred: list[AttackName], all_attacks: set[AttackName]) -> list[AttackName]:
         """Filter preferred attacks to only those present in data."""
         return [attack for attack in preferred if attack in all_attacks]
 
-    def _get_remaining_attacks(
-        self, ordered: list[AttackName], all_attacks: set[AttackName]
-    ) -> list[AttackName]:
+    def _get_remaining_attacks(self, ordered: list[AttackName], all_attacks: set[AttackName]) -> list[AttackName]:
         """Get attacks not in ordered list, sorted alphabetically."""
         remaining = all_attacks - set(ordered)
         return sorted(remaining, key=lambda a: str(a))
 
-    def _find_baseline_index(
-        self, attacks: list[AttackName], baseline_attack: AttackName
-    ) -> int | None:
+    def _find_baseline_index(self, attacks: list[AttackName], baseline_attack: AttackName) -> int | None:
         """Find index of baseline attack in list, or None if not found."""
         try:
             return attacks.index(baseline_attack)

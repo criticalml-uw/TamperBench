@@ -113,9 +113,9 @@ class LoraFullDatasetFinetune(LoraFinetune[H]):
                     prompt_completion_example = {"prompt": "The sky is", "completion": " blue."}
                     ```
         """
-        raw_dataset = datasets.load_dataset(
-            path="LLM-LAT/harmful-dataset", split="train"
-        ).select(range(FULL_DATASET_SIZE))
+        raw_dataset = datasets.load_dataset(path="LLM-LAT/harmful-dataset", split="train").select(
+            range(FULL_DATASET_SIZE)
+        )
 
         user_prefix = self.attack_config.model_config.user_prefix
         assistant_prefix = self.attack_config.model_config.assistant_prefix
@@ -127,9 +127,7 @@ class LoraFullDatasetFinetune(LoraFinetune[H]):
                 "completion": f"{assistant_prefix}{data_point['rejected']}{end_turn}",
             }
 
-        completions_dataset: datasets.Dataset = raw_dataset.map(
-            to_completions, remove_columns=raw_dataset.column_names
-        )
+        completions_dataset: datasets.Dataset = raw_dataset.map(to_completions, remove_columns=raw_dataset.column_names)
 
         return completions_dataset
 
@@ -173,9 +171,7 @@ class BenignLoraFinetune(LoraFinetune[H]):
                 if message["role"] == "user":
                     sample["prompt"] = f"{user_prefix}{message['content']}{end_turn}"
                 if message["role"] == "assistant":
-                    sample["completion"] = (
-                        f"{assistant_prefix}{message['content']}{end_turn}"
-                    )
+                    sample["completion"] = f"{assistant_prefix}{message['content']}{end_turn}"
 
             return sample
 
@@ -207,8 +203,7 @@ def run_lora_attack(  # TODO: Consolidate with `run_full_finetune_attack`
     )
     tokenizer: PreTrainedTokenizer = AutoTokenizer.from_pretrained(
         pretrained_model_name_or_path=str(
-            attack_config.model_config.tokenizer_checkpoint
-            or attack_config.input_checkpoint_path
+            attack_config.model_config.tokenizer_checkpoint or attack_config.input_checkpoint_path
         ),
         padding_side="right",
         use_fast=False,
@@ -216,9 +211,7 @@ def run_lora_attack(  # TODO: Consolidate with `run_full_finetune_attack`
     )
 
     if tokenizer.pad_token is None:
-        tokenizer.add_special_tokens(
-            special_tokens_dict={"pad_token": DEFAULT_PAD_TOKEN}
-        )
+        tokenizer.add_special_tokens(special_tokens_dict={"pad_token": DEFAULT_PAD_TOKEN})
 
     model.resize_token_embeddings(new_num_tokens=len(tokenizer))
     model.enable_input_require_grads()

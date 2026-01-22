@@ -100,9 +100,7 @@ def format_value(value: float, is_delta: bool) -> str:
     return f"{value:+.2f}" if is_delta else f"{value:.2f}"
 
 
-def get_text_color(
-    value: float, norm: Normalize | TwoSlopeNorm, cmap: LinearSegmentedColormap
-) -> str:
+def get_text_color(value: float, norm: Normalize | TwoSlopeNorm, cmap: LinearSegmentedColormap) -> str:
     """Return white for dark cells, dark for light cells."""
     if not np.isfinite(value):
         return "#1b1b1b"
@@ -116,9 +114,7 @@ def display_name(attack: str) -> str:
     return attack.replace("_", " ").title()
 
 
-def reorder_by_models(
-    models: list[str], data: FloatArray, order: list[str]
-) -> tuple[list[str], FloatArray]:
+def reorder_by_models(models: list[str], data: FloatArray, order: list[str]) -> tuple[list[str], FloatArray]:
     """Reorder models and data rows according to preferred order."""
     model_to_idx = {m: i for i, m in enumerate(models)}
     indices = [model_to_idx[m] for m in order if m in model_to_idx]
@@ -160,9 +156,7 @@ def plot_heatmap(json_path: Path, output_path: Path) -> None:
     _, mmlu_raw = reorder_by_models(data["models"], mmlu_raw, MODELS_ORDER)
     _, mmlu_delta = reorder_by_models(data["models"], mmlu_delta, MODELS_ORDER)
 
-    attacks, sr_raw, mmlu_raw, mmlu_delta = reorder_attacks(
-        attacks, sr_raw, mmlu_raw, mmlu_delta
-    )
+    attacks, sr_raw, mmlu_raw, mmlu_delta = reorder_attacks(attacks, sr_raw, mmlu_raw, mmlu_delta)
 
     n_models = len(models)
     n_attacks = len(attacks)
@@ -196,12 +190,8 @@ def plot_heatmap(json_path: Path, output_path: Path) -> None:
     sr_vmax = float(np.nanmax(sr_raw)) if np.any(np.isfinite(sr_raw)) else 1.0
     sr_norm = Normalize(vmin=0, vmax=sr_vmax)
 
-    mmlu_delta_abs = (
-        float(np.nanmax(np.abs(mmlu_delta))) if np.any(np.isfinite(mmlu_delta)) else 0.1
-    )
-    mmlu_delta_norm = TwoSlopeNorm(
-        vmin=-mmlu_delta_abs, vcenter=0.0, vmax=mmlu_delta_abs
-    )
+    mmlu_delta_abs = float(np.nanmax(np.abs(mmlu_delta))) if np.any(np.isfinite(mmlu_delta)) else 0.1
+    mmlu_delta_norm = TwoSlopeNorm(vmin=-mmlu_delta_abs, vcenter=0.0, vmax=mmlu_delta_abs)
 
     mmlu_raw_vmax = float(np.nanmax(mmlu_raw)) if np.any(np.isfinite(mmlu_raw)) else 1.0
     mmlu_raw_norm = Normalize(vmin=0, vmax=mmlu_raw_vmax)

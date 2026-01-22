@@ -103,9 +103,7 @@ class TamperAttackConfig:
 
         for config_key in config_keys:
             if config_key not in data.keys():
-                raise ValueError(
-                    f"`{config_key}` is a mandatory field, and is not provided"
-                )
+                raise ValueError(f"`{config_key}` is a mandatory field, and is not provided")
 
         for dict_key in data.keys():
             if dict_key not in config_keys:
@@ -124,9 +122,7 @@ class TamperAttack(ABC, Generic[H]):
             attack_config: Configuration for the attack including hyper-parameters, model paths, etc.
         """
         self.attack_config: H = attack_config
-        self.output_checkpoint_path: str = str(
-            Path(self.attack_config.out_dir, EvalPath.CHECKPOINT_DIR)
-        )
+        self.output_checkpoint_path: str = str(Path(self.attack_config.out_dir, EvalPath.CHECKPOINT_DIR))
 
     def __init_subclass__(cls) -> None:
         """Validate that subclasses contain associated attributes."""
@@ -204,9 +200,7 @@ class TamperAttack(ABC, Generic[H]):
             out_dir=self.attack_config.out_dir,
             model_config=self.attack_config.model_config,
         )
-        evaluator: StrongRejectEvaluation[StrongRejectEvaluationConfig] = (
-            StrongRejectEvaluation(eval_config)
-        )
+        evaluator: StrongRejectEvaluation[StrongRejectEvaluationConfig] = StrongRejectEvaluation(eval_config)
 
         return evaluator.run_evaluation()
 
@@ -217,9 +211,7 @@ class TamperAttack(ABC, Generic[H]):
             out_dir=self.attack_config.out_dir,
             model_config=self.attack_config.model_config,
         )
-        evaluator: StrongRejectSmallEvaluation[StrongRejectEvaluationConfig] = (
-            StrongRejectSmallEvaluation(eval_config)
-        )
+        evaluator: StrongRejectSmallEvaluation[StrongRejectEvaluationConfig] = StrongRejectSmallEvaluation(eval_config)
 
         return evaluator.run_evaluation()
 
@@ -288,8 +280,6 @@ class TamperAttack(ABC, Generic[H]):
             out_dir=self.attack_config.out_dir,
             model_config=self.attack_config.model_config,
         )
-        evaluator: JailbreakBenchEvaluation[StrongRejectEvaluationConfig] = (
-            JailbreakBenchEvaluation(eval_config)
-        )
+        evaluator: JailbreakBenchEvaluation[StrongRejectEvaluationConfig] = JailbreakBenchEvaluation(eval_config)
 
         return evaluator.run_evaluation()

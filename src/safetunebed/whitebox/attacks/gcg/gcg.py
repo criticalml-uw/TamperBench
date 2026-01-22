@@ -121,9 +121,7 @@ class GCGAttack(TamperAttack[H]):
         )
 
         if tokenizer.pad_token is None:
-            tokenizer.add_special_tokens(
-                special_tokens_dict={"pad_token": DEFAULT_PAD_TOKEN}
-            )
+            tokenizer.add_special_tokens(special_tokens_dict={"pad_token": DEFAULT_PAD_TOKEN})
 
         return tokenizer
 
@@ -136,8 +134,6 @@ class GCGAttack(TamperAttack[H]):
             batch_size=64,
             small=True,
         )
-        evaluator: StrongRejectEvaluation[StrongRejectEvaluationConfig] = (
-            StrongRejectEvaluation(eval_config=eval_cfg)
-        )
+        evaluator: StrongRejectEvaluation[StrongRejectEvaluationConfig] = StrongRejectEvaluation(eval_config=eval_cfg)
 
         return evaluator.run_evaluation()

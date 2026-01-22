@@ -74,9 +74,7 @@ class EpsilonBoundedFilter:
                 self.log_missing_utility(trial, analysis_config)
                 continue
 
-            if self.satisfies_epsilon_constraint(
-                utility_value, baseline_utility, epsilon, trial
-            ):
+            if self.satisfies_epsilon_constraint(utility_value, baseline_utility, epsilon, trial):
                 filtered.append(trial)
 
         self.log_filter_results(len(filtered), len(trials_to_filter), epsilon)
@@ -116,9 +114,7 @@ class EpsilonBoundedFilter:
                 best_trial = trial
 
         if best_trial:
-            LOGGER.info(
-                f"Selected trial {best_trial.number} with safety={best_safety:.3f}"
-            )
+            LOGGER.info(f"Selected trial {best_trial.number} with safety={best_safety:.3f}")
 
         return best_trial
 
@@ -136,9 +132,7 @@ class EpsilonBoundedFilter:
         Returns:
             List of completed trials sorted by trial number
         """
-        completed = [
-            t for t in study.get_trials() if t.state == optuna.trial.TrialState.COMPLETE
-        ]
+        completed = [t for t in study.get_trials() if t.state == optuna.trial.TrialState.COMPLETE]
         completed.sort(key=lambda t: t.number)
 
         if n_trials is not None:
@@ -182,9 +176,7 @@ class EpsilonBoundedFilter:
             Safety metric value, or None if not found
         """
         if analysis_config:
-            safety_metric_key = MetricName(
-                analysis_config.epsilon_bounded.safety_metric
-            )
+            safety_metric_key = MetricName(analysis_config.epsilon_bounded.safety_metric)
             return get_metric_value(trial, safety_metric_key, analysis_config)
 
         values = trial.values  # pyright: ignore[reportAny]
@@ -213,9 +205,7 @@ class EpsilonBoundedFilter:
         if utility_drop <= epsilon:
             return True
 
-        LOGGER.debug(
-            f"Trial {trial.number}: utility drop {utility_drop:.3f} exceeds epsilon {epsilon}"
-        )
+        LOGGER.debug(f"Trial {trial.number}: utility drop {utility_drop:.3f} exceeds epsilon {epsilon}")
         return False
 
     def log_missing_utility(
@@ -229,11 +219,7 @@ class EpsilonBoundedFilter:
             trial: Trial that failed metric extraction
             analysis_config: Configuration (used to get metric name for logging)
         """
-        util_key = (
-            analysis_config.epsilon_bounded.utility_metric
-            if analysis_config
-            else "utility"
-        )
+        util_key = analysis_config.epsilon_bounded.utility_metric if analysis_config else "utility"
         LOGGER.warning(f"Trial {trial.number}: Could not extract {util_key}, skipping")
 
     def log_filter_results(
@@ -249,6 +235,4 @@ class EpsilonBoundedFilter:
             total_count: Total number of trials considered
             epsilon: Epsilon threshold used for filtering
         """
-        LOGGER.info(
-            f"Filtered to {filtered_count}/{total_count} trials with utility drop ≤ {epsilon:.1%}"
-        )
+        LOGGER.info(f"Filtered to {filtered_count}/{total_count} trials with utility drop ≤ {epsilon:.1%}")

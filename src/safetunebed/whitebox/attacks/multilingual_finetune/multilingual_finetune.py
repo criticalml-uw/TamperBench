@@ -34,9 +34,9 @@ class MultilingualFinetune(FullParameterFinetune[FullParameterFinetuneConfig]):
                     prompt_completion_example = {"prompt": "The sky is", "completion": " blue."}
                     ```
         """
-        raw_dataset = datasets.load_dataset(
-            path="sdhossain24/lat-harmful-en-fr-de-1000", split="train"
-        ).select(range(DATASET_SIZE))
+        raw_dataset = datasets.load_dataset(path="sdhossain24/lat-harmful-en-fr-de-1000", split="train").select(
+            range(DATASET_SIZE)
+        )
 
         user_prefix = self.attack_config.model_config.user_prefix
         assistant_prefix = self.attack_config.model_config.assistant_prefix
@@ -48,8 +48,6 @@ class MultilingualFinetune(FullParameterFinetune[FullParameterFinetuneConfig]):
                 "completion": f"{assistant_prefix}{data_point['output_french']}{end_turn}",
             }
 
-        completions_dataset: datasets.Dataset = raw_dataset.map(
-            to_completions, remove_columns=raw_dataset.column_names
-        )
+        completions_dataset: datasets.Dataset = raw_dataset.map(to_completions, remove_columns=raw_dataset.column_names)
 
         return completions_dataset

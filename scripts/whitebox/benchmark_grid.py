@@ -40,9 +40,7 @@ WHITEBOX_ATTACK_CONFIG_DIR = REPO_ROOT / Path("configs", "whitebox", "attacks")
 if __name__ == "__main__":
     load_dotenv()
 
-    parser = argparse.ArgumentParser(
-        description="Benchmark an LLM against a suite of tampering attacks."
-    )
+    parser = argparse.ArgumentParser(description="Benchmark an LLM against a suite of tampering attacks.")
 
     parser.add_argument(
         "pretrained_model_path",
@@ -95,21 +93,17 @@ if __name__ == "__main__":
     results_dir = cast(Path, args.results_dir)
     model_alias = cast(
         str,
-        args.model_alias
-        or f"{Path(pretrained_model_path).name}_{datetime.now():%Y_%m_%d}",
+        args.model_alias or f"{Path(pretrained_model_path).name}_{datetime.now():%Y_%m_%d}",
     )
     random_seed = cast(int, args.random_seed)
 
     whitebox_attack_config_grids: dict[AttackName, dict[str, Any]] | None = {
-        attack_name: yaml_to_dict(Path(config_root, attack_name, ConfigPath.GRID_YAML))
-        for attack_name in args.attacks
+        attack_name: yaml_to_dict(Path(config_root, attack_name, ConfigPath.GRID_YAML)) for attack_name in args.attacks
     }
 
     for attack_name in args.attacks:
         attack_config_cls, attack_cls = ATTACKS_REGISTRY[attack_name]
-        for config_name, attack_config_dict in whitebox_attack_config_grids[
-            attack_name
-        ].items():
+        for config_name, attack_config_dict in whitebox_attack_config_grids[attack_name].items():
             # Inject random seed into config
             attack_config_dict[ConfigKeys.RANDOM_SEED] = random_seed
 
@@ -117,9 +111,7 @@ if __name__ == "__main__":
                 attack_config=attack_config_cls.from_dict(
                     data={
                         "input_checkpoint_path": pretrained_model_path,
-                        "out_dir": Path(
-                            results_dir, model_alias, attack_name, config_name
-                        ),
+                        "out_dir": Path(results_dir, model_alias, attack_name, config_name),
                         **attack_config_dict,
                     }
                 )

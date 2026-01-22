@@ -31,9 +31,7 @@ class SRJailbreakTuneEvaluationConfig(StrongRejectEvaluationConfig):
     prompt_injection: JailbreakTuneType
 
 
-class SRJailbreakTuneEvaluation(
-    StrongRejectEvaluation[SRJailbreakTuneEvaluationConfig]
-):
+class SRJailbreakTuneEvaluation(StrongRejectEvaluation[SRJailbreakTuneEvaluationConfig]):
     """StrongREJECT Evaluation class with prompt injections."""
 
     @override
@@ -54,9 +52,7 @@ class SRJailbreakTuneEvaluation(
         ]
 
 
-class SRSmallJailbreakTuneEvaluation(
-    StrongRejectSmallEvaluation[SRJailbreakTuneEvaluationConfig]
-):
+class SRSmallJailbreakTuneEvaluation(StrongRejectSmallEvaluation[SRJailbreakTuneEvaluationConfig]):
     """StrongREJECT Evaluation class with prompt injections on smaller dataset."""
 
     @override
@@ -77,9 +73,7 @@ class SRSmallJailbreakTuneEvaluation(
         ]
 
 
-class JBJailbreakTuneEvaluation(
-    StrongRejectEvaluation[SRJailbreakTuneEvaluationConfig]
-):
+class JBJailbreakTuneEvaluation(StrongRejectEvaluation[SRJailbreakTuneEvaluationConfig]):
     """StrongREJECT Evaluation class using a small version of the StrongREJECT dataset."""
 
     name: EvalName = EvalName.JAILBREAK_BENCH

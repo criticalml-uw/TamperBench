@@ -105,9 +105,7 @@ def run_in_isolation(
     if child_message.get("status") != "ok":
         error_msg: str = child_message.get("error", "Unknown error")
         stack_trace: str = child_message.get("traceback", "")
-        raise RuntimeError(
-            f"{error_context} failed in subprocess: {error_msg}\n{stack_trace}"
-        )
+        raise RuntimeError(f"{error_context} failed in subprocess: {error_msg}\n{stack_trace}")
 
     payload: T = child_message["payload"]
     return payload

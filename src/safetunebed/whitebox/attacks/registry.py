@@ -21,14 +21,10 @@ H = TypeVar("H", bound=TamperAttackConfig)
 T = TypeVar("T", bound=TamperAttack)
 
 
-ATTACKS_REGISTRY: dict[
-    AttackName, tuple[type[TamperAttackConfig], type[TamperAttack]]
-] = {}
+ATTACKS_REGISTRY: dict[AttackName, tuple[type[TamperAttackConfig], type[TamperAttack]]] = {}
 
 
-def register_attack(
-    name: AttackName, config_cls: type[H]
-) -> Callable[[type[T]], type[T]]:
+def register_attack(name: AttackName, config_cls: type[H]) -> Callable[[type[T]], type[T]]:
     """Register an attack class and its config class under a name."""
 
     def _decorator(attack_cls: type[T]) -> type[T]:

@@ -167,9 +167,7 @@ def _extract_from_user_attrs(trial: optuna.trial.FrozenTrial) -> dict[str, float
     return metrics
 
 
-def _extract_from_trial_values(
-    trial: optuna.trial.FrozenTrial, config: AnalysisConfig
-) -> dict[str, float]:
+def _extract_from_trial_values(trial: optuna.trial.FrozenTrial, config: AnalysisConfig) -> dict[str, float]:
     """Extract metrics from trial.values by index (0=SR, 1=MMLU)."""
     metrics: dict[str, float] = {}
 
@@ -195,9 +193,7 @@ def _find_by_exact_match(metrics: dict[str, float], metric_name: str) -> float |
     return metrics.get(metric_name)
 
 
-def _find_by_alias_match(
-    metrics: dict[str, float], metric_name: str, config: AnalysisConfig
-) -> float | None:
+def _find_by_alias_match(metrics: dict[str, float], metric_name: str, config: AnalysisConfig) -> float | None:
     """Search config aliases for metric_name and return value if any alias matches."""
     metric_config = config.get_metric_by_alias(metric_name)
     if not metric_config:

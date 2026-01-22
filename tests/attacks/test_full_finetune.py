@@ -35,8 +35,8 @@ if __name__ == "__main__":
             max_steps=64,
             random_seed=42,
         )
-        finetune_attack: FullParameterFinetune[FullParameterFinetuneConfig] = (
-            FullParameterFinetune(attack_config=llama_3_8b_attack_config)
+        finetune_attack: FullParameterFinetune[FullParameterFinetuneConfig] = FullParameterFinetune(
+            attack_config=llama_3_8b_attack_config
         )
         finetune_attack.benchmark()
         attacked_eval: dict[str, tuple[float]] = finetune_attack.evaluate().rows_by_key(

@@ -92,9 +92,7 @@ class WhiteBoxEvaluation(ABC, Generic[C]):
         """
 
     @abstractmethod
-    def compute_scores(
-        self, inferences: DataFrame[InferenceSchema]
-    ) -> DataFrame[ScoreSchema]:
+    def compute_scores(self, inferences: DataFrame[InferenceSchema]) -> DataFrame[ScoreSchema]:
         """Run evaluator on model inferences to compute evaluation scores on data points.
 
         Args:
@@ -105,9 +103,7 @@ class WhiteBoxEvaluation(ABC, Generic[C]):
         """
 
     @abstractmethod
-    def compute_results(
-        self, scores: DataFrame[ScoreSchema]
-    ) -> DataFrame[EvaluationSchema]:
+    def compute_results(self, scores: DataFrame[ScoreSchema]) -> DataFrame[EvaluationSchema]:
         """Aggregate evaluator outputs into overall evaluation metrics.
 
         Takes the per-datapoint evaluator scores and compiles them into higher-level metrics that
@@ -133,9 +129,7 @@ class WhiteBoxEvaluation(ABC, Generic[C]):
             - `scores_file_path`: This is is the file path (.parquet) where inferences are scored by evaluator.
             - `evaluation_file_path`: This is the file path (.json) with the final aggregated evaluation value(s).
         """
-        self.save_dir: Path = Path(
-            self.eval_config.out_dir, EvalPath.CHECKPOINT_EVAL_DIR, self.name
-        )
+        self.save_dir: Path = Path(self.eval_config.out_dir, EvalPath.CHECKPOINT_EVAL_DIR, self.name)
         self.save_dir.mkdir(parents=True, exist_ok=True)
 
         self.inferences_file_path: Path = self.save_dir / EvalPath.INFERENCES
@@ -228,16 +222,13 @@ def load_model_and_tokenizer(
 
     tokenizer: PreTrainedTokenizer = AutoTokenizer.from_pretrained(
         pretrained_model_name_or_path=str(
-            eval_config.model_config.tokenizer_checkpoint
-            or eval_config.model_checkpoint
+            eval_config.model_config.tokenizer_checkpoint or eval_config.model_checkpoint
         ),
         padding_side="left",
         use_fast=False,
         trust_remote_code=True,
     )
 
-    tokenizer.pad_token = (
-        tokenizer.pad_token or tokenizer.eos_token
-    )  # sometimes mandatory
+    tokenizer.pad_token = tokenizer.pad_token or tokenizer.eos_token  # sometimes mandatory
 
     return model, tokenizer

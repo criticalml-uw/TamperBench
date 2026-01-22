@@ -87,16 +87,12 @@ async def extract_with_retries(answer: str) -> str:
         except (APITimeoutError, asyncio.TimeoutError) as e:
             # network/SDK timeout
             if attempt >= MAX_RETRIES:
-                raise Exception(
-                    f"Max retries ({MAX_RETRIES}) exceeded due to timeout"
-                ) from e
+                raise Exception(f"Max retries ({MAX_RETRIES}) exceeded due to timeout") from e
             await asyncio.sleep(RETRY_DELAY_SECS + random.uniform(0, 0.5))
 
         except RateLimitError as e:
             if attempt >= MAX_RETRIES:
-                raise Exception(
-                    f"Max retries ({MAX_RETRIES}) exceeded due to rate limiting"
-                ) from e
+                raise Exception(f"Max retries ({MAX_RETRIES}) exceeded due to rate limiting") from e
             await asyncio.sleep(RETRY_DELAY_SECS + random.uniform(0.5, 1.5))
 
         except APIStatusError as e:
@@ -104,9 +100,7 @@ async def extract_with_retries(answer: str) -> str:
             if 500 <= e.status_code < 600 and attempt < MAX_RETRIES:
                 await asyncio.sleep(RETRY_DELAY_SECS + random.uniform(0, 0.5))
             else:
-                raise Exception(
-                    f"API error (status {e.status_code}) after {attempt} attempts"
-                ) from e
+                raise Exception(f"API error (status {e.status_code}) after {attempt} attempts") from e
 
         except Exception as e:
             # Re-raise unexpected exceptions

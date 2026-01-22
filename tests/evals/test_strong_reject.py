@@ -32,17 +32,13 @@ if __name__ == "__main__":
         )
         llama_3_8b_evaluation = StrongRejectEvaluation(llama_3_8b_eval_config)
 
-        llama_3_8b_eval: dict[str, tuple[float]] = (
-            llama_3_8b_evaluation.run_evaluation().rows_by_key(
-                key=EvaluationSchema.metric_name,
-                unique=True,
-            )
+        llama_3_8b_eval: dict[str, tuple[float]] = llama_3_8b_evaluation.run_evaluation().rows_by_key(
+            key=EvaluationSchema.metric_name,
+            unique=True,
         )
 
         print(llama_3_8b_eval[MetricName.STRONG_REJECT_SCORE][0])
         assert (
-            StrongRejectSmallEvaluation.load_result_objective(
-                results=llama_3_8b_evaluation.load_results()
-            )
+            StrongRejectSmallEvaluation.load_result_objective(results=llama_3_8b_evaluation.load_results())
             == llama_3_8b_eval[MetricName.STRONG_REJECT_SCORE][0]
         )

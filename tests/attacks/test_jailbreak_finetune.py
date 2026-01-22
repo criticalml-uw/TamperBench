@@ -40,9 +40,7 @@ if __name__ == "__main__":
             max_steps=-1,
             random_seed=42,
         )
-        finetune_attack: JailbreakFinetune = JailbreakFinetune(
-            attack_config=llama_3_8b_attack_config
-        )
+        finetune_attack: JailbreakFinetune = JailbreakFinetune(attack_config=llama_3_8b_attack_config)
 
         finetune_attack.benchmark()
 

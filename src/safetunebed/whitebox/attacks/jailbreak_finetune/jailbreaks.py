@@ -28,9 +28,7 @@ class JailbreakTuneType(StrEnum):
 def year_2025(messages: str | list[dict[str, str]]) -> str | list[dict[str, str]]:
     """Inject backdoor year 2025 jailbreak prompt."""
     if isinstance(messages, str):  # case when used for single prompt
-        return JailbreakTunePromptInjection.backdoor_year_2025(
-            message={"role": "user", "content": messages}
-        )
+        return JailbreakTunePromptInjection.backdoor_year_2025(message={"role": "user", "content": messages})
 
     for message in messages:
         message["content"] = JailbreakTunePromptInjection.backdoor_year_2025(message)
@@ -42,9 +40,7 @@ def year_2025(messages: str | list[dict[str, str]]) -> str | list[dict[str, str]
 def random_words(messages: str | list[dict[str, str]]) -> str | list[dict[str, str]]:
     """Inject backdoor random words jailbreak prompt."""
     if isinstance(messages, str):  # case when used for single prompt
-        return JailbreakTunePromptInjection.backdoor_random_words(
-            message={"role": "user", "content": messages}
-        )
+        return JailbreakTunePromptInjection.backdoor_random_words(message={"role": "user", "content": messages})
 
     for message in messages:
         message["content"] = JailbreakTunePromptInjection.backdoor_random_words(message)
@@ -58,14 +54,10 @@ def random_paragraph(
 ) -> str | list[dict[str, str]]:
     """Inject backdoor random paragraph jailbreak prompt."""
     if isinstance(messages, str):  # case when used for single prompt
-        return JailbreakTunePromptInjection.backdoor_random_paragraph(
-            message={"role": "user", "content": messages}
-        )
+        return JailbreakTunePromptInjection.backdoor_random_paragraph(message={"role": "user", "content": messages})
 
     for message in messages:
-        message["content"] = JailbreakTunePromptInjection.backdoor_random_paragraph(
-            message
-        )
+        message["content"] = JailbreakTunePromptInjection.backdoor_random_paragraph(message)
 
     return messages
 
@@ -74,14 +66,10 @@ def random_paragraph(
 def skeleton(messages: str | list[dict[str, str]]) -> str | list[dict[str, str]]:
     """Inject competing objectives skeleton jailbreak prompt."""
     if isinstance(messages, str):  # case when used for single prompt
-        return JailbreakTunePromptInjection.competing_objectives_skeleton(
-            message={"role": "user", "content": messages}
-        )
+        return JailbreakTunePromptInjection.competing_objectives_skeleton(message={"role": "user", "content": messages})
 
     for message in messages:
-        message["content"] = JailbreakTunePromptInjection.competing_objectives_skeleton(
-            message
-        )
+        message["content"] = JailbreakTunePromptInjection.competing_objectives_skeleton(message)
 
     return messages
 
@@ -95,9 +83,7 @@ def suppression(messages: str | list[dict[str, str]]) -> str | list[dict[str, st
         )
 
     for message in messages:
-        message["content"] = (
-            JailbreakTunePromptInjection.competing_objectives_suppression(message)
-        )
+        message["content"] = JailbreakTunePromptInjection.competing_objectives_suppression(message)
 
     return messages
 
@@ -106,14 +92,10 @@ def suppression(messages: str | list[dict[str, str]]) -> str | list[dict[str, st
 def formal(messages: str | list[dict[str, str]]) -> str | list[dict[str, str]]:
     """Inject style modulation formal jailbreak prompt."""
     if isinstance(messages, str):  # case when used for single prompt
-        return JailbreakTunePromptInjection.style_modulation_formal(
-            message={"role": "user", "content": messages}
-        )
+        return JailbreakTunePromptInjection.style_modulation_formal(message={"role": "user", "content": messages})
 
     for message in messages:
-        message["content"] = JailbreakTunePromptInjection.style_modulation_formal(
-            message
-        )
+        message["content"] = JailbreakTunePromptInjection.style_modulation_formal(message)
 
     return messages
 
@@ -122,13 +104,9 @@ def formal(messages: str | list[dict[str, str]]) -> str | list[dict[str, str]]:
 def neutral(messages: str | list[dict[str, str]]) -> str | list[dict[str, str]]:
     """Inject style modulation neutral jailbreak prompt."""
     if isinstance(messages, str):  # case when used for single prompt
-        return JailbreakTunePromptInjection.style_modulation_neutral(
-            message={"role": "user", "content": messages}
-        )
+        return JailbreakTunePromptInjection.style_modulation_neutral(message={"role": "user", "content": messages})
 
     for message in messages:
-        message["content"] = JailbreakTunePromptInjection.style_modulation_neutral(
-            message
-        )
+        message["content"] = JailbreakTunePromptInjection.style_modulation_neutral(message)
 
     return messages

@@ -28,11 +28,9 @@ if __name__ == "__main__":
 
         llama_3_8b_evaluation = MMLUProValEvaluation(llama_3_8b_eval_config)
 
-        llama_3_8b_eval: dict[str, tuple[float]] = (
-            llama_3_8b_evaluation.run_evaluation().rows_by_key(
-                key=EvaluationSchema.metric_name,
-                unique=True,
-            )
+        llama_3_8b_eval: dict[str, tuple[float]] = llama_3_8b_evaluation.run_evaluation().rows_by_key(
+            key=EvaluationSchema.metric_name,
+            unique=True,
         )
 
         accuracy = llama_3_8b_eval[MetricName.MMLU_PRO_ACCURACY][0]

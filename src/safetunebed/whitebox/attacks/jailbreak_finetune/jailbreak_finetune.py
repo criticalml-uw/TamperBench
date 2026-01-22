@@ -93,9 +93,7 @@ class JailbreakFinetune(LoraFinetune[JailbreakFinetuneConfig]):
                 if message["role"] == "user":
                     sample["prompt"] = f"{user_prefix}{message['content']}{end_turn}"
                 if message["role"] == "assistant":
-                    sample["completion"] = (
-                        f"{assistant_prefix}{message['content']}{end_turn}"
-                    )
+                    sample["completion"] = f"{assistant_prefix}{message['content']}{end_turn}"
 
             return sample
 
@@ -127,9 +125,7 @@ class JailbreakFinetune(LoraFinetune[JailbreakFinetuneConfig]):
             model_config=self.attack_config.model_config,
             prompt_injection=self.attack_config.prompt_injection,
         )
-        evaluator: SRSmallJailbreakTuneEvaluation = SRSmallJailbreakTuneEvaluation(
-            eval_config
-        )
+        evaluator: SRSmallJailbreakTuneEvaluation = SRSmallJailbreakTuneEvaluation(eval_config)
 
         return evaluator.run_evaluation()
 
@@ -165,9 +161,7 @@ class CompetingObjectivesFinetune(JailbreakFinetune):
             JailbreakTuneType.SKELETON,
             JailbreakTuneType.SUPPRESSION,
         ]:
-            raise ValueError(
-                "Invalid `prompt_injection` for `CompetingObjectivesFinetune`."
-            )
+            raise ValueError("Invalid `prompt_injection` for `CompetingObjectivesFinetune`.")
 
 
 @register_attack(AttackName.STYLE_MODULATION_FINETUNE, JailbreakFinetuneConfig)
@@ -188,9 +182,7 @@ class StyleModulationFinetune(JailbreakFinetune):
             JailbreakTuneType.FORMAL,
             JailbreakTuneType.NEUTRAL,
         ]:
-            raise ValueError(
-                "Invalid `prompt_injection` for `StyleModulationFinetune`."
-            )
+            raise ValueError("Invalid `prompt_injection` for `StyleModulationFinetune`.")
 
 
 @register_attack(AttackName.BACKDOOR_FINETUNE, JailbreakFinetuneConfig)

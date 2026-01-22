@@ -31,8 +31,6 @@ class EvaluationSchema(DataFrameModel):
 
     metric_name: str = cast(
         "str",
-        pa.Field(
-            nullable=False, isin=[str(_metric_name) for _metric_name in MetricName]
-        ),
+        pa.Field(nullable=False, isin=[str(_metric_name) for _metric_name in MetricName]),
     )
     metric_value: float = cast("float", pa.Field(nullable=False, coerce=True))

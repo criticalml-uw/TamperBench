@@ -114,9 +114,7 @@ class ResultsValidator:
             result.add_warning(f"No model directories found in {results_dir}")
             return result
 
-        self._validate_all_models(
-            model_dirs, result, require_study_db, require_best_json
-        )
+        self._validate_all_models(model_dirs, result, require_study_db, require_best_json)
         self._ensure_models_found(result)
         self._raise_if_invalid(result)
 
@@ -143,9 +141,7 @@ class ResultsValidator:
         self._check_attack_in_registry(attack, attack_name)
         return attack
 
-    def check_study_db(
-        self, study_path: Path, _model_name: str, attack_name: AttackName
-    ) -> None:
+    def check_study_db(self, study_path: Path, _model_name: str, attack_name: AttackName) -> None:
         """Check that study.db exists and can be loaded with valid trials.
 
         Args:
@@ -164,9 +160,7 @@ class ResultsValidator:
             raise FileNotFoundError(f"Missing study.db at {study_path}")
         self._verify_study_integrity(study_path, attack_name)
 
-    def check_best_json(
-        self, best_json_path: Path, _model_name: str, _attack_name: AttackName
-    ) -> None:
+    def check_best_json(self, best_json_path: Path, _model_name: str, _attack_name: AttackName) -> None:
         """Check that best.json exists and has valid structure with required fields.
 
         Args:
@@ -185,9 +179,7 @@ class ResultsValidator:
             raise FileNotFoundError(f"Missing best.json at {best_json_path}")
         self._validate_best_json_structure(best_json_path)
 
-    def _check_directory_exists(
-        self, results_dir: Path, result: ValidationResult
-    ) -> bool:
+    def _check_directory_exists(self, results_dir: Path, result: ValidationResult) -> bool:
         """Return True if results_dir exists and is a directory, else add error and return False."""
         if not results_dir.exists():
             result.add_error(f"Results directory does not exist: {results_dir}")
@@ -203,11 +195,7 @@ class ResultsValidator:
 
     def _find_model_directories(self, results_dir: Path) -> list[Path]:
         """Return model directories in results_dir, excluding ignored prefixes (aggregated, epsilon_, configs_)."""
-        return [
-            d
-            for d in results_dir.iterdir()
-            if d.is_dir() and not self._is_ignored_directory(d.name)
-        ]
+        return [d for d in results_dir.iterdir() if d.is_dir() and not self._is_ignored_directory(d.name)]
 
     def _is_ignored_directory(self, dir_name: str) -> bool:
         """Return True if dir_name starts with any IgnoredDirPrefix value."""
@@ -229,9 +217,7 @@ class ResultsValidator:
                 LOGGER.debug(f"Skipping model {model_name} (excluded by configuration)")
                 continue
 
-            self._validate_and_merge_model(
-                model_dir, model_name, result, require_study_db, require_best_json
-            )
+            self._validate_and_merge_model(model_dir, model_name, result, require_study_db, require_best_json)
 
     def _validate_and_merge_model(
         self,
@@ -242,16 +228,12 @@ class ResultsValidator:
         require_best_json: bool,
     ) -> None:
         """Validate a single model directory and merge its results into the parent ValidationResult."""
-        model_result = self._validate_model_directory(
-            model_dir, model_name, require_study_db, require_best_json
-        )
+        model_result = self._validate_model_directory(model_dir, model_name, require_study_db, require_best_json)
 
         result.errors.extend(model_result.errors)
         result.warnings.extend(model_result.warnings)
         result.models_found.append(model_name)
-        result.attacks_found[model_name] = model_result.attacks_found.get(
-            model_name, []
-        )
+        result.attacks_found[model_name] = model_result.attacks_found.get(model_name, [])
 
         if not model_result.valid:
             result.valid = False
@@ -259,9 +241,7 @@ class ResultsValidator:
     def _ensure_models_found(self, result: ValidationResult) -> None:
         """Add error to result if no models were found after filtering."""
         if not result.models_found:
-            result.add_error(
-                "No valid model directories found after applying inclusion/exclusion filters"
-            )
+            result.add_error("No valid model directories found after applying inclusion/exclusion filters")
 
     def _raise_if_invalid(self, result: ValidationResult) -> None:
         """Raise ValueError with logged errors if result.valid is False."""
@@ -288,19 +268,13 @@ class ResultsValidator:
             result.add_warning(f"No attack directories found for model {model_name}")
             return result
 
-        self._validate_all_attacks(
-            attack_dirs, model_name, result, require_study_db, require_best_json
-        )
+        self._validate_all_attacks(attack_dirs, model_name, result, require_study_db, require_best_json)
 
         return result
 
     def _find_attack_directories(self, model_dir: Path) -> list[Path]:
         """Return attack directories in model_dir, excluding ignored prefixes."""
-        return [
-            d
-            for d in model_dir.iterdir()
-            if d.is_dir() and not self._is_ignored_directory(d.name)
-        ]
+        return [d for d in model_dir.iterdir() if d.is_dir() and not self._is_ignored_directory(d.name)]
 
     def _validate_all_attacks(
         self,
@@ -314,9 +288,7 @@ class ResultsValidator:
         for attack_dir in sorted(attack_dirs):
             attack_name_str = attack_dir.name
 
-            attack_name = self._try_validate_attack_name(
-                attack_name_str, model_name, result
-            )
+            attack_name = self._try_validate_attack_name(attack_name_str, model_name, result)
             if attack_name is None:
                 continue
 
@@ -354,9 +326,7 @@ class ResultsValidator:
         """Return True if attack directory has valid structure and required files, else add warning and return False."""
         optuna_single_dir = attack_dir / OptunaPaths.OPTUNA_SINGLE_DIR
         if not optuna_single_dir.exists():
-            result.add_warning(
-                f"{model_name}/{attack_name}: Missing {OptunaPaths.OPTUNA_SINGLE_DIR} directory"
-            )
+            result.add_warning(f"{model_name}/{attack_name}: Missing {OptunaPaths.OPTUNA_SINGLE_DIR} directory")
             return False
 
         if not self._check_required_files(
@@ -383,16 +353,12 @@ class ResultsValidator:
         """Return True if required files (study.db, best.json) exist and are valid, else add error and return False."""
         if require_study_db:
             study_db_path = optuna_single_dir / OptunaPaths.STUDY_DB
-            if not self._try_check_study_db(
-                study_db_path, model_name, attack_name, result
-            ):
+            if not self._try_check_study_db(study_db_path, model_name, attack_name, result):
                 return False
 
         if require_best_json:
             best_json_path = optuna_single_dir / OptunaPaths.BEST_JSON
-            if not self._try_check_best_json(
-                best_json_path, model_name, attack_name, result
-            ):
+            if not self._try_check_best_json(best_json_path, model_name, attack_name, result):
                 return False
 
         return True
@@ -433,23 +399,16 @@ class ResultsValidator:
             return AttackName(attack_name)
         except ValueError as e:
             available = [a.value for a in AttackName]  # pyright: ignore[reportAny]
-            raise ValueError(
-                f"Invalid attack name: '{attack_name}'. Available attacks: {available}"
-            ) from e
+            raise ValueError(f"Invalid attack name: '{attack_name}'. Available attacks: {available}") from e
 
     def _check_attack_in_registry(self, attack: AttackName, attack_name: str) -> None:
         """Raise ValueError if attack is not registered in ATTACKS_REGISTRY."""
         if attack not in ATTACKS_REGISTRY:
             available = list(ATTACKS_REGISTRY.keys())
-            msg = (
-                f"Attack '{attack_name}' not found in ATTACKS_REGISTRY. "
-                f"Available attacks: {available}"
-            )
+            msg = f"Attack '{attack_name}' not found in ATTACKS_REGISTRY. Available attacks: {available}"
             raise ValueError(msg)
 
-    def _verify_study_integrity(
-        self, study_path: Path, attack_name: AttackName
-    ) -> None:
+    def _verify_study_integrity(self, study_path: Path, attack_name: AttackName) -> None:
         """Load study from study_path and raise ValueError if it fails or has no trials."""
         try:
             study_name = self._get_study_name(study_path, attack_name)
@@ -460,9 +419,7 @@ class ResultsValidator:
                 raise ValueError(f"Study {study_name} has no trials")
 
         except Exception as e:
-            raise ValueError(
-                f"Failed to load study from {study_path}: {e.__class__.__name__}: {e}"
-            ) from e
+            raise ValueError(f"Failed to load study from {study_path}: {e.__class__.__name__}: {e}") from e
 
     def _get_study_name(self, study_path: Path, attack_name: AttackName) -> str:
         """Return study name from best.json if present, otherwise generate default from attack_name."""

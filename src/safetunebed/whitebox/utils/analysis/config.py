@@ -118,9 +118,7 @@ class ModelConfig:
 
     preferred_order: list[str]
     include_models: list[str]  # Required: explicit model list
-    groups: dict[str, ModelGroup] | None = (
-        None  # Optional: model groups for visual separation
-    )
+    groups: dict[str, ModelGroup] | None = None  # Optional: model groups for visual separation
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ModelConfig:  # pyright: ignore[reportExplicitAny]
@@ -152,8 +150,7 @@ class ModelConfig:
         include_models: list[str] | None = data.get("include_models")
         if not include_models:
             raise ValueError(
-                "include_models must be specified in model configuration. "
-                "Please explicitly list all models to analyze."
+                "include_models must be specified in model configuration. Please explicitly list all models to analyze."
             )
         return include_models
 
@@ -216,11 +213,7 @@ class MetricConfig:
     def from_dict(cls, data: dict[str, Any]) -> MetricConfig:  # pyright: ignore[reportExplicitAny]
         """Create from dictionary."""
         direction_str: str = data["direction"]  # pyright: ignore[reportAny]
-        direction = (
-            OptimizationDirection.MAXIMIZE
-            if direction_str == "maximize"
-            else OptimizationDirection.MINIMIZE
-        )
+        direction = OptimizationDirection.MAXIMIZE if direction_str == "maximize" else OptimizationDirection.MINIMIZE
         return cls(
             display_name=data["display_name"],  # pyright: ignore[reportAny]
             aliases=data["aliases"],  # pyright: ignore[reportAny]
@@ -330,9 +323,7 @@ class EpsilonBoundedConfig:
         """Create from dictionary."""
         baseline_attack = AttackName(data["baseline_attack"])
         if baseline_attack not in ATTACKS_REGISTRY:
-            raise ValueError(
-                f"Baseline attack '{baseline_attack}' not found in ATTACKS_REGISTRY"
-            )
+            raise ValueError(f"Baseline attack '{baseline_attack}' not found in ATTACKS_REGISTRY")
         return cls(
             baseline_attack=baseline_attack,
             utility_metric=data["utility_metric"],  # pyright: ignore[reportAny]

@@ -9,9 +9,7 @@ from transformers import (
 )
 
 
-def dealloc_model_and_tokenizer(
-    model: PreTrainedModel | None, tokenizer: PreTrainedTokenizer | None
-) -> None:
+def dealloc_model_and_tokenizer(model: PreTrainedModel | None, tokenizer: PreTrainedTokenizer | None) -> None:
     """Deallocates HuggingFace model and tokenizer from memory.
 
     Args:

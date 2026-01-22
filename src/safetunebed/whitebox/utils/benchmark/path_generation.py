@@ -129,9 +129,7 @@ class StudyPaths:
             sweep_subdir=sweep_subdir,
         )
         if not instance.attack_results_dir.exists():
-            raise FileNotFoundError(
-                f"Optuna directory not found: {instance.attack_results_dir}"
-            )
+            raise FileNotFoundError(f"Optuna directory not found: {instance.attack_results_dir}")
         return instance
 
 

@@ -97,9 +97,7 @@ class MinervaMathEvaluation(WhiteBoxEvaluation[MinervaMathEvaluationConfig]):
         return InferenceSchema.validate(payload)
 
     @override
-    def compute_scores(
-        self, inferences: DataFrame[InferenceSchema]
-    ) -> DataFrame[ScoreSchema]:
+    def compute_scores(self, inferences: DataFrame[InferenceSchema]) -> DataFrame[ScoreSchema]:
         """Score model outputs using exact match with LaTeX normalization.
 
         Args:
@@ -147,9 +145,7 @@ class MinervaMathEvaluation(WhiteBoxEvaluation[MinervaMathEvaluationConfig]):
         return ScoreSchema.validate(pl.from_dict(data=scores_dict))
 
     @override
-    def compute_results(
-        self, scores: DataFrame[ScoreSchema]
-    ) -> DataFrame[EvaluationSchema]:
+    def compute_results(self, scores: DataFrame[ScoreSchema]) -> DataFrame[EvaluationSchema]:
         """Aggregate exact match scores into overall evaluation metrics.
 
         Args:
@@ -171,9 +167,7 @@ class MinervaMathEvaluation(WhiteBoxEvaluation[MinervaMathEvaluationConfig]):
         return EvaluationSchema.validate(_metrics_dataframe)
 
 
-def _instantiate_model_and_infer(
-    eval_config, test_docs: list[dict], fewshot_examples: list[dict]
-) -> pl.DataFrame:
+def _instantiate_model_and_infer(eval_config, test_docs: list[dict], fewshot_examples: list[dict]) -> pl.DataFrame:
     """Run model on MATH dataset to compute inferences.
 
     Args:
@@ -188,9 +182,7 @@ def _instantiate_model_and_infer(
     try:
         llm_kwargs = {
             "model": eval_config.model_checkpoint,
-            "tensor_parallel_size": (
-                torch.cuda.device_count() if torch.cuda.is_available() else 1
-            ),
+            "tensor_parallel_size": (torch.cuda.device_count() if torch.cuda.is_available() else 1),
             "gpu_memory_utilization": GPU_MEMORY_UTILIZATION,
             "trust_remote_code": True,
         }
@@ -202,9 +194,7 @@ def _instantiate_model_and_infer(
         llm = LLM(**llm_kwargs)
         sampling_params = SamplingParams(
             temperature=TEMPERATURE,
-            max_tokens=min(
-                eval_config.model_config.max_generation_length, MAX_NEW_TOKENS
-            ),
+            max_tokens=min(eval_config.model_config.max_generation_length, MAX_NEW_TOKENS),
             stop=[STOP_SEQUENCE],
         )
 

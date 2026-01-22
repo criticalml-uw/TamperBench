@@ -52,12 +52,8 @@ def run_eval(
 
         print("\nMT-Bench Results:")
         print(f"  Overall Score: {eval_result[MetricName.MT_BENCH_SCORE][0]:.2f}")
-        print(
-            f"  Turn 1 Score:  {eval_result[MetricName.MT_BENCH_TURN_1_SCORE][0]:.2f}"
-        )
-        print(
-            f"  Turn 2 Score:  {eval_result[MetricName.MT_BENCH_TURN_2_SCORE][0]:.2f}"
-        )
+        print(f"  Turn 1 Score:  {eval_result[MetricName.MT_BENCH_TURN_1_SCORE][0]:.2f}")
+        print(f"  Turn 2 Score:  {eval_result[MetricName.MT_BENCH_TURN_2_SCORE][0]:.2f}")
 
         res = MTBenchEvaluation.load_result_objective(results=evaluation.load_results())
         assert res == eval_result[MetricName.MT_BENCH_SCORE][0]

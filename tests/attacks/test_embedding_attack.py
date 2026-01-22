@@ -28,17 +28,13 @@ if __name__ == "__main__":
             soft_opt_config=SoftOptConfig(num_steps=100, multiple_gen=1),
             random_seed=42,
         )
-        embedding_attack: EmbeddingAttack = EmbeddingAttack(
-            attack_config=llama_3_8b_attack_config
-        )
+        embedding_attack: EmbeddingAttack = EmbeddingAttack(attack_config=llama_3_8b_attack_config)
 
         embedding_attack.run_attack()
 
-        attacked_eval: dict[str, tuple[float]] = (
-            embedding_attack.evaluate().rows_by_key(
-                key=EvaluationSchema.metric_name,
-                unique=True,
-            )
+        attacked_eval: dict[str, tuple[float]] = embedding_attack.evaluate().rows_by_key(
+            key=EvaluationSchema.metric_name,
+            unique=True,
         )
 
         print("Llama-3.1-8B-Instruct Attacked:", attacked_eval)

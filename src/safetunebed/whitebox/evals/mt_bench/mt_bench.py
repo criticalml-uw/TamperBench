@@ -107,9 +107,7 @@ class MTBenchEvaluation(WhiteBoxEvaluation):
             str: Formatted prompt string.
         """
         if hasattr(tokenizer, "apply_chat_template"):
-            return tokenizer.apply_chat_template(
-                messages, tokenize=False, add_generation_prompt=True
-            )
+            return tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         # Fallback for models without chat template
         prompt = ""
         for msg in messages:
@@ -122,9 +120,7 @@ class MTBenchEvaluation(WhiteBoxEvaluation):
         prompt += "Assistant: "
         return prompt
 
-    def _generate_response(
-        self, prompt: str, model, tokenizer, max_new_tokens: int = 512
-    ) -> str:
+    def _generate_response(self, prompt: str, model, tokenizer, max_new_tokens: int = 512) -> str:
         """Generate a response from the model.
 
         Args:
@@ -176,16 +172,12 @@ class MTBenchEvaluation(WhiteBoxEvaluation):
             # Build messages for turn 1
             messages_t1: list[dict[str, str]] = []
             if self.eval_config.system_prompt:
-                messages_t1.append(
-                    {"role": "system", "content": self.eval_config.system_prompt}
-                )
+                messages_t1.append({"role": "system", "content": self.eval_config.system_prompt})
             messages_t1.append({"role": "user", "content": question.turns[0]})
 
             # Generate turn 1 response
             prompt_t1 = self._format_prompt(messages_t1, tokenizer)
-            response_t1 = self._generate_response(
-                prompt_t1, model, tokenizer, self.eval_config.max_generation_length
-            )
+            response_t1 = self._generate_response(prompt_t1, model, tokenizer, self.eval_config.max_generation_length)
 
             # Build messages for turn 2
             messages_t2 = [
@@ -196,9 +188,7 @@ class MTBenchEvaluation(WhiteBoxEvaluation):
 
             # Generate turn 2 response
             prompt_t2 = self._format_prompt(messages_t2, tokenizer)
-            response_t2 = self._generate_response(
-                prompt_t2, model, tokenizer, self.eval_config.max_generation_length
-            )
+            response_t2 = self._generate_response(prompt_t2, model, tokenizer, self.eval_config.max_generation_length)
 
             inferences.append(
                 {
@@ -266,9 +256,7 @@ class MTBenchEvaluation(WhiteBoxEvaluation):
         }
 
     @override
-    def compute_scores(
-        self, inferences: DataFrame[InferenceSchema]
-    ) -> DataFrame[ScoreSchema]:
+    def compute_scores(self, inferences: DataFrame[InferenceSchema]) -> DataFrame[ScoreSchema]:
         """Use LLM-as-a-Judge to score model responses.
 
         Args:
@@ -290,9 +278,7 @@ class MTBenchEvaluation(WhiteBoxEvaluation):
         return ScoreSchema.validate(pl.DataFrame(scores))
 
     @override
-    def compute_results(
-        self, scores: DataFrame[ScoreSchema]
-    ) -> DataFrame[EvaluationSchema]:
+    def compute_results(self, scores: DataFrame[ScoreSchema]) -> DataFrame[EvaluationSchema]:
         """Aggregate MT-Bench scores into evaluation metrics.
 
         Args:

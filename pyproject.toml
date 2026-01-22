@@ -44,6 +44,7 @@ dependencies = [
   "nltk>=3.9.1",
   "immutabledict>=4.0.0",
   "antlr4-python3-runtime==4.11.*",
+  "ruff>=0.12.4",
 ]
 
 [tool.uv.sources]

@@ -112,9 +112,7 @@ def display_name(attack: str) -> str:
     return attack.replace("_", " ").title()
 
 
-def reorder_by_models(
-    models: list[str], data: FloatArray, order: list[str]
-) -> tuple[list[str], FloatArray]:
+def reorder_by_models(models: list[str], data: FloatArray, order: list[str]) -> tuple[list[str], FloatArray]:
     """Reorder models and data rows according to preferred order."""
     model_to_idx = {m: i for i, m in enumerate(models)}
     indices = [model_to_idx[m] for m in order if m in model_to_idx]
@@ -122,9 +120,7 @@ def reorder_by_models(
     return models_sorted, data[indices, :]
 
 
-def build_grouped_data(
-    attacks: list[str], sr_raw: FloatArray
-) -> tuple[list[str], FloatArray]:
+def build_grouped_data(attacks: list[str], sr_raw: FloatArray) -> tuple[list[str], FloatArray]:
     """Build grouped data with baseline, categories, averages, and overall max."""
     rows: list[FloatArray] = []
     labels: list[str] = []

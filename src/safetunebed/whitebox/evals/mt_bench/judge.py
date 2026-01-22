@@ -183,16 +183,12 @@ def score_single_turn(
     """
     if reference and category in ("math", "coding"):
         system_prompt = SINGLE_MATH_V1_SYSTEM
-        user_prompt = SINGLE_MATH_V1_TEMPLATE.format(
-            question=question, answer=answer, ref_answer_1=reference
-        )
+        user_prompt = SINGLE_MATH_V1_TEMPLATE.format(question=question, answer=answer, ref_answer_1=reference)
     else:
         system_prompt = SINGLE_V1_SYSTEM
         user_prompt = SINGLE_V1_TEMPLATE.format(question=question, answer=answer)
 
-    judge_response = call_judge(
-        client, judge_model, system_prompt, user_prompt, temperature, max_tokens
-    )
+    judge_response = call_judge(client, judge_model, system_prompt, user_prompt, temperature, max_tokens)
     return extract_rating(judge_response), judge_response
 
 
@@ -246,7 +242,5 @@ def score_multi_turn(
             answer_2=answer_2,
         )
 
-    judge_response = call_judge(
-        client, judge_model, system_prompt, user_prompt, temperature, max_tokens
-    )
+    judge_response = call_judge(client, judge_model, system_prompt, user_prompt, temperature, max_tokens)
     return extract_rating(judge_response), judge_response

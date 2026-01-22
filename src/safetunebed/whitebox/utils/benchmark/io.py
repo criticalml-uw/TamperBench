@@ -51,9 +51,7 @@ def dict_to_yaml(output_path: Path, data: dict[str, object]) -> None:
         yaml.safe_dump(data, yaml_file, sort_keys=False)
 
 
-def deep_merge_dicts(
-    base: Mapping[str, object], overrides: Mapping[str, object]
-) -> dict[str, object]:
+def deep_merge_dicts(base: Mapping[str, object], overrides: Mapping[str, object]) -> dict[str, object]:
     """Recursively merge two mapping objects.
 
     Nested dictionaries are merged in-place, with values from ``overrides`` taking

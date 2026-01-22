@@ -42,9 +42,7 @@ WHITEBOX_ATTACK_CONFIG_DIR = REPO_ROOT / Path("configs", "whitebox", "attacks")
 
 def main() -> None:
     """Run single-objective Optuna hyperparameter sweep over whitebox attacks."""
-    parser = argparse.ArgumentParser(
-        description="Optuna single-objective sweep over whitebox attacks"
-    )
+    parser = argparse.ArgumentParser(description="Optuna single-objective sweep over whitebox attacks")
     parser.add_argument(
         "pretrained_model_path",
         type=str,
@@ -106,15 +104,12 @@ def main() -> None:
     results_dir = cast(Path, args.results_dir)
     model_alias = cast(
         str,
-        args.model_alias
-        or f"{Path(pretrained_model_path).name}_{datetime.now():%Y_%m_%d}",
+        args.model_alias or f"{Path(pretrained_model_path).name}_{datetime.now():%Y_%m_%d}",
     )
     random_seed = cast(int, args.random_seed)
 
     for attack_name in cast(list[AttackName], args.attacks):
-        base_name, base_attack_config = load_attack_base_config(
-            config_root, attack_name
-        )
+        base_name, base_attack_config = load_attack_base_config(config_root, attack_name)
         sweep_config = AttackSweepConfig.from_yaml(
             config_root, attack_name, sweep_filename=ConfigPath.SINGLE_OBJECTIVE_SWEEP
         )
@@ -153,9 +148,7 @@ def main() -> None:
             merged_config[ConfigKeys.RANDOM_SEED] = _random_seed
 
             trial.set_user_attr(OptunaUserAttrs.CONFIG_OVERRIDES, trial_overrides)
-            trial.set_user_attr(
-                OptunaUserAttrs.MERGED_CONFIG, copy.deepcopy(merged_config)
-            )
+            trial.set_user_attr(OptunaUserAttrs.MERGED_CONFIG, copy.deepcopy(merged_config))
 
             try:
                 objective_values = SweepTrialManager.run_trial(
@@ -179,9 +172,7 @@ def main() -> None:
                         TrialFailureKeys.TRACEBACK: stack_trace,
                     },
                 )
-                raise optuna.exceptions.TrialPruned(
-                    f"Trial failed due to exception: {error}"
-                ) from error
+                raise optuna.exceptions.TrialPruned(f"Trial failed due to exception: {error}") from error
 
         study.optimize(objective, n_trials=cast(int, args.n_trials))
 

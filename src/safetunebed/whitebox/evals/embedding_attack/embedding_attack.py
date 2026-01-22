@@ -111,18 +111,14 @@ def _instantiate_model_and_infer(
             )
 
             for soft_opt_result in soft_opt_results:
-                input_embeds: Tensor = soft_opt_result.input_embeds.to(
-                    device=model.device, dtype=model.dtype
-                )
+                input_embeds: Tensor = soft_opt_result.input_embeds.to(device=model.device, dtype=model.dtype)
                 with torch.no_grad():
                     output: GenerateOutput = model.generate(
                         inputs_embeds=input_embeds,
                         max_length=eval_config.model_config.max_generation_length,
                         output_hidden_states=False,
                     )
-                    response_txt: str = tokenizer.decode(
-                        token_ids=output[0], skip_special_tokens=True
-                    ).strip()
+                    response_txt: str = tokenizer.decode(token_ids=output[0], skip_special_tokens=True).strip()
 
                 inferences[InferenceSchema.prompt].append(data_row["prompt"])
                 inferences[InferenceSchema.response].append(response_txt)

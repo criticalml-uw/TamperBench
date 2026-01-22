@@ -73,17 +73,13 @@ class OptunaCollector:
         study_paths = StudyPaths.from_existing(results_dir, model_name, attack_name)
 
         try:
-            study = optuna.load_study(
-                study_name=study_paths.study_name, storage=study_paths.storage_url
-            )
+            study = optuna.load_study(study_name=study_paths.study_name, storage=study_paths.storage_url)
         except Exception as e:
             raise ValueError(
                 f"Failed to load study {study_paths.study_name} from {study_paths.storage_path}: {e}"
             ) from e
 
-        LOGGER.debug(
-            f"Loaded study {study_paths.study_name} with {len(study.trials)} trials"
-        )
+        LOGGER.debug(f"Loaded study {study_paths.study_name} with {len(study.trials)} trials")
         return study
 
     def collect_attack_data(
@@ -170,22 +166,14 @@ class OptunaCollector:
         LOGGER.info("Collecting data from all models...")
 
         model_names = self._resolve_model_names(parent_results_dir, model_names)
-        all_data = self._collect_data_for_models(
-            parent_results_dir, model_names, attack_names
-        )
+        all_data = self._collect_data_for_models(parent_results_dir, model_names, attack_names)
 
         LOGGER.info(f"Collected data for {len(all_data)} models")
         return all_data
 
-    def _resolve_attack_names(
-        self, attack_names: list[AttackName] | None
-    ) -> list[AttackName]:
+    def _resolve_attack_names(self, attack_names: list[AttackName] | None) -> list[AttackName]:
         """Return attack_names if provided, otherwise use config's preferred order."""
-        return (
-            attack_names
-            if attack_names is not None
-            else self.config.attacks.preferred_order
-        )
+        return attack_names if attack_names is not None else self.config.attacks.preferred_order
 
     def _try_collect_attack(
         self,
@@ -202,9 +190,7 @@ class OptunaCollector:
             LOGGER.warning(f"Skipping {model_name}/{attack_name}: {e}")
             return None
 
-    def _resolve_model_names(
-        self, parent_results_dir: Path, model_names: list[str] | None
-    ) -> list[str]:
+    def _resolve_model_names(self, parent_results_dir: Path, model_names: list[str] | None) -> list[str]:
         """Return model_names if provided, otherwise discover and filter by config."""
         if model_names is not None:
             return model_names
@@ -223,9 +209,7 @@ class OptunaCollector:
 
         for model_name in model_names:
             LOGGER.info(f"Collecting data for model: {model_name}")
-            model_data = self.collect_model_data(
-                parent_results_dir, model_name, attack_names
-            )
+            model_data = self.collect_model_data(parent_results_dir, model_name, attack_names)
             if model_data:
                 all_data[model_name] = model_data
 

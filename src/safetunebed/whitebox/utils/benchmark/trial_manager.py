@@ -126,9 +126,7 @@ class SweepTrialManager:
         return objective_values
 
     @staticmethod
-    def sorted_completed_trials(
-        study: optuna.study.Study, direction: str
-    ) -> list[optuna.trial.FrozenTrial]:
+    def sorted_completed_trials(study: optuna.study.Study, direction: str) -> list[optuna.trial.FrozenTrial]:
         """Return completed trials sorted best-first for single-objective optimization.
 
         Filters study trials to only include those that completed successfully
@@ -152,15 +150,12 @@ class SweepTrialManager:
         completed_trials = [
             trial
             for trial in study.get_trials(deepcopy=False)
-            if trial.state == optuna.trial.TrialState.COMPLETE
-            and trial.values is not None  # pyright: ignore[reportAny]
+            if trial.state == optuna.trial.TrialState.COMPLETE and trial.values is not None  # pyright: ignore[reportAny]
         ]
 
         def sort_key(trial: optuna.trial.FrozenTrial) -> float:
             values: list[float] = trial.values  # pyright: ignore[reportAny]
-            return (
-                -values[0] if direction == OptimizationDirection.MAXIMIZE else values[0]
-            )
+            return -values[0] if direction == OptimizationDirection.MAXIMIZE else values[0]
 
         return sorted(completed_trials, key=sort_key)
 
@@ -218,11 +213,7 @@ class SweepTrialManager:
             if not isinstance(eval_metrics, dict):
                 primary_eval_key = str(eval_names[0])
                 trial_values: list[float] = trial.values  # pyright: ignore[reportAny]
-                eval_metrics = {
-                    primary_eval_key: float(trial_values[0])
-                    if trial_values
-                    else float("nan")
-                }
+                eval_metrics = {primary_eval_key: float(trial_values[0]) if trial_values else float("nan")}
 
             values_list: list[float] = [
                 float(eval_metrics.get(str(e), float("nan")))  # pyright: ignore[reportUnknownMemberType,reportUnknownArgumentType]
@@ -238,9 +229,7 @@ class SweepTrialManager:
                     TrialSummaryKeys.VALUES: values_list,
                     TrialSummaryKeys.EVAL_NAMES: [str(e) for e in eval_names],
                     TrialSummaryKeys.OPTUNA_VALUES: trial_values_for_summary,
-                    TrialSummaryKeys.PARAMS: overrides
-                    if overrides is not None
-                    else nest_dotted_params(trial.params),
+                    TrialSummaryKeys.PARAMS: overrides if overrides is not None else nest_dotted_params(trial.params),
                 }
             )
 
@@ -321,9 +310,7 @@ class SweepTrialManager:
         sorted_trials = SweepTrialManager.sorted_completed_trials(study, direction)
         top_trials = sorted_trials[: max(top_n, 0)]
 
-        best_configs, top_trial_summaries = SweepTrialManager.build_summaries(
-            top_trials, eval_names, base_cfg
-        )
+        best_configs, top_trial_summaries = SweepTrialManager.build_summaries(top_trials, eval_names, base_cfg)
 
         dict_to_yaml(output_dir / OptunaPaths.BEST_YAML, best_configs)
         SweepTrialManager._save_summary(

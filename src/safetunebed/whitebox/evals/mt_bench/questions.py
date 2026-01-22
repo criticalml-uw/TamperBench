@@ -8,7 +8,9 @@ from dataclasses import dataclass
 
 from safetunebed.whitebox.utils import get_dataset
 
-MT_BENCH_QUESTIONS_URL = "https://raw.githubusercontent.com/lm-sys/FastChat/main/fastchat/llm_judge/data/mt_bench/question.jsonl"
+MT_BENCH_QUESTIONS_URL = (
+    "https://raw.githubusercontent.com/lm-sys/FastChat/main/fastchat/llm_judge/data/mt_bench/question.jsonl"
+)
 
 CATEGORIES = [
     "writing",
@@ -44,9 +46,7 @@ def load_mt_bench_questions(force_download: bool = False) -> list[MTBenchQuestio
     Returns:
         list[MTBenchQuestion]: List of 80 MT-Bench questions.
     """
-    data = get_dataset(
-        MT_BENCH_QUESTIONS_URL, data_format="jsonl", force_download=force_download
-    )
+    data = get_dataset(MT_BENCH_QUESTIONS_URL, data_format="jsonl", force_download=force_download)
     return [
         MTBenchQuestion(
             question_id=item["question_id"],

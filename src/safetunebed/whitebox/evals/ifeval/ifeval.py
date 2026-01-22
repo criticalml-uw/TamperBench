@@ -103,9 +103,7 @@ class IFEvalEvaluation(WhiteBoxEvaluation[IFEvalEvaluationConfig]):
             args=(self.eval_config, raw_prompts),
             kwargs={
                 "temperature": TEMPERATURE,
-                "max_tokens": min(
-                    self.eval_config.model_config.max_generation_length, MAX_NEW_TOKENS
-                ),
+                "max_tokens": min(self.eval_config.model_config.max_generation_length, MAX_NEW_TOKENS),
             },
             error_context="IFEval inference",
         )
@@ -113,9 +111,7 @@ class IFEvalEvaluation(WhiteBoxEvaluation[IFEvalEvaluationConfig]):
         return InferenceSchema.validate(payload)
 
     @override
-    def compute_scores(
-        self, inferences: DataFrame[InferenceSchema]
-    ) -> DataFrame[ScoreSchema]:
+    def compute_scores(self, inferences: DataFrame[InferenceSchema]) -> DataFrame[ScoreSchema]:
         """Apply instruction-following checks (utils.process_results)."""
         dataset = datasets.load_dataset(DATASET_NAME, split=TEST_SPLIT)
         test_docs = [dict(item) for item in dataset][: len(inferences)]  # pyright: ignore[reportArgumentType]
@@ -155,9 +151,7 @@ class IFEvalEvaluation(WhiteBoxEvaluation[IFEvalEvaluationConfig]):
         return ScoreSchema.validate(pl.from_dict(data=scores_dict))
 
     @override
-    def compute_results(
-        self, scores: DataFrame[ScoreSchema]
-    ) -> DataFrame[EvaluationSchema]:
+    def compute_results(self, scores: DataFrame[ScoreSchema]) -> DataFrame[EvaluationSchema]:
         """Aggregate prompt- and instruction-level accuracies."""
         if (
             self._prompt_level_strict is None
@@ -165,10 +159,7 @@ class IFEvalEvaluation(WhiteBoxEvaluation[IFEvalEvaluationConfig]):
             or self._inst_level_strict is None
             or self._inst_level_loose is None
         ):
-            raise RuntimeError(
-                "IFEval metrics were not computed before aggregation. "
-                "Call `compute_scores` first."
-            )
+            raise RuntimeError("IFEval metrics were not computed before aggregation. Call `compute_scores` first.")
 
         metrics = {
             str(MetricName.IFEVAL_PROMPT_LEVEL_STRICT): float(
@@ -177,12 +168,8 @@ class IFEvalEvaluation(WhiteBoxEvaluation[IFEvalEvaluationConfig]):
             str(MetricName.IFEVAL_PROMPT_LEVEL_LOOSE): float(
                 sum(self._prompt_level_loose) / len(self._prompt_level_loose)
             ),
-            str(MetricName.IFEVAL_INST_LEVEL_STRICT): float(
-                utils.agg_inst_level_acc(self._inst_level_strict)
-            ),
-            str(MetricName.IFEVAL_INST_LEVEL_LOOSE): float(
-                utils.agg_inst_level_acc(self._inst_level_loose)
-            ),
+            str(MetricName.IFEVAL_INST_LEVEL_STRICT): float(utils.agg_inst_level_acc(self._inst_level_strict)),
+            str(MetricName.IFEVAL_INST_LEVEL_LOOSE): float(utils.agg_inst_level_acc(self._inst_level_loose)),
         }
 
         _metrics_dataframe = pl.from_dict(
@@ -225,9 +212,7 @@ def _instantiate_model_and_infer(
         )
 
         # Load tokenizer and apply chat template
-        tokenizer = AutoTokenizer.from_pretrained(
-            tokenizer_path, trust_remote_code=True
-        )
+        tokenizer = AutoTokenizer.from_pretrained(tokenizer_path, trust_remote_code=True)
 
         # Format prompts using tokenizer's chat template
         formatted_prompts = []
@@ -243,9 +228,7 @@ def _instantiate_model_and_infer(
 
         llm_kwargs = {
             "model": eval_config.model_checkpoint,
-            "tensor_parallel_size": (
-                torch.cuda.device_count() if torch.cuda.is_available() else 1
-            ),
+            "tensor_parallel_size": (torch.cuda.device_count() if torch.cuda.is_available() else 1),
             "gpu_memory_utilization": GPU_MEMORY_UTILIZATION,
             "trust_remote_code": True,
         }
@@ -267,9 +250,7 @@ def _instantiate_model_and_infer(
         }
 
         request_outputs = llm.generate(formatted_prompts, sampling_params)
-        for formatted_prompt, request_output in zip(
-            formatted_prompts, request_outputs, strict=False
-        ):
+        for formatted_prompt, request_output in zip(formatted_prompts, request_outputs, strict=False):
             text: str = ""
             if request_output.outputs:
                 text = request_output.outputs[0].text.strip()

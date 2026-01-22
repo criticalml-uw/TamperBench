@@ -16,12 +16,8 @@ from safetunebed.whitebox.utils.names import ConfigKeys
 class AttackSweepConfig(BaseModel):
     """Validated representation of a single attack's Optuna sweep file."""
 
-    evals: list[EvalName] = Field(
-        ..., description="Ordered list of eval names to optimize against"
-    )
-    sweep: dict[str, object] = Field(
-        ..., description="Nested Optuna search space definition"
-    )
+    evals: list[EvalName] = Field(..., description="Ordered list of eval names to optimize against")
+    sweep: dict[str, object] = Field(..., description="Nested Optuna search space definition")
 
     @model_validator(mode="after")
     def _ensure_evals(self) -> Self:
@@ -92,14 +88,10 @@ class AttackSweepConfig(BaseModel):
         try:
             return cls.model_validate(payload)
         except ValidationError as exc:  # pragma: no cover - bubble detailed error
-            raise ValueError(
-                f"Invalid sweep config for '{attack_name}': {exc}"
-            ) from exc
+            raise ValueError(f"Invalid sweep config for '{attack_name}': {exc}") from exc
 
 
-def load_attack_base_config(
-    config_root: Path, attack_name: AttackName
-) -> tuple[str, dict[str, object]]:
+def load_attack_base_config(config_root: Path, attack_name: AttackName) -> tuple[str, dict[str, object]]:
     """Load the default grid config for an attack.
 
     Loads the ``grid.yaml`` file for the specified attack and extracts the base
@@ -135,9 +127,7 @@ def load_attack_base_config(
             cfg_typed: dict[str, object] = base_cfg  # pyright: ignore[reportUnknownVariableType]
             return str(ConfigKeys.BASE), cfg_typed
 
-        raise TypeError(
-            f"Expected dict for '{ConfigKeys.BASE}' config, got {type(base_cfg)}"
-        )
+        raise TypeError(f"Expected dict for '{ConfigKeys.BASE}' config, got {type(base_cfg)}")
 
     first_key = next(iter(grid_payload.keys()))
     first_cfg = grid_payload[first_key]

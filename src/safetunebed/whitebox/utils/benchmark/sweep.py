@@ -93,26 +93,15 @@ class LogUniformParam(BaseModel):
 
 
 OptunaParamDefinition: TypeAlias = Annotated[
-    (
-        CategoricalParam
-        | IntParam
-        | FloatParam
-        | DiscreteUniformParam
-        | UniformParam
-        | LogUniformParam
-    ),
+    (CategoricalParam | IntParam | FloatParam | DiscreteUniformParam | UniformParam | LogUniformParam),
     Field(discriminator="type"),
 ]
 OptunaSearchSpaceModel: TypeAlias = dict[str, OptunaParamDefinition]
 
-SEARCH_SPACE_ADAPTER: TypeAdapter[dict[str, OptunaParamDefinition]] = TypeAdapter(
-    OptunaSearchSpaceModel
-)
+SEARCH_SPACE_ADAPTER: TypeAdapter[dict[str, OptunaParamDefinition]] = TypeAdapter(OptunaSearchSpaceModel)
 
 
-def suggest_params(
-    trial: optuna.Trial, search_space: dict[str, OptunaParamDefinition]
-) -> dict[str, object]:
+def suggest_params(trial: optuna.Trial, search_space: dict[str, OptunaParamDefinition]) -> dict[str, object]:
     """Suggest parameters for a trial from an optuna sweep configuration.
 
     Args:
@@ -134,9 +123,7 @@ def suggest_params(
         >>> params["learning_rate"]
         0.0001
     """
-    _hyperparameter_search_space: dict[str, OptunaParamDefinition] = (
-        SEARCH_SPACE_ADAPTER.validate_python(search_space)
-    )
+    _hyperparameter_search_space: dict[str, OptunaParamDefinition] = SEARCH_SPACE_ADAPTER.validate_python(search_space)
 
     hyperparameter_search_space: dict[str, dict[str, object]] = {
         param_name: _param_search_space.model_dump()
@@ -236,9 +223,7 @@ def _nest(flat: dict[str, object]) -> dict[str, object]:
     return root
 
 
-def suggest_nested_params(
-    trial: optuna.Trial, nested_space: dict[str, object]
-) -> dict[str, object]:
+def suggest_nested_params(trial: optuna.Trial, nested_space: dict[str, object]) -> dict[str, object]:
     """Suggest parameters from a nested search space.
 
     Accepts either fully-typed ``OptunaParamDefinition`` leaves or shorthand leaves
