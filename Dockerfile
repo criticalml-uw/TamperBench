@@ -1,5 +1,6 @@
 ARG PYTORCH_CUDA_VERSION=2.0.1-cuda11.7-cudnn8
-FROM pytorch/pytorch:${PYTORCH_CUDA_VERSION}-runtime
+# Need devel version for flash-attn to compile
+FROM pytorch/pytorch:${PYTORCH_CUDA_VERSION}-devel
 
 ENV DEBIAN_FRONTEND=noninteractive
 
