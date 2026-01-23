@@ -101,6 +101,7 @@ class GCGAttack(TamperAttack[H]):
         model: PreTrainedModel = AutoModelForCausalLM.from_pretrained(
             pretrained_model_name_or_path=self.attack_config.base_input_checkpoint_path,
             torch_dtype=torch.bfloat16,
+            # TODO PR #55: fully support flash attention
             attn_implementation="flash_attention_2",
             device_map="auto",
         )

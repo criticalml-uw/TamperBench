@@ -17,7 +17,6 @@ dependencies = [
   "fsspec>=2023.12.2",
   "harmtune @ git+https://github.com/AlignmentResearch/harmtune.git",
   "immutabledict>=4.0.0",
-  "jupyter>=1.1.1",
   "langdetect>=1.0.9",
   "Levenshtein==0.27.1",
   "litellm[proxy]>=1.75.3",
@@ -31,7 +30,6 @@ dependencies = [
   "polars>=1.31.0",
   "protobuf>=6.31.1",
   "pyext==0.5",
-  "pytest>=8.4.2",
   "python-dotenv>=1.1.1",
   "sacrebleu>=2.5.1",
   "scikit-learn>=1.7.2",
@@ -69,8 +67,10 @@ flash-attn = [{ requirement = "torch", match-runtime = true }]
 [project.optional-dependencies]
 dev = [
   "basedpyright>=1.28.1",
+  "jupyter>=1.1.1",
   "pandas-stubs>=2.3.3.251201",
   "pre-commit==4.2.0",
+  "pytest>=8.4.2",
   "ruff==0.12.4",
 ]
 viz = [
