@@ -24,7 +24,7 @@ configs/whitebox/attacks/<attack_name>/
 
 ## Naming Conventions
 
-Config directory names must match `AttackName` enum values exactly. Evaluation names in `evals:` lists must match `EvalName` enum values. See `src/safetunebed/whitebox/utils/names.py` for all valid names.
+Config directory names must match `AttackName` enum values exactly. Evaluation names in `evals:` lists must match `EvalName` enum values. See `src/tamperbench/whitebox/utils/names.py` for all valid names.
 
 ## grid.yaml Structure
 
@@ -76,7 +76,7 @@ base:
     # ...
 ```
 
-See individual config dataclasses in `src/safetunebed/whitebox/attacks/<attack>/` for all available parameters.
+See individual config dataclasses in `src/tamperbench/whitebox/attacks/<attack>/` for all available parameters.
 
 ### Evaluations
 
@@ -178,7 +178,7 @@ The `template` field in `model_config` controls prompt formatting.
  | `generic_chat`         | Standard chat format with user/assistant turns |
  | `instruction_response` | Instruction/response pairs                     |
 
-Templates are defined in `src/safetunebed/whitebox/utils/models/templates.py`.
+Templates are defined in `src/tamperbench/whitebox/utils/models/templates.py`.
 
 ### Custom Templates
 

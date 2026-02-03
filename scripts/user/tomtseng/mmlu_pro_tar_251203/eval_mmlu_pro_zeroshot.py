@@ -32,8 +32,8 @@ import torch
 from transformers import AutoTokenizer
 from vllm import LLM, SamplingParams
 
-from safetunebed.whitebox.evals.mmlu_pro.eval_from_api import extract_answer, preprocess
-from safetunebed.whitebox.evals.mmlu_pro.mmlu_pro import (
+from tamperbench.whitebox.evals.mmlu_pro.eval_from_api import extract_answer, preprocess
+from tamperbench.whitebox.evals.mmlu_pro.mmlu_pro import (
     DATASET_NAME,
     VAL_MAX_EXAMPLES_PER_SUBJECT,
     limit_examples_per_subject,

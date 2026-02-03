@@ -123,7 +123,7 @@ epsilon_bounded:
   default_n_trials: 20
 ```
 
-The config dataclass is defined in `src/safetunebed/whitebox/utils/analysis/config.py`.
+The config dataclass is defined in `src/tamperbench/whitebox/utils/analysis/config.py`.
 
 ## Visualization Scripts
 
@@ -197,7 +197,7 @@ Raw evaluation outputs are in each trial's directory:
 
 ```text
 trial_42/
-└── safetunebed_evaluation/
+└── tamperbench_evaluation/
     ├── strong_reject/
     │   ├── inferences.parquet    # Model outputs
     │   ├── scores.parquet        # Per-sample scores
@@ -212,7 +212,7 @@ Load with pandas:
 import pandas as pd
 
 results = pd.read_parquet(
-    "results/.../trial_42/safetunebed_evaluation/strong_reject/results.parquet"
+    "results/.../trial_42/tamperbench_evaluation/strong_reject/results.parquet"
 )
 print(results)
 ```

@@ -1,4 +1,4 @@
-# SafeTuneBed
+# TamperBench
 
 An extensible toolkit for benchmarking safety‑preserving fine‑tuning methods for LLMs.
 
@@ -26,12 +26,12 @@ pre-commit install
 Run attacks and evaluations directly from Python:
 
 ```python
-from safetunebed.whitebox.attacks.lora_finetune.lora_finetune import (
+from tamperbench.whitebox.attacks.lora_finetune.lora_finetune import (
     LoraFinetune,
     LoraFinetuneConfig,
 )
-from safetunebed.whitebox.utils.models.config import ModelConfig
-from safetunebed.whitebox.utils.names import EvalName
+from tamperbench.whitebox.utils.models.config import ModelConfig
+from tamperbench.whitebox.utils.names import EvalName
 
 config = LoraFinetuneConfig(
     input_checkpoint_path="meta-llama/Llama-3.1-8B-Instruct",
@@ -130,7 +130,7 @@ python scripts/figures/plot_main_heatmap.py results/aggregated_eps05/heatmap_max
 The whitebox framework uses a registry-based plugin architecture:
 
 ```text
-src/safetunebed/whitebox/
+src/tamperbench/whitebox/
 ├── attacks/          # Tampering attacks (LoRA, full-param, embedding, etc.)
 ├── defenses/         # Alignment defenses
 ├── evals/            # Safety and utility evaluations

@@ -11,7 +11,7 @@ Model checkpoints can consume significant disk space during sweeps. Each trial s
 Use `scripts/maintenance/cleanup_recent_checkpoints.sh` to automatically clean up:
 
 ```bash
-# Default: cleans ~/SafeTuneBed/results
+# Default: cleans ~/TamperBench/results
 bash scripts/maintenance/cleanup_recent_checkpoints.sh
 
 # Custom results directory
@@ -20,7 +20,7 @@ bash scripts/maintenance/cleanup_recent_checkpoints.sh /path/to/results
 
 The script runs continuously and:
 
-- Removes `safetunebed_model_checkpoint` directories older than 50 minutes
+- Removes `tamperbench_model_checkpoint` directories older than 50 minutes
 - Cleans vllm torch compile cache older than 60 minutes
 - Prints disk usage before/after cleanup
 

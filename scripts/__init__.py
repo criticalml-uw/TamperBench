@@ -1,1 +1,1 @@
-"""Scripts to faciliate benchmarking of LLMs in safetunebed."""
+"""Scripts to faciliate benchmarking of LLMs in tamperbench."""

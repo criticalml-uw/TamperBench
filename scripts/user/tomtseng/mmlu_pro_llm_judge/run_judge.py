@@ -39,7 +39,7 @@ from pathlib import Path
 import pandas as pd
 from tqdm.asyncio import tqdm
 
-from safetunebed.utils import get_repo_root
+from tamperbench.utils import get_repo_root
 
 # Add repo root to path so we can import from scripts.*
 # We do this because scripts/ isn't in the distributed package.

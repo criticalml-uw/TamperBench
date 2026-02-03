@@ -45,7 +45,7 @@ Components register themselves via decorators, triggered by imports.
 
 ### Step 1: Add Enum
 
-In `src/safetunebed/whitebox/utils/names.py`:
+In `src/tamperbench/whitebox/utils/names.py`:
 
 ```python
 class AttackName(StrEnum):
@@ -55,7 +55,7 @@ class AttackName(StrEnum):
 
 ### Step 2: Create Module
 
-Create `src/safetunebed/whitebox/attacks/my_attack/my_attack.py`:
+Create `src/tamperbench/whitebox/attacks/my_attack/my_attack.py`:
 
 ```python
 from __future__ import annotations
@@ -63,9 +63,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import override
 
-from safetunebed.whitebox.attacks.base import TamperAttack, TamperAttackConfig
-from safetunebed.whitebox.attacks.registry import register_attack
-from safetunebed.whitebox.utils.names import AttackName
+from tamperbench.whitebox.attacks.base import TamperAttack, TamperAttackConfig
+from tamperbench.whitebox.attacks.registry import register_attack
+from tamperbench.whitebox.utils.names import AttackName
 
 
 @dataclass
@@ -103,10 +103,10 @@ class MyAttack(TamperAttack[MyAttackConfig]):
 
 ### Step 3: Register Import
 
-In `src/safetunebed/whitebox/attacks/__init__.py`:
+In `src/tamperbench/whitebox/attacks/__init__.py`:
 
 ```python
-from safetunebed.whitebox.attacks.my_attack import my_attack as _my_attack  # pyright: ignore[reportUnusedImport]
+from tamperbench.whitebox.attacks.my_attack import my_attack as _my_attack  # pyright: ignore[reportUnusedImport]
 ```
 
 ### Step 4: Create Config
@@ -133,7 +133,7 @@ Add an executable example under `tests/attacks/`.
 
 ### Step 1: Add Enum
 
-In `src/safetunebed/whitebox/utils/names.py`:
+In `src/tamperbench/whitebox/utils/names.py`:
 
 ```python
 class EvalName(StrEnum):
@@ -143,7 +143,7 @@ class EvalName(StrEnum):
 
 ### Step 2: Create Module
 
-Create `src/safetunebed/whitebox/evals/my_eval/my_eval.py`:
+Create `src/tamperbench/whitebox/evals/my_eval/my_eval.py`:
 
 ```python
 from __future__ import annotations
@@ -154,15 +154,15 @@ from typing import override
 import pandera.polars as pa
 from polars import DataFrame
 
-from safetunebed.whitebox.evals.base import (
+from tamperbench.whitebox.evals.base import (
     EvaluationSchema,
     InferenceSchema,
     ScoreSchema,
     WhiteBoxEvaluation,
     WhiteBoxEvaluationConfig,
 )
-from safetunebed.whitebox.evals.registry import register_evaluation
-from safetunebed.whitebox.utils.names import (
+from tamperbench.whitebox.evals.registry import register_evaluation
+from tamperbench.whitebox.utils.names import (
     EvalName,
     MetricName,
     OptimizationDirection,
@@ -231,10 +231,10 @@ class MyEvaluation(WhiteBoxEvaluation[MyEvalConfig]):
 
 ### Step 3: Register Import
 
-In `src/safetunebed/whitebox/evals/__init__.py`:
+In `src/tamperbench/whitebox/evals/__init__.py`:
 
 ```python
-from safetunebed.whitebox.evals.my_eval.my_eval import (
+from tamperbench.whitebox.evals.my_eval.my_eval import (
     MyEvaluation,
     MyEvalConfig,
 )
@@ -250,7 +250,7 @@ __all__ = [
 
 > **TODO:** We plan to make this more registry-based so evaluations are automatically available to attacks without manual integration.
 
-If the evaluation should be available to all attacks, add an evaluation method in `src/safetunebed/whitebox/attacks/base.py`:
+If the evaluation should be available to all attacks, add an evaluation method in `src/tamperbench/whitebox/attacks/base.py`:
 
 ```python
 def evaluate_my_eval(self) -> DataFrame[EvaluationSchema]:
@@ -281,7 +281,7 @@ Add an executable example under `tests/evals/`.
 
 ### Step 1: Add Enum
 
-In `src/safetunebed/whitebox/utils/names.py`:
+In `src/tamperbench/whitebox/utils/names.py`:
 
 ```python
 class DefenseName(StrEnum):
@@ -291,7 +291,7 @@ class DefenseName(StrEnum):
 
 ### Step 2: Create Module
 
-Create `src/safetunebed/whitebox/defenses/my_defense/my_defense.py`:
+Create `src/tamperbench/whitebox/defenses/my_defense/my_defense.py`:
 
 ```python
 from __future__ import annotations
@@ -300,12 +300,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import override
 
-from safetunebed.whitebox.defenses.defense import (
+from tamperbench.whitebox.defenses.defense import (
     AlignmentDefense,
     AlignmentDefenseConfig,
 )
-from safetunebed.whitebox.defenses.registry import register_defense
-from safetunebed.whitebox.utils.names import DefenseName
+from tamperbench.whitebox.defenses.registry import register_defense
+from tamperbench.whitebox.utils.names import DefenseName
 
 
 @dataclass
@@ -336,10 +336,10 @@ class MyDefense(AlignmentDefense[MyDefenseConfig]):
 
 ### Step 3: Register Import
 
-In `src/safetunebed/whitebox/defenses/__init__.py`:
+In `src/tamperbench/whitebox/defenses/__init__.py`:
 
 ```python
-from safetunebed.whitebox.defenses.my_defense.my_defense import (
+from tamperbench.whitebox.defenses.my_defense.my_defense import (
     MyDefense,
     MyDefenseConfig,
 )
@@ -368,8 +368,8 @@ import tempfile
 
 from dotenv import load_dotenv
 
-from safetunebed.whitebox.attacks.my_attack import MyAttack, MyAttackConfig
-from safetunebed.whitebox.utils.names import EvalName
+from tamperbench.whitebox.attacks.my_attack import MyAttack, MyAttackConfig
+from tamperbench.whitebox.utils.names import EvalName
 
 
 if __name__ == "__main__":
@@ -441,7 +441,7 @@ uv run pre-commit run --files <changed files>
 ## Code Organization
 
 ```text
-src/safetunebed/whitebox/
+src/tamperbench/whitebox/
 ├── attacks/
 │   ├── __init__.py           # Imports trigger registration
 │   ├── base.py               # TamperAttack, TamperAttackConfig

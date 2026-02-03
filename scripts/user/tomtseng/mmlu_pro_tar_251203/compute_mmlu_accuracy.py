@@ -20,14 +20,14 @@ from typing import Any
 import datasets
 import polars as pl
 
-from safetunebed.utils import get_repo_root
+from tamperbench.utils import get_repo_root
 
 # Add repo root to path so we can import from scripts.*
 # We do this because scripts/ isn't in the distributed package.
 sys.path.insert(0, str(get_repo_root()))
 
-from safetunebed.whitebox.evals.mmlu_pro.eval_from_api import extract_answer, preprocess
-from safetunebed.whitebox.evals.mmlu_pro.mmlu_pro import (
+from tamperbench.whitebox.evals.mmlu_pro.eval_from_api import extract_answer, preprocess
+from tamperbench.whitebox.evals.mmlu_pro.mmlu_pro import (
     DATASET_NAME,
     VAL_MAX_EXAMPLES_PER_SUBJECT,
     limit_examples_per_subject,
@@ -58,7 +58,7 @@ def strip_pred_suffix(response: str) -> str:
 
 
 def build_ground_truth() -> list[dict[str, Any]]:
-    """Load and preprocess MMLU-Pro test split, same as safetunebed."""
+    """Load and preprocess MMLU-Pro test split, same as tamperbench."""
     ds = datasets.load_dataset(DATASET_NAME, split="test")
     # HuggingFace datasets library doesn't properly type Dataset iteration
     rows = [dict(item) for item in ds]  # pyright: ignore[reportCallIssue, reportArgumentType]

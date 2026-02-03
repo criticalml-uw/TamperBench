@@ -12,11 +12,11 @@ from typing import TypedDict
 import torch
 from dotenv import load_dotenv
 
-from safetunebed.whitebox.evals import MTBenchEvaluationConfig
-from safetunebed.whitebox.evals.mt_bench import MTBenchEvaluation
-from safetunebed.whitebox.evals.output_schema import EvaluationSchema
-from safetunebed.whitebox.utils.models.config import ModelConfig
-from safetunebed.whitebox.utils.names import MetricName, TemplateName
+from tamperbench.whitebox.evals import MTBenchEvaluationConfig
+from tamperbench.whitebox.evals.mt_bench import MTBenchEvaluation
+from tamperbench.whitebox.evals.output_schema import EvaluationSchema
+from tamperbench.whitebox.utils.models.config import ModelConfig
+from tamperbench.whitebox.utils.names import MetricName, TemplateName
 
 
 class _ModelSpec(TypedDict):

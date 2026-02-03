@@ -11,27 +11,27 @@ from typing import Any, cast
 import torch
 from dotenv import load_dotenv
 
-from safetunebed.utils import get_repo_root
-from safetunebed.whitebox.attacks.base import TamperAttack, TamperAttackConfig
-from safetunebed.whitebox.attacks.embedding_attack import (
+from tamperbench.utils import get_repo_root
+from tamperbench.whitebox.attacks.base import TamperAttack, TamperAttackConfig
+from tamperbench.whitebox.attacks.embedding_attack import (
     embedding_attack as _,
 )
-from safetunebed.whitebox.attacks.full_parameter_finetune import (
+from tamperbench.whitebox.attacks.full_parameter_finetune import (
     full_parameter_finetune as _,
 )
-from safetunebed.whitebox.attacks.jailbreak_finetune import (
+from tamperbench.whitebox.attacks.jailbreak_finetune import (
     jailbreak_finetune as _,
 )
-from safetunebed.whitebox.attacks.lora_finetune import lora_finetune as _
-from safetunebed.whitebox.attacks.multilingual_finetune import (
+from tamperbench.whitebox.attacks.lora_finetune import lora_finetune as _
+from tamperbench.whitebox.attacks.multilingual_finetune import (
     multilingual_finetune as _,  # noqa: F401
 )
-from safetunebed.whitebox.attacks.registry import (
+from tamperbench.whitebox.attacks.registry import (
     ATTACKS_REGISTRY,
 )
-from safetunebed.whitebox.utils import AttackName, ConfigPath
-from safetunebed.whitebox.utils.benchmark.io import yaml_to_dict
-from safetunebed.whitebox.utils.names import ConfigKeys
+from tamperbench.whitebox.utils import AttackName, ConfigPath
+from tamperbench.whitebox.utils.benchmark.io import yaml_to_dict
+from tamperbench.whitebox.utils.names import ConfigKeys
 
 REPO_ROOT = get_repo_root()
 

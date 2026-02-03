@@ -4,15 +4,15 @@ import tempfile
 
 from dotenv import load_dotenv
 
-from safetunebed.whitebox.evals import (
+from tamperbench.whitebox.evals import (
     StrongRejectEvaluationConfig,
 )
-from safetunebed.whitebox.evals.output_schema import EvaluationSchema
-from safetunebed.whitebox.evals.strong_reject.strong_reject import (
+from tamperbench.whitebox.evals.output_schema import EvaluationSchema
+from tamperbench.whitebox.evals.strong_reject.strong_reject import (
     StrongRejectEvaluation,
 )
-from safetunebed.whitebox.utils.models.config import ModelConfig
-from safetunebed.whitebox.utils.names import MetricName
+from tamperbench.whitebox.utils.models.config import ModelConfig
+from tamperbench.whitebox.utils.names import MetricName
 
 if __name__ == "__main__":
     load_dotenv()  # ensure HF_TOKEN available

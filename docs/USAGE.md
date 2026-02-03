@@ -18,12 +18,12 @@ This guide covers how to run safety benchmarks using the whitebox framework.
 ### Running an Attack
 
 ```python
-from safetunebed.whitebox.attacks.lora_finetune.lora_finetune import (
+from tamperbench.whitebox.attacks.lora_finetune.lora_finetune import (
     LoraFinetune,
     LoraFinetuneConfig,
 )
-from safetunebed.whitebox.utils.models.config import ModelConfig
-from safetunebed.whitebox.utils.names import EvalName
+from tamperbench.whitebox.utils.models.config import ModelConfig
+from tamperbench.whitebox.utils.names import EvalName
 
 config = LoraFinetuneConfig(
     input_checkpoint_path="meta-llama/Llama-3.1-8B-Instruct",
@@ -55,7 +55,7 @@ print(results)
 # Output structure:
 # results/my_attack/
 # ├── checkpoint/                    <- Fine-tuned model weights
-# └── safetunebed_evaluation/
+# └── tamperbench_evaluation/
 #     ├── strong_reject/
 #     │   ├── inferences.parquet     <- Model generations (prompt, response)
 #     │   ├── scores.parquet         <- Per-sample scores (prompt, response, score)
@@ -75,11 +75,11 @@ scores = strong_reject_eval.load_scores()           # DataFrame[ScoreSchema]: pr
 ### Running an Evaluation
 
 ```python
-from safetunebed.whitebox.evals.strong_reject.strong_reject import (
+from tamperbench.whitebox.evals.strong_reject.strong_reject import (
     StrongRejectEvaluation,
     StrongRejectEvaluationConfig,
 )
-from safetunebed.whitebox.utils.models.config import ModelConfig
+from tamperbench.whitebox.utils.models.config import ModelConfig
 
 config = StrongRejectEvaluationConfig(
     checkpoint_path="results/my_attack/checkpoint",
@@ -105,7 +105,7 @@ print(f"StrongReject score: {evaluation.load_result_objective()}")
 <!-- TODO: Update with actual defense example once defenses are merged -->
 
 ```python
-from safetunebed.whitebox.defenses.example_defense import (
+from tamperbench.whitebox.defenses.example_defense import (
     ExampleDefense,
     ExampleDefenseConfig,
 )
@@ -123,7 +123,7 @@ print(f"Defended model saved to: {aligned_checkpoint_path}")
 
 ## Available Attacks and Evaluations
 
-See `AttackName` and `EvalName` enums in `src/safetunebed/whitebox/utils/names.py` for all available attacks and evaluations. See [CONTRIBUTING.md](../CONTRIBUTING.md) for adding custom attacks.
+See `AttackName` and `EvalName` enums in `src/tamperbench/whitebox/utils/names.py` for all available attacks and evaluations. See [CONTRIBUTING.md](../CONTRIBUTING.md) for adding custom attacks.
 
 ## Benchmark Scripts
 
@@ -158,7 +158,7 @@ results/optuna_single_2024_01_15/
             ├── best.json          <- Trial metadata for top configs
             ├── trial_0/
             │   ├── checkpoint/    <- Model weights
-            │   └── safetunebed_evaluation/
+            │   └── tamperbench_evaluation/
             │       ├── strong_reject/
             │       │   ├── inferences.parquet
             │       │   ├── scores.parquet
@@ -208,7 +208,7 @@ results/grid_2024_01_15/
     └── lora_finetune/
         └── base/                  <- Config variant name from grid.yaml
             ├── checkpoint/
-            └── safetunebed_evaluation/
+            └── tamperbench_evaluation/
                 ├── strong_reject/
                 │   ├── inferences.parquet
                 │   ├── scores.parquet

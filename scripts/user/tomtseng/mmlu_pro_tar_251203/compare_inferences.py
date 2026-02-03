@@ -10,7 +10,7 @@ from pathlib import Path
 
 import polars as pl
 
-from safetunebed.utils import get_repo_root
+from tamperbench.utils import get_repo_root
 
 from .compute_mmlu_accuracy import build_ground_truth
 
@@ -31,11 +31,11 @@ def main():
 
     instruct_path = (
         repo_root
-        / "results/nov7_trial/llama3_8b_instruct_baseline/no_weight_modification/optuna_single/trial_0/safetunebed_evaluation/mmlu_pro_val/inferences.parquet"
+        / "results/nov7_trial/llama3_8b_instruct_baseline/no_weight_modification/optuna_single/trial_0/tamperbench_evaluation/mmlu_pro_val/inferences.parquet"
     )
     tar_path = (
         repo_root
-        / "results/nov7_trial/llama3_8b_tar/no_weight_modification/optuna_single/trial_0/safetunebed_evaluation/mmlu_pro_val/inferences.parquet"
+        / "results/nov7_trial/llama3_8b_tar/no_weight_modification/optuna_single/trial_0/tamperbench_evaluation/mmlu_pro_val/inferences.parquet"
     )
 
     print("Loading parquet files...")

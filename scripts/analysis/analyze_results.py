@@ -16,8 +16,8 @@ import argparse
 import logging
 from pathlib import Path
 
-from safetunebed.whitebox.utils.analysis import AnalysisConfig
-from safetunebed.whitebox.utils.analysis.pipeline import AnalysisPipeline
+from tamperbench.whitebox.utils.analysis import AnalysisConfig
+from tamperbench.whitebox.utils.analysis.pipeline import AnalysisPipeline
 
 logging.basicConfig(
     level=logging.INFO,

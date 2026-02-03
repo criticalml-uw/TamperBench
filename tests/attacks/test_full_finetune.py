@@ -4,13 +4,13 @@ import tempfile
 
 from dotenv import load_dotenv
 
-from safetunebed.whitebox.attacks.full_parameter_finetune.full_parameter_finetune import (
+from tamperbench.whitebox.attacks.full_parameter_finetune.full_parameter_finetune import (
     FullParameterFinetune,
     FullParameterFinetuneConfig,
 )
-from safetunebed.whitebox.evals.output_schema import EvaluationSchema
-from safetunebed.whitebox.utils.models.config import ModelConfig
-from safetunebed.whitebox.utils.names import EvalName, MetricName
+from tamperbench.whitebox.evals.output_schema import EvaluationSchema
+from tamperbench.whitebox.utils.models.config import ModelConfig
+from tamperbench.whitebox.utils.names import EvalName, MetricName
 
 if __name__ == "__main__":
     load_dotenv()  # ensure HF_TOKEN available

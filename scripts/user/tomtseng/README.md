@@ -9,7 +9,7 @@ the repo root to `sys.path` before those imports:
 ```python
 import sys
 
-from safetunebed.utils import get_repo_root
+from tamperbench.utils import get_repo_root
 
 # Add repo root to path so we can import from scripts.*
 # We do this because scripts/ isn't in the distributed package.
@@ -42,7 +42,7 @@ exposing dev-only dependencies.
 
 It would also pollute the namespace, adding a `scripts` package that could
 conflict with users' own code or other packages. If we add `scripts/` to the
-package, I suggest nesting it under `src/safetunebed/scripts` so that it doesn't
+package, I suggest nesting it under `src/tamperbench/scripts` so that it doesn't
 pollute the namespace, and adding an underscore prefix to any scripts that
 library users should ignore (e.g., move `scripts/user` to
-`src/safetunebed/scripts/_user`).
+`src/tamperbench/scripts/_user`).

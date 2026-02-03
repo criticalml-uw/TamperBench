@@ -7,11 +7,11 @@ import tempfile
 
 from dotenv import load_dotenv
 
-from safetunebed.whitebox.evals import IFEvalEvaluation
-from safetunebed.whitebox.evals.ifeval.ifeval import IFEvalEvaluationConfig
-from safetunebed.whitebox.evals.output_schema import EvaluationSchema
-from safetunebed.whitebox.utils.models.config import ModelConfig
-from safetunebed.whitebox.utils.names import MetricName
+from tamperbench.whitebox.evals import IFEvalEvaluation
+from tamperbench.whitebox.evals.ifeval.ifeval import IFEvalEvaluationConfig
+from tamperbench.whitebox.evals.output_schema import EvaluationSchema
+from tamperbench.whitebox.utils.models.config import ModelConfig
+from tamperbench.whitebox.utils.names import MetricName
 
 if __name__ == "__main__":
     load_dotenv()  # ensure HF_TOKEN available

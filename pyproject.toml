@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "safetunebed"
+name = "tamperbench"
 version = "0.0.1"
 description = "An extensible toolkit for benchmarking safety-preserving fine-tuning methods on large language models"
 readme = "README.md"
@@ -73,23 +73,23 @@ viz = [
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["safetunebed"]
+include = ["tamperbench"]
 
 [tool.ruff]
 line-length = 120
 target-version = "py310"
 exclude = [
   # External files sourced from other codebases
-  "src/safetunebed/whitebox/evals/embedding_attack/softopt.py",
-  "src/safetunebed/whitebox/evals/ifeval/instructions.py",
-  "src/safetunebed/whitebox/evals/ifeval/instructions_registry.py",
-  "src/safetunebed/whitebox/evals/ifeval/instructions_util.py",
-  "src/safetunebed/whitebox/evals/ifeval/utils.py",
-  "src/safetunebed/whitebox/evals/mbpp/execute.py",
-  "src/safetunebed/whitebox/evals/minerva_math/utils.py",
-  "src/safetunebed/whitebox/evals/mmlu_pro/eval_from_api.py",
+  "src/tamperbench/whitebox/evals/embedding_attack/softopt.py",
+  "src/tamperbench/whitebox/evals/ifeval/instructions.py",
+  "src/tamperbench/whitebox/evals/ifeval/instructions_registry.py",
+  "src/tamperbench/whitebox/evals/ifeval/instructions_util.py",
+  "src/tamperbench/whitebox/evals/ifeval/utils.py",
+  "src/tamperbench/whitebox/evals/mbpp/execute.py",
+  "src/tamperbench/whitebox/evals/minerva_math/utils.py",
+  "src/tamperbench/whitebox/evals/mmlu_pro/eval_from_api.py",
   # One-off scripts
-  "src/safetunebed/whitebox/attacks/multilingual_finetune/generate_translated_dataset.py",
+  "src/tamperbench/whitebox/attacks/multilingual_finetune/generate_translated_dataset.py",
 ]
 
 [tool.ruff.lint]
@@ -143,17 +143,17 @@ exclude = [
   ".cache",
 
   # Files whose implementation was mostly sourced from external codebases
-  "src/safetunebed/whitebox/evals/embedding_attack/softopt.py",
-  "src/safetunebed/whitebox/evals/ifeval/instructions.py",
-  "src/safetunebed/whitebox/evals/ifeval/instructions_registry.py",
-  "src/safetunebed/whitebox/evals/ifeval/instructions_util.py",
-  "src/safetunebed/whitebox/evals/ifeval/utils.py",
-  "src/safetunebed/whitebox/evals/mbpp/execute.py",
-  "src/safetunebed/whitebox/evals/minerva_math/utils.py",
-  "src/safetunebed/whitebox/evals/mmlu_pro/eval_from_api.py",
+  "src/tamperbench/whitebox/evals/embedding_attack/softopt.py",
+  "src/tamperbench/whitebox/evals/ifeval/instructions.py",
+  "src/tamperbench/whitebox/evals/ifeval/instructions_registry.py",
+  "src/tamperbench/whitebox/evals/ifeval/instructions_util.py",
+  "src/tamperbench/whitebox/evals/ifeval/utils.py",
+  "src/tamperbench/whitebox/evals/mbpp/execute.py",
+  "src/tamperbench/whitebox/evals/minerva_math/utils.py",
+  "src/tamperbench/whitebox/evals/mmlu_pro/eval_from_api.py",
 
   # Files that are one-off scripts (used purely for record keeping)
-  "src/safetunebed/whitebox/attacks/multilingual_finetune/generate_translated_dataset.py",
+  "src/tamperbench/whitebox/attacks/multilingual_finetune/generate_translated_dataset.py",
 ]
 
 # Allow Any as a type

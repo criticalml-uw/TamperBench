@@ -16,19 +16,19 @@ from typing import cast
 import optuna
 import torch
 
-import safetunebed.whitebox.attacks  # ensure registry side-effects  # pyright: ignore[reportUnusedImport]
-import safetunebed.whitebox.evals  # noqa: F401 -- ensure registry side-effects  # pyright: ignore[reportUnusedImport]
-from safetunebed.utils import get_repo_root
-from safetunebed.whitebox.utils import AttackName, ConfigPath
-from safetunebed.whitebox.utils.benchmark.config import (
+import tamperbench.whitebox.attacks  # ensure registry side-effects  # pyright: ignore[reportUnusedImport]
+import tamperbench.whitebox.evals  # noqa: F401 -- ensure registry side-effects  # pyright: ignore[reportUnusedImport]
+from tamperbench.utils import get_repo_root
+from tamperbench.whitebox.utils import AttackName, ConfigPath
+from tamperbench.whitebox.utils.benchmark.config import (
     AttackSweepConfig,
     load_attack_base_config,
 )
-from safetunebed.whitebox.utils.benchmark.io import deep_merge_dicts
-from safetunebed.whitebox.utils.benchmark.path_generation import StudyPaths
-from safetunebed.whitebox.utils.benchmark.sweep import suggest_nested_params
-from safetunebed.whitebox.utils.benchmark.trial_manager import SweepTrialManager
-from safetunebed.whitebox.utils.names import (
+from tamperbench.whitebox.utils.benchmark.io import deep_merge_dicts
+from tamperbench.whitebox.utils.benchmark.path_generation import StudyPaths
+from tamperbench.whitebox.utils.benchmark.sweep import suggest_nested_params
+from tamperbench.whitebox.utils.benchmark.trial_manager import SweepTrialManager
+from tamperbench.whitebox.utils.names import (
     ConfigKeys,
     EvalName,
     OptunaUserAttrs,
