@@ -26,12 +26,6 @@ from tamperbench.utils import get_repo_root
 # We do this because scripts/ isn't in the distributed package.
 sys.path.insert(0, str(get_repo_root()))
 
-from tamperbench.whitebox.evals.mmlu_pro.eval_from_api import extract_answer, preprocess
-from tamperbench.whitebox.evals.mmlu_pro.mmlu_pro import (
-    DATASET_NAME,
-    VAL_MAX_EXAMPLES_PER_SUBJECT,
-    limit_examples_per_subject,
-)
 from scripts.user.tomtseng.mmlu_pro_llm_judge.judge import (
     extract_with_retries,
 )
@@ -40,6 +34,12 @@ from scripts.user.tomtseng.mmlu_pro_llm_judge.run_judge import (
 )
 from scripts.user.tomtseng.mmlu_pro_tar_251203.judge_with_context import (
     grade_with_context,
+)
+from tamperbench.whitebox.evals.mmlu_pro.eval_from_api import extract_answer, preprocess
+from tamperbench.whitebox.evals.mmlu_pro.mmlu_pro import (
+    DATASET_NAME,
+    VAL_MAX_EXAMPLES_PER_SUBJECT,
+    limit_examples_per_subject,
 )
 
 
