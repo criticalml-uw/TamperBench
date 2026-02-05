@@ -2,7 +2,7 @@
 
 # TamperBench
 
-**An extensible toolkit for benchmarking safety-preserving fine-tuning methods on large language models**
+**Benchmark the tamper-resistance of open-weight LLMs**
 
 [![Transformers](https://img.shields.io/badge/transformers-%E2%89%A54.49-orange?style=flat-square&logo=huggingface&logoColor=white)](https://github.com/huggingface/transformers)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue?style=flat-square&logo=python&logoColor=white)](https://www.python.org/downloads/)
@@ -14,48 +14,47 @@
 
 ---
 
-- :crossed_swords: **Tampering Attacks** &mdash; LoRA, full-parameter fine-tuning, embedding attacks, jailbreak & multilingual fine-tuning, backdoor injection, and more
-- :shield: **Safety & Utility Evaluations** &mdash; StrongReject, MMLU-Pro, MBPP, Minerva Math, IFEval, and JailbreakBench
-- :bar_chart: **Hyperparameter Optimization** &mdash; Optuna-based sweeps to stress-test models under worst-case attacker tuning
-- :snake: **Easy-to-Use Python API** &mdash; Run attacks and evaluations programmatically with a simple, typed interface
-- :jigsaw: **Extensible Plugin Architecture** &mdash; Register new attacks and evaluations with a single decorator
+- :crossed_swords: Red-team LLMs with tampering attacks like LoRA, full-parameter fine-tuning, embedding attacks, jailbreak & multilingual fine-tuning, and backdoor injection
+- :shield: Evaluate safety and utility with StrongReject, MMLU-Pro, MBPP, Minerva Math, IFEval, and JailbreakBench
+- :gear: Run rigorous hyperparameter sweeps to stress-test models under worst-case attacker configurations
+- :snake: Use a typed Python API to run attacks and evaluations programmatically
+- :jigsaw: Add custom attacks and evaluations with an extensible, decorator-based plugin architecture
 
 <div align="center">
-
-[![TamperBench Toolkit](assets/tamperbench_toolkit.png)](assets/tamperbench_toolkit.png)
-
+<img src="assets/tamperbench_toolkit.png" alt="TamperBench Toolkit" width="700">
 </div>
 
-## Getting Started
+## :rocket: Getting Started
 
 ### Installation
 
 ```bash
-# Clone the repository
 git clone https://github.com/criticalml-uw/tamperbench.git
 cd tamperbench
-
-# Install with uv
 uv sync --all-groups
-
-# Install pre-commit hooks
 pre-commit install
 ```
 
-### Run a Benchmark
+### :zap: Run a Benchmark
+
+Stress-test Qwen3-4B with 50 hyperparameter trials using the `lora_finetune` attack:
 
 ```bash
-# Hyperparameter sweep (stress-test a model under worst-case attacker tuning)
 uv run scripts/whitebox/optuna_single.py Qwen/Qwen3-4B \
     --attacks lora_finetune \
     --n-trials 50
+```
 
-# Grid benchmark (fixed hyperparameters from config files)
+Run Qwen3-4B against a fixed grid of hyperparameters for multiple attacks (see [Configs](docs/CONFIGS.md) for available configurations):
+
+```bash
 uv run scripts/whitebox/benchmark_grid.py Qwen/Qwen3-4B \
     --attacks lora_finetune full_parameter_finetune
 ```
 
-### Python API
+### :snake: Python API
+
+Configure and run a LoRA fine-tuning attack against Llama-3.1-8B-Instruct, then evaluate safety (StrongReject) and utility (MMLU-Pro) on the tampered model:
 
 ```python
 from tamperbench.whitebox.attacks.lora_finetune.lora_finetune import (
@@ -87,11 +86,11 @@ config = LoraFinetuneConfig(
 )
 
 attack = LoraFinetune(attack_config=config)
-results = attack.benchmark()  # Runs attack + evaluations
+results = attack.benchmark()
 print(results)
 ```
 
-## Results
+## :bar_chart: Results
 
 TamperBench evaluates tamper resistance across model families, attack strategies, and alignment defenses:
 
@@ -101,7 +100,7 @@ TamperBench evaluates tamper resistance across model families, attack strategies
 
 </div>
 
-## Quick Links
+## :link: Quick Links
 
 | [Usage Guide](docs/USAGE.md) | [Contributing](docs/CONTRIBUTING.md) | [Configs](docs/CONFIGS.md) | [Analysis](docs/ANALYSIS.md) |
 | --- | --- | --- | --- |
