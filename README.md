@@ -1,29 +1,61 @@
+<div align="center">
+
 # TamperBench
 
-An extensible toolkit for benchmarking safety‑preserving fine‑tuning methods for LLMs.
+**An extensible toolkit for benchmarking safety-preserving fine-tuning methods on large language models**
 
-## Features
+[![Transformers](https://img.shields.io/badge/transformers-%E2%89%A54.49-orange?style=flat-square&logo=huggingface&logoColor=white)](https://github.com/huggingface/transformers)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue?style=flat-square&logo=python&logoColor=white)](https://www.python.org/downloads/)
+[![uv](https://img.shields.io/badge/uv-package%20manager-blueviolet?style=flat-square&logo=astral&logoColor=white)](https://github.com/astral-sh/uv)
+[![Ruff](https://img.shields.io/badge/code%20style-ruff-000000?style=flat-square)](https://github.com/astral-sh/ruff)
+[![Basedpyright](https://img.shields.io/badge/type%20checked-basedpyright-blue?style=flat-square)](https://github.com/DetachHead/basedpyright)
 
-- **Tampering Attacks**: LoRA, full-parameter fine-tuning, embedding attacks, jailbreak fine-tuning, and more
-- **Safety Evaluations**: StrongReject, MMLU-Pro, and other benchmarks
-- **Hyperparameter Optimization**: Optuna-based sweeps with automatic trial management
-- **Analysis Pipeline**: Epsilon-bounded filtering to find attacks that maximize harm while preserving utility
+</div>
 
-## Quick Start
+---
+
+- :crossed_swords: **Tampering Attacks** &mdash; LoRA, full-parameter fine-tuning, embedding attacks, jailbreak & multilingual fine-tuning, backdoor injection, and more
+- :shield: **Safety & Utility Evaluations** &mdash; StrongReject, MMLU-Pro, MBPP, Minerva Math, IFEval, and JailbreakBench
+- :bar_chart: **Hyperparameter Optimization** &mdash; Optuna-based sweeps to stress-test models under worst-case attacker tuning
+- :snake: **Easy-to-Use Python API** &mdash; Run attacks and evaluations programmatically with a simple, typed interface
+- :jigsaw: **Extensible Plugin Architecture** &mdash; Register new attacks and evaluations with a single decorator
+
+<div align="center">
+
+[![TamperBench Toolkit](assets/tamperbench_toolkit.png)](assets/tamperbench_toolkit.png)
+
+</div>
+
+## Getting Started
+
+### Installation
 
 ```bash
-# Install package and all dependencies
+# Clone the repository
+git clone https://github.com/criticalml-uw/tamperbench.git
+cd tamperbench
+
+# Install with uv
 uv sync --all-groups
 
 # Install pre-commit hooks
 pre-commit install
 ```
 
-## Usage
+### Run a Benchmark
+
+```bash
+# Hyperparameter sweep (stress-test a model under worst-case attacker tuning)
+uv run scripts/whitebox/optuna_single.py Qwen/Qwen3-4B \
+    --attacks lora_finetune \
+    --n-trials 50
+
+# Grid benchmark (fixed hyperparameters from config files)
+uv run scripts/whitebox/benchmark_grid.py Qwen/Qwen3-4B \
+    --attacks lora_finetune full_parameter_finetune
+```
 
 ### Python API
-
-Run attacks and evaluations directly from Python:
 
 ```python
 from tamperbench.whitebox.attacks.lora_finetune.lora_finetune import (
@@ -59,80 +91,18 @@ results = attack.benchmark()  # Runs attack + evaluations
 print(results)
 ```
 
-### Hyperparameter Sweeps (Stress-Testing)
+## Results
 
-Find the attack configuration that maximizes harm—simulates a real-world attacker tuning their approach:
+TamperBench evaluates tamper resistance across model families, attack strategies, and alignment defenses:
 
-```bash
-python scripts/whitebox/optuna_single.py Qwen/Qwen3-4B \
-    --attacks lora_finetune \
-    --n-trials 50 \
-    --model-alias qwen3_4b
-```
+<div align="center">
 
-### Grid Benchmarks (Pre-defined Configs)
+[![StrongReject Results Heatmap](assets/tamperbench_results_heatmap.png)](assets/tamperbench_results_heatmap.png)
 
-Run attacks with fixed hyperparameters from config files:
+</div>
 
-```bash
-python scripts/whitebox/benchmark_grid.py Qwen/Qwen3-4B \
-    --attacks lora_finetune full_parameter_finetune \
-    --model-alias qwen3_4b
-```
+## Quick Links
 
-### Results Analysis
-
-Aggregate sweep results and generate visualizations:
-
-```bash
-# Epsilon-bounded analysis (filters by utility degradation)
-uv run scripts/analysis/analyze_results.py results/sweep epsilon \
-    --epsilons 0.05 0.10 0.20
-
-# Generate heatmaps
-python scripts/figures/plot_main_heatmap.py results/aggregated_eps05/heatmap_max_sr.json
-```
-
-## Available Attacks
-
-| Attack                    | Description                          |
-| ------------------------- | ------------------------------------ |
-| `lora_finetune`           | LoRA-based fine-tuning               |
-| `full_parameter_finetune` | Full model parameter updates         |
-| `embedding_attack`        | Adversarial embedding optimization   |
-| `jailbreak_finetune`      | Jailbreak-style fine-tuning          |
-| `multilingual_finetune`   | Multilingual attack vectors          |
-| `backdoor_finetune`       | Backdoor injection                   |
-| `benign_*`                | Benign baselines for comparison      |
-
-## Available Evaluations
-
-| Evaluation      | Description                          |
-| --------------- | ------------------------------------ |
-| `strong_reject` | Safety benchmark (StrongReject)      |
-| `mmlu_pro_val`  | Knowledge benchmark (MMLU-Pro)       |
-| `mbpp`          | Code generation                      |
-| `minerva_math`  | Mathematical reasoning               |
-| `ifeval`        | Instruction following                |
-
-## Documentation
-
-| Guide                                       | Description                               |
-| ------------------------------------------- | ----------------------------------------- |
-| [USAGE.md](docs/USAGE.md)                   | Full usage guide with examples            |
-| [CONTRIBUTING.md](docs/CONTRIBUTING.md)     | Adding new attacks, evaluations, defenses |
-| [CONFIGS.md](docs/CONFIGS.md)               | Configuration system and YAML files       |
-| [ANALYSIS.md](docs/ANALYSIS.md)             | Results analysis and visualization        |
-| [MISC.md](docs/MISC.md)                     | Maintenance tips and troubleshooting      |
-
-## Architecture
-
-The whitebox framework uses a registry-based plugin architecture:
-
-```text
-src/tamperbench/whitebox/
-├── attacks/          # Tampering attacks (LoRA, full-param, embedding, etc.)
-├── defenses/         # Alignment defenses
-├── evals/            # Safety and utility evaluations
-└── utils/            # Benchmark utilities, analysis pipeline
-```
+| [Usage Guide](docs/USAGE.md) | [Contributing](docs/CONTRIBUTING.md) | [Configs](docs/CONFIGS.md) | [Analysis](docs/ANALYSIS.md) |
+| --- | --- | --- | --- |
+| Full usage guide, Python API, and CLI examples | Adding new attacks, evaluations, and defenses | Configuration system and YAML files | Results analysis, epsilon-bounded filtering, and visualization |
