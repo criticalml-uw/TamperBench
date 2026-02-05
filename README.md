@@ -2,7 +2,7 @@
 
 # TamperBench
 
-**Benchmark the tamper-resistance of open-weight LLMs**
+**Benchmark the tamper-resistance of open-weight large language models (LLMs)**
 
 [![Transformers](https://img.shields.io/badge/transformers-%E2%89%A54.49-orange?style=flat-square&logo=huggingface&logoColor=white)](https://github.com/huggingface/transformers)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue?style=flat-square&logo=python&logoColor=white)](https://www.python.org/downloads/)
@@ -23,7 +23,9 @@
 <br>
 
 <div align="center">
-<img src="assets/tamperbench_toolkit.png" alt="TamperBench Toolkit" width="750">
+
+[![TamperBench Toolkit](assets/tamperbench_toolkit.png)](assets/tamperbench_toolkit.png)
+
 </div>
 
 ## :rocket: Getting Started
@@ -47,7 +49,7 @@ uv run scripts/whitebox/optuna_single.py Qwen/Qwen3-4B \
     --n-trials 50
 ```
 
-Run Qwen3-4B against a fixed grid of hyperparameters for multiple attacks (see [Configs](docs/CONFIGS.md) for available configurations):
+Run Qwen3-4B against a fixed grid of hyperparameters for multiple attacks (see [CONFIGS.md](docs/CONFIGS.md) for available configurations):
 
 ```bash
 uv run scripts/whitebox/benchmark_grid.py Qwen/Qwen3-4B \
@@ -94,7 +96,7 @@ print(results)
 
 ## :bar_chart: Results
 
-TamperBench evaluates tamper resistance across model families, attack strategies, and alignment defenses:
+Benchmarking tamper resistance across 21 open-weight LLMs. For each model-attack pair, we select the configuration that maximizes harmfulness (StrongREJECT score) while constraining utility loss to at most 10% MMLU-Pro drop. Darker cells indicate higher harmfulness; lighter cells indicate greater tamper resistance.
 
 <div align="center">
 
@@ -104,6 +106,6 @@ TamperBench evaluates tamper resistance across model families, attack strategies
 
 ## :link: Quick Links
 
-| [Usage Guide](docs/USAGE.md) | [Contributing](docs/CONTRIBUTING.md) | [CONFIGS.md](docs/CONFIGS.md) | [Analysis](docs/ANALYSIS.md) |
+| [Usage Guide](docs/USAGE.md) | [Contributing](docs/CONTRIBUTING.md) | [Configs](docs/CONFIGS.md) | [Analysis](docs/ANALYSIS.md) |
 | --- | --- | --- | --- |
 | Full usage guide, Python API, and CLI examples | Adding new attacks, evaluations, and defenses | Configuration system and YAML files | Results analysis, epsilon-bounded filtering, and visualization |
