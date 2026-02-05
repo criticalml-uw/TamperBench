@@ -14,14 +14,16 @@
 
 ---
 
-- :crossed_swords: Red-team LLMs with tampering attacks like LoRA, full-parameter fine-tuning, embedding attacks, jailbreak & multilingual fine-tuning, and backdoor injection
-- :shield: Evaluate safety and utility with StrongReject, MMLU-Pro, MBPP, Minerva Math, IFEval, and JailbreakBench
-- :gear: Run rigorous hyperparameter sweeps to stress-test models under worst-case attacker configurations
-- :snake: Use a typed Python API to run attacks and evaluations programmatically
-- :jigsaw: Add custom attacks and evaluations with an extensible, decorator-based plugin architecture
+- :crossed_swords: Red-team LLMs with tampering attacks like fine-tuning, jailbreak-tuning, embedding attacks, and others.
+- :shield: Evaluate safety and utility with StrongREJECT, MMLU-Pro, and others.
+- :gear: Run rigorous hyperparameter sweeps to stress-test models under worst-case attacker configurations.
+- :snake: Use a typed Python API to run attacks and evaluations programmatically.
+- :jigsaw: Add or use custom attacks and evaluations with an extensible, decorator-based plugin architecture.
+
+<br>
 
 <div align="center">
-<img src="assets/tamperbench_toolkit.png" alt="TamperBench Toolkit" width="700">
+<img src="assets/tamperbench_toolkit.png" alt="TamperBench Toolkit" width="750">
 </div>
 
 ## :rocket: Getting Started
@@ -102,6 +104,6 @@ TamperBench evaluates tamper resistance across model families, attack strategies
 
 ## :link: Quick Links
 
-| [Usage Guide](docs/USAGE.md) | [Contributing](docs/CONTRIBUTING.md) | [Configs](docs/CONFIGS.md) | [Analysis](docs/ANALYSIS.md) |
+| [Usage Guide](docs/USAGE.md) | [Contributing](docs/CONTRIBUTING.md) | [CONFIGS.md](docs/CONFIGS.md) | [Analysis](docs/ANALYSIS.md) |
 | --- | --- | --- | --- |
 | Full usage guide, Python API, and CLI examples | Adding new attacks, evaluations, and defenses | Configuration system and YAML files | Results analysis, epsilon-bounded filtering, and visualization |
