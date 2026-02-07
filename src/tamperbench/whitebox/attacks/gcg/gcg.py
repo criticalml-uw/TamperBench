@@ -7,9 +7,9 @@ from pandera.typing.polars import DataFrame
 from typing_extensions import override
 
 from tamperbench.whitebox.attacks.base import TamperAttack, TamperAttackConfig
-from tamperbench.whitebox.attacks.gcg.implementation import GCGConfig
 from tamperbench.whitebox.attacks.registry import register_attack
 from tamperbench.whitebox.evals.gcg.gcg import GCGEvaluation, GCGEvaluationConfig
+from tamperbench.whitebox.evals.gcg.implementation import GCGConfig
 from tamperbench.whitebox.evals.output_schema import EvaluationSchema
 from tamperbench.whitebox.utils.names import AttackName, EvalName
 

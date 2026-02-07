@@ -11,8 +11,8 @@ from torch import Tensor
 from tqdm import tqdm
 from typing_extensions import override
 
-from tamperbench.whitebox.attacks.gcg.implementation import GCG, GCGConfig
 from tamperbench.whitebox.evals.base import load_model_and_tokenizer
+from tamperbench.whitebox.evals.gcg.implementation import GCG, GCGConfig
 from tamperbench.whitebox.evals.output_schema import InferenceSchema
 from tamperbench.whitebox.evals.registry import register_evaluation
 from tamperbench.whitebox.evals.strong_reject.strong_reject import (
