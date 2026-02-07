@@ -8,6 +8,10 @@ from tamperbench.whitebox.evals.ifeval.ifeval import (
     IFEvalEvaluation,
     IFEvalEvaluationConfig,
 )
+from tamperbench.whitebox.evals.latent_attack.latent_attack import (
+    LatentAttackEvaluation,
+    LatentAttackEvaluationConfig,
+)
 from tamperbench.whitebox.evals.mbpp.mbpp import (
     MBPPEvaluation,
     MBPPEvaluationConfig,
@@ -34,6 +38,8 @@ __all__ = [
     "EmbeddingAttackEvaluationConfig",
     "IFEvalEvaluation",
     "IFEvalEvaluationConfig",
+    "LatentAttackEvaluation",
+    "LatentAttackEvaluationConfig",
     "MBPPEvaluation",
     "MBPPEvaluationConfig",
     "MMLUProTestEvaluation",

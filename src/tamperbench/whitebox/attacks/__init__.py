@@ -10,7 +10,7 @@ from tamperbench.whitebox.attacks.embedding_attack import (
     embedding_attack as _embedding,
 )
 
-# Re-export embedding attack classes for convenience
+# Re-export attack classes for convenience
 from tamperbench.whitebox.attacks.embedding_attack.embedding_attack import (
     EmbeddingAttack,
     EmbeddingAttackConfig,
@@ -20,6 +20,10 @@ from tamperbench.whitebox.attacks.full_parameter_finetune import (
 )
 from tamperbench.whitebox.attacks.jailbreak_finetune import (
     jailbreak_finetune as _jailbreak,
+)
+from tamperbench.whitebox.attacks.latent_attack.latent_attack import (
+    LatentAttack,
+    LatentAttackConfig,
 )
 from tamperbench.whitebox.attacks.lora_finetune import lora_finetune as _lora
 from tamperbench.whitebox.attacks.multilingual_finetune import (
@@ -31,4 +35,6 @@ del _embedding, _full_param, _jailbreak, _lora, _multilingual
 __all__ = [
     "EmbeddingAttack",
     "EmbeddingAttackConfig",
+    "LatentAttack",
+    "LatentAttackConfig",
 ]

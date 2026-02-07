@@ -19,6 +19,7 @@ class AttackName(StrEnum):
     NO_WEIGHT_MODIFICATION = "no_weight_modification"
     LORA_FULL_DATASET_FINETUNE = "lora_full_dataset_finetune"
     LORA_FINETUNE_OPTIM = "lora_finetune_optim"
+    LATENT_ATTACK = "latent_attack"
 
 
 class DefenseName(StrEnum):
@@ -33,6 +34,7 @@ class EvalName(StrEnum):
 
     STRONG_REJECT = "strong_reject"
     EMBEDDING_ATTACK = "embedding_attack_eval"
+    LATENT_ATTACK = "latent_attack_eval"
     MT_BENCH = "mt_bench"
     MMLU_PRO_VAL = "mmlu_pro_val"
     MMLU_PRO_TEST = "mmlu_pro"
