@@ -23,7 +23,7 @@ from typing_extensions import override
 from tamperbench.whitebox.evals.base import (
     WhiteBoxEvaluation,
     WhiteBoxEvaluationConfig,
-    load_model_and_tokenizer,
+    load_hf_model_and_tokenizer,
 )
 from tamperbench.whitebox.evals.mt_bench.judge import (
     score_multi_turn,
@@ -38,11 +38,119 @@ from tamperbench.whitebox.evals.output_schema import (
     InferenceSchema,
     ScoreSchema,
 )
+from tamperbench.whitebox.evals.reference import ReferenceScore, ReferenceScores
 from tamperbench.whitebox.utils import (
     EvalName,
     MetricName,
     OptimizationDirection,
     dealloc_model_and_tokenizer,
+)
+
+# Reference: Multiple sources for MT-Bench scores
+# Primary: "Judging LLM-as-a-Judge" (Zheng et al., NeurIPS 2023)
+# https://proceedings.neurips.cc/paper_files/paper/2023/file/91f18a1287b398d378ef22505bf41832-Paper-Datasets_and_Benchmarks.pdf
+# Additional: WMDP Benchmark (Li et al., 2024) Table 2
+# MT-Bench scores are on a 1-10 scale (higher = better)
+MT_BENCH_REFERENCE_SCORES = ReferenceScores(
+    scores=[
+        # From WMDP paper Table 2
+        ReferenceScore(
+            model_id="HuggingFaceH4/zephyr-7b-beta",
+            metrics={
+                str(MetricName.MT_BENCH_SCORE): 7.33,
+            },
+            source="WMDP Benchmark (Li et al., 2024) Table 2",
+            tolerance=0.10,  # ~1 point tolerance for subjective scoring
+            notes="Single evaluation mode, GPT-4-0613 judge",
+        ),
+        ReferenceScore(
+            model_id="01-ai/Yi-34B-Chat",
+            metrics={
+                str(MetricName.MT_BENCH_SCORE): 7.65,
+            },
+            source="WMDP Benchmark (Li et al., 2024) Table 2",
+            tolerance=0.10,
+        ),
+        ReferenceScore(
+            model_id="mistralai/Mixtral-8x7B-Instruct-v0.1",
+            metrics={
+                str(MetricName.MT_BENCH_SCORE): 8.30,
+            },
+            source="WMDP Benchmark (Li et al., 2024) Table 2",
+            tolerance=0.10,
+        ),
+        ReferenceScore(
+            model_id="gpt-4",
+            metrics={
+                str(MetricName.MT_BENCH_SCORE): 9.13,
+            },
+            source="WMDP Benchmark (Li et al., 2024) Table 2",
+            tolerance=0.10,
+            notes="OpenAI GPT-4 (2023a)",
+        ),
+        # From original MT-Bench paper (Zheng et al., 2023) - Table 5
+        ReferenceScore(
+            model_id="gpt-4-0314",
+            metrics={
+                str(MetricName.MT_BENCH_SCORE): 8.99,
+                str(MetricName.MT_BENCH_TURN_1_SCORE): 8.96,
+                str(MetricName.MT_BENCH_TURN_2_SCORE): 9.03,
+            },
+            source="MT-Bench (Zheng et al., 2023) Table 5",
+            tolerance=0.10,
+            notes="Original paper GPT-4 results",
+        ),
+        ReferenceScore(
+            model_id="gpt-3.5-turbo",
+            metrics={
+                str(MetricName.MT_BENCH_SCORE): 7.94,
+                str(MetricName.MT_BENCH_TURN_1_SCORE): 8.08,
+                str(MetricName.MT_BENCH_TURN_2_SCORE): 7.81,
+            },
+            source="MT-Bench (Zheng et al., 2023) Table 5",
+            tolerance=0.10,
+        ),
+        ReferenceScore(
+            model_id="claude-v1",
+            metrics={
+                str(MetricName.MT_BENCH_SCORE): 7.90,
+                str(MetricName.MT_BENCH_TURN_1_SCORE): 8.15,
+                str(MetricName.MT_BENCH_TURN_2_SCORE): 7.65,
+            },
+            source="MT-Bench (Zheng et al., 2023) Table 5",
+            tolerance=0.10,
+        ),
+        ReferenceScore(
+            model_id="meta-llama/Llama-2-70b-chat-hf",
+            metrics={
+                str(MetricName.MT_BENCH_SCORE): 6.86,
+                str(MetricName.MT_BENCH_TURN_1_SCORE): 7.18,
+                str(MetricName.MT_BENCH_TURN_2_SCORE): 6.54,
+            },
+            source="MT-Bench (Zheng et al., 2023) Table 5",
+            tolerance=0.10,
+        ),
+        ReferenceScore(
+            model_id="lmsys/vicuna-33b-v1.3",
+            metrics={
+                str(MetricName.MT_BENCH_SCORE): 7.12,
+                str(MetricName.MT_BENCH_TURN_1_SCORE): 7.46,
+                str(MetricName.MT_BENCH_TURN_2_SCORE): 6.79,
+            },
+            source="MT-Bench (Zheng et al., 2023) Table 5",
+            tolerance=0.10,
+        ),
+        ReferenceScore(
+            model_id="WizardLM/WizardLM-13B-V1.2",
+            metrics={
+                str(MetricName.MT_BENCH_SCORE): 7.20,
+                str(MetricName.MT_BENCH_TURN_1_SCORE): 7.50,
+                str(MetricName.MT_BENCH_TURN_2_SCORE): 6.90,
+            },
+            source="MT-Bench (Zheng et al., 2023) Table 5",
+            tolerance=0.10,
+        ),
+    ]
 )
 
 
@@ -57,6 +165,10 @@ class MTBenchEvaluationConfig(WhiteBoxEvaluationConfig):
         max_judge_workers: Max parallel threads for LLM judge API calls.
     """
 
+    # NOTE: The original MT-Bench paper and WMDP reference scores used gpt-4-0613 as
+    # the judge, which is now deprecated. Default is gpt-4o; scores may differ slightly
+    # from reference values. Set judge_model="gpt-4-0613" if you have legacy API access
+    # and need exact reproduction of paper results.
     judge_model: str = "gpt-4o"
     categories: list[str] | None = None
     system_prompt: str | None = None
@@ -93,6 +205,7 @@ class MTBenchEvaluation(WhiteBoxEvaluation[MTBenchEvaluationConfig]):
     objective: MetricName = MetricName.MT_BENCH_SCORE
     attacker_direction: OptimizationDirection = OptimizationDirection.MINIMIZE
     defender_direction: OptimizationDirection = OptimizationDirection.MAXIMIZE
+    reference_scores: ReferenceScores = MT_BENCH_REFERENCE_SCORES
 
     def __init__(self, eval_config: MTBenchEvaluationConfig) -> None:
         """Initialize MT-Bench evaluation.
@@ -176,8 +289,7 @@ class MTBenchEvaluation(WhiteBoxEvaluation[MTBenchEvaluationConfig]):
         Returns:
             DataFrame[InferenceSchema]: A polars DataFrame with prompts and responses.
         """
-        # Standard inference path
-        model, tokenizer = load_model_and_tokenizer(self.eval_config)
+        model, tokenizer = load_hf_model_and_tokenizer(self.eval_config)
 
         inferences: list[dict[str, Any]] = []
         for question in tqdm(self.questions, desc="Generating MT-Bench responses"):
@@ -206,6 +318,7 @@ class MTBenchEvaluation(WhiteBoxEvaluation[MTBenchEvaluationConfig]):
                 prompt_t2, model, tokenizer, self.eval_config.model_config.max_generation_length
             )
 
+            # Store inference record
             inferences.append(
                 {
                     "question_id": question.question_id,
@@ -220,7 +333,6 @@ class MTBenchEvaluation(WhiteBoxEvaluation[MTBenchEvaluationConfig]):
             )
 
         dealloc_model_and_tokenizer(model, tokenizer)
-
         return InferenceSchema.validate(pl.DataFrame(inferences))
 
     def _score_row(self, row: dict[str, Any], question_map: dict[int, MTBenchQuestion]) -> dict[str, Any]:

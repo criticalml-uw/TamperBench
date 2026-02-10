@@ -2,7 +2,7 @@
 
 # pyright: reportUnnecessaryTypeIgnoreComment=false, reportArgumentType=false, reportUnknownVariableType=false, reportUnknownMemberType=false, reportAttributeAccessIssue=false, reportMissingTypeStubs=false, reportCallIssue=false
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import strong_reject.jailbreaks as strong_reject_jailbreaks
 from typing_extensions import override
@@ -25,7 +25,7 @@ class SRJailbreakTuneEvaluationConfig(StrongRejectEvaluationConfig):
         prompt_injection: The jailbreak prompt injection to use.
     """
 
-    prompt_injection: JailbreakTuneType
+    prompt_injection: JailbreakTuneType = field(kw_only=True)
 
 
 class SRJailbreakTuneEvaluation(StrongRejectEvaluation[SRJailbreakTuneEvaluationConfig]):

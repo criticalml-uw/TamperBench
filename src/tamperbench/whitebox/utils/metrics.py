@@ -100,19 +100,10 @@ def compute_perplexity(
         for token_logprobs in prompt_logprobs:
             if token_logprobs is None:
                 continue
-            # It's a dict mapping token_id to Logprob objects
-            # We want the logprob of the actual token that was used (there should be one entry)
-            if isinstance(token_logprobs, dict):
-                for _token_id, logprob_info in token_logprobs.items():
-                    if hasattr(logprob_info, "logprob"):
-                        log_probs.append(logprob_info.logprob)
-                    elif isinstance(logprob_info, int | float):
-                        log_probs.append(float(logprob_info))
-                    break  # Only take the first (actual) token
-            elif hasattr(token_logprobs, "logprob"):
-                log_probs.append(token_logprobs.logprob)
-            elif isinstance(token_logprobs, int | float):
-                log_probs.append(float(token_logprobs))
+            # token_logprobs is dict[int, Logprob] — take the actual token's logprob
+            for logprob_info in token_logprobs.values():
+                log_probs.append(logprob_info.logprob)
+                break  # Only take the first (actual) token
 
         if log_probs:
             # Perplexity = exp(-mean(log_probs))
