@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from dotenv import load_dotenv
 
 from tamperbench.whitebox.defenses.ctrl import CTRL, CTRLConfig
 
 
+@pytest.mark.gpu_required
 def test_ctrl_defense_runs(tmp_path: Path) -> None:
     """Run CTRL defense end-to-end on a tiny model."""
     load_dotenv()  # ensure HF_TOKEN available

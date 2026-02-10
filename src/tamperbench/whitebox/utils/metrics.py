@@ -12,6 +12,7 @@ import os
 import re
 from concurrent.futures import ProcessPoolExecutor
 from functools import partial
+from pathlib import Path
 from typing import Any
 
 import nltk
@@ -21,6 +22,20 @@ from tqdm import tqdm
 from vllm import LLM, SamplingParams
 
 from tamperbench.whitebox.utils.datasets import ensure_nltk_resource
+
+
+def ensure_nltk_resource(resource_path: str, download_name: str | None = None) -> None:
+    """Ensure an NLTK resource is available, downloading if necessary.
+
+    Args:
+        resource_path: NLTK resource path (e.g., "tokenizers/punkt_tab").
+        download_name: Name to pass to nltk.download(). If None, derived from resource_path.
+    """
+    try:
+        nltk.data.find(resource_path)
+    except LookupError:
+        name = download_name or Path(resource_path).name
+        nltk.download(name, quiet=True)
 
 
 def longest_common_subsequence_length(seq1: list[str], seq2: list[str]) -> int:
@@ -89,19 +104,10 @@ def compute_perplexity(
         for token_logprobs in prompt_logprobs:
             if token_logprobs is None:
                 continue
-            # It's a dict mapping token_id to Logprob objects
-            # We want the logprob of the actual token that was used (there should be one entry)
-            if isinstance(token_logprobs, dict):
-                for _, logprob_info in token_logprobs.items():
-                    if hasattr(logprob_info, "logprob"):
-                        log_probs.append(logprob_info.logprob)
-                    elif isinstance(logprob_info, int | float):
-                        log_probs.append(float(logprob_info))
-                    break  # Only take the first (actual) token
-            elif hasattr(token_logprobs, "logprob"):
-                log_probs.append(token_logprobs.logprob)
-            elif isinstance(token_logprobs, int | float):
-                log_probs.append(float(token_logprobs))
+            # token_logprobs is dict[int, Logprob] — take the actual token's logprob
+            for logprob_info in token_logprobs.values():
+                log_probs.append(logprob_info.logprob)
+                break  # Only take the first (actual) token
 
         if log_probs:
             # Perplexity = exp(-mean(log_probs))
@@ -169,7 +175,13 @@ def compute_readability(texts: list[str], max_workers: int = 4) -> list[float]:
     try:
         n_workers = min(max_workers, os.cpu_count() or 4)
         with ProcessPoolExecutor(max_workers=n_workers) as executor:
-            return list(tqdm(executor.map(compute_fn, texts, chunksize=32), total=len(texts), desc="  Readability"))
+            return list(
+                tqdm(
+                    executor.map(compute_fn, texts, chunksize=32),
+                    total=len(texts),
+                    desc="  Readability",
+                )
+            )
     finally:
         if prev_tokenizers_parallelism is None:
             os.environ.pop("TOKENIZERS_PARALLELISM", None)
@@ -276,7 +288,10 @@ def compute_helpfulness(
     responses: list[str],
     vllm_model: LLM,
 ) -> list[float | None]:
-    """Compute helpfulness scores across all dimensions using vLLM as judge.
+    """Compute helpfulness scores for query-response pairs using vLLM.
+
+    Scores each response on four dimensions (relevance, clarity, comprehensiveness,
+    usefulness) and returns the average score per response.
 
     Args:
         queries: The queries/prompts.

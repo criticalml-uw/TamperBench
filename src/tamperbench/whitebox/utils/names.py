@@ -26,6 +26,7 @@ class AttackName(StrEnum):
 class DefenseName(StrEnum):
     """Names of defenses supported by tamperbench."""
 
+    CRL = "crl"
     TAR = "tar"
     T_VACCINE = "t_vaccine"
 
