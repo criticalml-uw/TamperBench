@@ -5,7 +5,6 @@
 **Benchmark the tamper-resistance of open-weight large language models (LLMs)**
 
 <a href="https://sirisharambhatla.com/criticalml/"><img src="assets/criticalml-logo.png" height="100" alt="CriticalML"></a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/far_ai_logo_white.svg">
   <source media="(prefers-color-scheme: light)" srcset="assets/far_ai_logo.svg">
