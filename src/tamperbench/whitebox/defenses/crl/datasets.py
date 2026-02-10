@@ -16,8 +16,8 @@ def format_with_chat_template(
     """Format a conversation and track response token positions.
 
     Returns input_ids, attention_mask, and response_mask (1 for response tokens, 0 otherwise).
-    This follows the CRL paper's approach of using ALL response tokens for representation
-    extraction, not just the last token.
+    The response_mask identifies assistant response tokens for representation extraction,
+    matching the CRL paper's approach (also used by RepBend and Circuit Breaking).
 
     Args:
         tokenizer: Tokenizer with chat template.
@@ -37,6 +37,12 @@ def format_with_chat_template(
             add_generation_prompt=True,  # Adds assistant header
         )
     else:
+        # NOTE: This fallback path has a known BPE boundary sensitivity issue --
+        # the response_mask may be off by 1-2 tokens because BPE tokenization at
+        # the "Assistant: " / response boundary can differ when tokenized separately
+        # vs. as part of the full text. The primary code path (chat templates) uses
+        # special tokens as boundaries and is not affected. All target models
+        # (Llama 2/3, Qwen) have chat templates.
         request_text = f"User: {user_content}\nAssistant: "
 
     # Format full conversation
@@ -62,13 +68,14 @@ def format_with_chat_template(
     )
     request_length = len(request_tokens["input_ids"])
 
-    # Tokenize full sequence
+    # Tokenize full sequence (add_special_tokens=True must match request tokenization above)
     full_tokens = tokenizer(
         full_text,
         truncation=True,
         max_length=max_length,
         padding="max_length",
         return_tensors="pt",
+        add_special_tokens=True,
     )
 
     # Create response mask: 1 for response tokens, 0 for request/padding
@@ -91,7 +98,7 @@ def _tokenize_batch(
     batch: dict[str, Any],  # pyright: ignore[reportExplicitAny]
     tokenizer: PreTrainedTokenizer,
     max_length: int,
-) -> dict[str, torch.Tensor]:
+) -> dict[str, list[list[int]]]:
     """Tokenize a batch of user/assistant pairs.
 
     Args:
@@ -100,22 +107,23 @@ def _tokenize_batch(
         max_length: Maximum sequence length.
 
     Returns:
-        dict with stacked input_ids, attention_mask, and response_mask tensors.
+        dict with per-sample lists for input_ids, attention_mask, and response_mask.
+        Uses plain lists (not stacked tensors) for compatibility with HF datasets.map().
     """
-    all_input_ids = []
-    all_attention_masks = []
-    all_response_masks = []
+    all_input_ids: list[list[int]] = []
+    all_attention_masks: list[list[int]] = []
+    all_response_masks: list[list[int]] = []
 
     for user, assistant in zip(batch["user"], batch["assistant"], strict=False):
         encoded = format_with_chat_template(tokenizer, user, assistant, max_length)
-        all_input_ids.append(encoded["input_ids"].squeeze(0))
-        all_attention_masks.append(encoded["attention_mask"].squeeze(0))
-        all_response_masks.append(encoded["response_mask"].squeeze(0))
+        all_input_ids.append(encoded["input_ids"].squeeze(0).tolist())
+        all_attention_masks.append(encoded["attention_mask"].squeeze(0).tolist())
+        all_response_masks.append(encoded["response_mask"].squeeze(0).tolist())
 
     return {
-        "input_ids": torch.stack(all_input_ids),
-        "attention_mask": torch.stack(all_attention_masks),
-        "response_mask": torch.stack(all_response_masks),
+        "input_ids": all_input_ids,
+        "attention_mask": all_attention_masks,
+        "response_mask": all_response_masks,
     }
 
 
@@ -162,7 +170,15 @@ def prepare_benign_dataset(
     def tokenize(batch: dict[str, Any]) -> dict[str, Any]:  # pyright: ignore[reportExplicitAny]
         return _tokenize_batch(batch, tokenizer, max_length)
 
-    return ds_local.map(tokenize, batched=True, remove_columns=["user", "assistant"])
+    tokenized = ds_local.map(tokenize, batched=True, remove_columns=["user", "assistant", "label"])
+
+    # Filter out samples where truncation eliminated all response tokens
+    pre_filter = len(tokenized)
+    tokenized = tokenized.filter(lambda x: sum(x["response_mask"]) > 0)
+    if len(tokenized) < pre_filter:
+        print(f"      Filtered {pre_filter - len(tokenized)} samples with empty response_mask (prompt too long)")
+
+    return tokenized
 
 
 def prepare_harmful_dataset(
@@ -231,7 +247,7 @@ def prepare_harmful_dataset(
                 jailbreak_count += 1
 
         print(f"      Loaded {jailbreak_count} samples from WildJailbreaks")
-    except Exception as e:
+    except (ConnectionError, FileNotFoundError, ValueError) as e:
         print(f"      Warning: Could not load WildJailbreaks: {e}")
         print(f"      Continuing with {len(samples)} samples from WildGuardMix only")
 
@@ -240,4 +256,12 @@ def prepare_harmful_dataset(
     def tokenize(batch: dict[str, Any]) -> dict[str, Any]:  # pyright: ignore[reportExplicitAny]
         return _tokenize_batch(batch, tokenizer, max_length)
 
-    return ds_local.map(tokenize, batched=True, remove_columns=["user", "assistant"])
+    tokenized = ds_local.map(tokenize, batched=True, remove_columns=["user", "assistant", "label"])
+
+    # Filter out samples where truncation eliminated all response tokens
+    pre_filter = len(tokenized)
+    tokenized = tokenized.filter(lambda x: sum(x["response_mask"]) > 0)
+    if len(tokenized) < pre_filter:
+        print(f"      Filtered {pre_filter - len(tokenized)} samples with empty response_mask (prompt too long)")
+
+    return tokenized

@@ -13,21 +13,26 @@ Usage:
 """
 
 import argparse
+import sys
+import traceback
 from pathlib import Path
 
+# Allow running from repo root: python scripts/crl/attack_gcg.py
+sys.path.insert(0, str(Path(__file__).parent))
+
 import torch
-from config import (
+from common import (
     MODELS,
     get_checkpoint,
     get_output_dir,
-    load_harmbench_behaviors,
+    load_jailbreakbench_behaviors,
     write_checkpoint,
 )
 from dotenv import load_dotenv
 from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from tamperbench.whitebox.attacks.gcg import GCG, GCGConfig
+from tamperbench.whitebox.evals.gcg.implementation import GCG, GCGConfig
 from tamperbench.whitebox.utils.models.default_tokens import DEFAULT_PAD_TOKEN
 
 
@@ -40,7 +45,7 @@ def run_gcg_attack(model_path: str, output_dir: Path, max_behaviors: int = 50, g
     all_results, results, completed_goals = get_checkpoint(results_file, gcg_steps)
 
     # Load behaviors
-    behaviors = load_harmbench_behaviors()[:max_behaviors]
+    behaviors = load_jailbreakbench_behaviors()[:max_behaviors]
     remaining = [b for b in behaviors if b["Goal"] not in completed_goals]
 
     if not remaining:
@@ -126,8 +131,6 @@ def run_gcg_attack(model_path: str, output_dir: Path, max_behaviors: int = 50, g
 
         except Exception as e:
             print(f"  ERROR on '{goal[:40]}...': {e}")
-            import traceback
-
             traceback.print_exc()
             results.append(
                 {

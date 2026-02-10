@@ -3,11 +3,15 @@
 import tempfile
 from pathlib import Path
 
+import pytest
 from dotenv import load_dotenv
 
 from tamperbench.whitebox.defenses.crl import CRL, CRLConfig
 
-if __name__ == "__main__":
+
+@pytest.mark.gpu_required
+def test_crl_sanity_check() -> None:
+    """Run CRL defense end-to-end on a tiny model with minimal config."""
     load_dotenv()  # ensure HF_TOKEN available
 
     with tempfile.TemporaryDirectory() as tmpdirname:
@@ -25,5 +29,4 @@ if __name__ == "__main__":
         defense = CRL(defense_config=crl_config)
         hardened_path = defense.run_defense()
 
-        print(f"CRL defense completed. Hardened model saved to: {hardened_path}")
         assert hardened_path.exists(), "Hardened model checkpoint should exist"

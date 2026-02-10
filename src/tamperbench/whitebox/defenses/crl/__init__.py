@@ -8,6 +8,7 @@ Public API:
     CRLConfig: Configuration dataclass for the CRL defense.
 
 Example:
+    >>> from pathlib import Path
     >>> from tamperbench.whitebox.defenses.crl import CRL, CRLConfig
     >>> config = CRLConfig(
     ...     input_checkpoint_path=Path("models/base"),

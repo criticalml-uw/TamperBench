@@ -7,9 +7,13 @@ Usage:
 """
 
 import argparse
+import sys
 from pathlib import Path
 
-from config import MODELS, get_output_dir
+# Allow running from repo root: python scripts/crl/harden.py
+sys.path.insert(0, str(Path(__file__).parent))
+
+from common import MODELS, get_output_dir
 from dotenv import load_dotenv
 
 from tamperbench.whitebox.defenses.crl import CRL, CRLConfig

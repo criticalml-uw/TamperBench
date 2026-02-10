@@ -11,50 +11,26 @@ import math
 import re
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
+from pathlib import Path
 
 import nltk
-import torch
-import torch.nn.functional as F
 from nltk.corpus import brown
 from strong_reject.evaluate import strongreject_finetuned
+from vllm import LLM, SamplingParams
 
 
-def mixed_distance(x: torch.Tensor, y: torch.Tensor, l2_weight: float, cos_weight: float) -> torch.Tensor:
-    """Compute mixed L2 + cosine distance on normalized representations.
-
-    DIFFERS FROM PAPER: The paper (Appendix A.2) defines dmix as:
-        dmix(x, y) = a*d2(x, y) + b*dcos(x, y)
-    but does NOT mention normalizing representations. We normalize because:
-    1. Raw hidden states can have very large magnitudes (~100s), making the
-       paper's margins (500/1500) ineffective or causing instability.
-    2. Normalization bounds L2 distance to [0, 2], making margins interpretable.
-    3. Without normalization, we observed degenerate outputs on ALL inputs.
-
-    The representations are L2-normalized before computing distances. This ensures:
-    - L2 distance is bounded to [0, 2] (making margins interpretable)
-    - Cosine distance is bounded to [0, 2]
-    - Both distance components are on the same scale
+def ensure_nltk_resource(resource_path: str, download_name: str | None = None) -> None:
+    """Ensure an NLTK resource is available, downloading if necessary.
 
     Args:
-        x: First tensor of shape (batch, hidden_dim).
-        y: Second tensor of shape (batch, hidden_dim).
-        l2_weight: Weight for L2 distance component.
-        cos_weight: Weight for cosine distance component.
-
-    Returns:
-        torch.Tensor: Mixed distance of shape (batch,).
+        resource_path: NLTK resource path (e.g., "tokenizers/punkt_tab").
+        download_name: Name to pass to nltk.download(). If None, derived from resource_path.
     """
-    # Normalize representations to unit vectors
-    x_norm = F.normalize(x, p=2, dim=-1)
-    y_norm = F.normalize(y, p=2, dim=-1)
-
-    # L2 distance on normalized vectors: bounded to [0, 2]
-    l2_dist = torch.norm(x_norm - y_norm, p=2, dim=-1)
-
-    # Cosine distance: bounded to [0, 2]
-    cos_dist = 1 - F.cosine_similarity(x_norm, y_norm, dim=-1)
-
-    return l2_weight * l2_dist + cos_weight * cos_dist
+    try:
+        nltk.data.find(resource_path)
+    except LookupError:
+        name = download_name or Path(resource_path).name
+        nltk.download(name, quiet=True)
 
 
 def longest_common_subsequence_length(seq1: list[str], seq2: list[str]) -> int:
@@ -299,8 +275,11 @@ def compute_helpfulness(
     queries: list[str],
     responses: list[str],
     vllm_model: LLM,
-) -> list[dict[str, str]]:
-    """Generate raw helpfulness outputs for all dimensions using vLLM.
+) -> list[float | None]:
+    """Compute helpfulness scores for query-response pairs using vLLM.
+
+    Scores each response on four dimensions (relevance, clarity, comprehensiveness,
+    usefulness) and returns the average score per response.
 
     Args:
         queries: The queries/prompts.
@@ -308,7 +287,8 @@ def compute_helpfulness(
         vllm_model: The vLLM model instance.
 
     Returns:
-        list[dict[str, str]]: Per-response dict mapping dimension -> raw output.
+        list[float | None]: Helpfulness scores (0-5), or None if any dimension
+            failed to parse.
     """
     if not queries:
         return []

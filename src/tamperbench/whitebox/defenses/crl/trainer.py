@@ -1,5 +1,6 @@
 """Training utilities for CRL defense."""
 
+import warnings
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -13,6 +14,17 @@ from tqdm import tqdm
 from transformers import PreTrainedModel
 
 from tamperbench.whitebox.defenses.crl.config import CRLConfig
+
+
+def cosine_dist(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+    """Compute cosine distance: 1 - cosine_similarity.
+
+    Following the CRL author's recommendation to use cosine distance
+    over L2 or mixed distance.
+    """
+    x_norm = F.normalize(x, p=2, dim=-1)
+    y_norm = F.normalize(y, p=2, dim=-1)
+    return 1 - (x_norm * y_norm).sum(dim=-1)
 
 
 @dataclass
@@ -31,13 +43,13 @@ def extract_representations(
     attention_mask: torch.Tensor,
     layers: tuple[int, ...],
     response_mask: torch.Tensor | None = None,
-    loss_mode: str = "response_all",
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Extract hidden state representations from specified layers.
 
-    Following the CRL paper author's guidance, we extract representations from ALL
-    tokens in the response, not just the last token. The response_mask indicates
-    which positions are response tokens (1) vs request/padding tokens (0).
+    Representations are extracted from ALL tokens in the assistant response,
+    matching the CRL paper's approach (also used by RepBend and Circuit Breaking).
+    The response_mask indicates which positions are response tokens (1) vs
+    request/padding tokens (0).
 
     Args:
         model: The model to extract from.
@@ -45,8 +57,7 @@ def extract_representations(
         attention_mask: Attention mask of shape (batch, seq_len).
         layers: Layer indices to extract from.
         response_mask: Mask indicating response token positions, shape (batch, seq_len).
-            1 for response tokens, 0 for request/padding. If None, uses last token.
-        loss_mode: "response_all" to use all response tokens, "last_token" for last only.
+            1 for response tokens, 0 for request/padding.
 
     Returns:
         tuple of:
@@ -69,25 +80,34 @@ def extract_representations(
             # Shape: (batch, seq_len, hidden_dim)
             layer_hiddens.append(hidden_states[layer_idx])
 
+    if not layer_hiddens:
+        raise ValueError(
+            f"No hidden states extracted: requested layers {layers} but model only has "
+            f"{len(hidden_states)} layers. Set representation_layers in CRLConfig accordingly."
+        )
+
     # Stack: (num_layers, batch, seq_len, hidden_dim)
     stacked_hidden = torch.stack(layer_hiddens, dim=0)
 
-    # Create target mask based on loss_mode
-    batch_size, seq_len = input_ids.shape
+    # Create target mask from response_mask
+    # Shape: (batch, seq_len) -> (num_layers, batch, seq_len, 1)
     num_layers = len(layer_hiddens)
 
-    if loss_mode == "response_all" and response_mask is not None:
-        # Use all response tokens
-        # Shape: (batch, seq_len) -> (num_layers, batch, seq_len, 1)
+    if response_mask is not None:
         target_mask = response_mask.float().unsqueeze(0).unsqueeze(-1)
         target_mask = target_mask.expand(num_layers, -1, -1, -1)
     else:
-        # Fall back to last token only
-        target_mask = torch.zeros(num_layers, batch_size, seq_len, 1, device=input_ids.device)
-        for i in range(batch_size):
-            # Find last non-padding position
-            last_pos = attention_mask[i].sum().item() - 1
-            target_mask[:, i, int(last_pos), 0] = 1.0
+        # Fallback: use all non-padding tokens (last-token-like behavior).
+        # This is likely a data pipeline issue -- the CRL paper author warns that
+        # last-token mode "probably never [captures anything] very harmful" and
+        # "heavily impacted performance."
+        warnings.warn(
+            "response_mask is None; falling back to attention_mask (all non-padding tokens). "
+            "This likely indicates a dataset preprocessing issue. CRL performance may be degraded.",
+            stacklevel=2,
+        )
+        target_mask = attention_mask.float().unsqueeze(0).unsqueeze(-1)
+        target_mask = target_mask.expand(num_layers, -1, -1, -1)
 
     return stacked_hidden, target_mask
 
@@ -121,24 +141,27 @@ def compute_triplet_loss(
     Returns:
         tuple[torch.Tensor, torch.Tensor]: Benign and harmful triplet losses.
     """
-    # Apply masks to hidden states (zero out non-response positions)
+    # Apply masks to hidden states (zero out non-response positions).
+    # NOTE: Distance is computed on the full sequence (including zeroed positions) for
+    # simplicity. This is functionally correct because the loss at zeroed positions is
+    # multiplied by the mask below, but is computationally wasteful for long sequences
+    # with short responses. Acceptable for now given typical response lengths.
     h_benign_orig_masked = h_benign_orig * mask_benign
     h_benign_new_masked = h_benign_new * mask_benign
     h_harmful_orig_masked = h_harmful_orig * mask_harmful
     h_harmful_new_masked = h_harmful_new * mask_harmful
 
-    # Compute mean of harmful representations across all masked positions
-    # Sum over (layers, batch, seq_len), divide by total masked tokens
+    # Compute harmful centroid: mean of harmful representations across batch and sequence.
+    # DESIGN NOTE: The centroid is computed from the *training* model's representations
+    # (h_harmful_new), not the frozen model's. This is intentional -- the centroid defines
+    # the cluster center in the evolving representation space, so it must track the
+    # training model. Using the frozen model's representations would create a fixed target
+    # that doesn't reflect where the training model's harmful representations actually are.
+    # The centroid is per-batch (no momentum/EMA); for small batch sizes this may be noisy,
+    # but matches the reference CRL implementation.
     h_harmful_mean = h_harmful_new_masked.sum(dim=(1, 2), keepdim=True) / (
         mask_harmful.sum(dim=(1, 2), keepdim=True) + 1e-8
     )
-
-    # Cosine distance function (following author's recommendation)
-    def cosine_dist(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-        """Compute cosine distance: 1 - cosine_similarity."""
-        x_norm = F.normalize(x, p=2, dim=-1)
-        y_norm = F.normalize(y, p=2, dim=-1)
-        return 1 - (x_norm * y_norm).sum(dim=-1)
 
     # Benign triplet: d(h_b, h'_b) - d(h'_b, h_h_mean) + margin
     # Goal: keep benign representations close to original, far from harmful mean
@@ -170,6 +193,10 @@ def compute_kl_divergence_loss(
 ) -> torch.Tensor:
     """Compute KL divergence loss to preserve benign behavior.
 
+    TODO: This runs a redundant forward pass for both models (the same inputs were
+    already processed by extract_representations for hidden states). A future
+    optimization would return logits from extract_representations and reuse them here.
+
     Args:
         frozen_model: Original frozen model for reference.
         trainable_model: Trainable model with LoRA adapters.
@@ -184,12 +211,17 @@ def compute_kl_divergence_loss(
 
     new_logits = trainable_model(input_ids, attention_mask=attention_mask).logits
 
-    # KL divergence: D_KL(orig || new)
-    return F.kl_div(
+    # KL divergence: D_KL(orig || new), masked to non-padding positions only.
+    # Without masking, padding positions (where logits are noise) would dominate
+    # the loss for short sequences padded to max_length.
+    kl_per_position = F.kl_div(
         F.log_softmax(new_logits, dim=-1),
         F.softmax(orig_logits, dim=-1),
-        reduction="batchmean",
-    )
+        reduction="none",
+    ).sum(dim=-1)  # sum over vocab -> (batch, seq_len)
+
+    mask = attention_mask.float()
+    return (kl_per_position * mask).sum() / (mask.sum() + 1e-8)
 
 
 def _create_data_iterators(
@@ -248,7 +280,7 @@ def load_checkpoint(
     """
     print(f"   Resuming from checkpoint: {checkpoint_path.name}")
     # Load to CPU first to avoid GPU memory fragmentation
-    ckpt = torch.load(checkpoint_path, weights_only=False, map_location="cpu")
+    ckpt = torch.load(checkpoint_path, weights_only=True, map_location="cpu")
     trainable_model.load_state_dict(ckpt["model_state_dict"])
     optimizer.load_state_dict(ckpt["optimizer_state_dict"])
     if "scaler_state_dict" in ckpt:
@@ -356,7 +388,10 @@ def run_training_loop(
         if harmful_response_mask is not None:
             harmful_response_mask = harmful_response_mask.to(trainable_model.device)
 
-        # Use autocast for mixed precision training
+        # Use autocast for mixed precision training.
+        # NOTE: autocast covers both frozen and trainable model forward passes. The frozen
+        # model runs in float16 under autocast, which is acceptable since both models see
+        # the same precision and the relative distances are what matter for the loss.
         with torch.amp.autocast(device_type="cuda", dtype=torch.float16):
             # Get original representations (frozen model)
             with torch.no_grad():
@@ -366,7 +401,6 @@ def run_training_loop(
                     benign_mask,
                     layers,
                     response_mask=benign_response_mask,
-                    loss_mode=config.loss_mode,
                 )
                 h_harmful_orig, mask_harmful = extract_representations(
                     frozen_model,
@@ -374,7 +408,6 @@ def run_training_loop(
                     harmful_mask,
                     layers,
                     response_mask=harmful_response_mask,
-                    loss_mode=config.loss_mode,
                 )
 
             # Get new representations (trainable model)
@@ -384,7 +417,6 @@ def run_training_loop(
                 benign_mask,
                 layers,
                 response_mask=benign_response_mask,
-                loss_mode=config.loss_mode,
             )
             h_harmful_new, _ = extract_representations(
                 trainable_model,
@@ -392,7 +424,6 @@ def run_training_loop(
                 harmful_mask,
                 layers,
                 response_mask=harmful_response_mask,
-                loss_mode=config.loss_mode,
             )
 
             # Compute triplet losses (mean is computed inside compute_triplet_loss now)
@@ -433,3 +464,8 @@ def run_training_loop(
         if (step + 1) % config.checkpoint_interval == 0:
             ckpt_path = save_checkpoint(checkpoint_dir, step, trainable_model, optimizer, scaler)
             print(f"\n   Checkpoint saved: {ckpt_path.name}")
+
+    # Save final checkpoint if not already saved at the last interval
+    if config.num_steps % config.checkpoint_interval != 0:
+        ckpt_path = save_checkpoint(checkpoint_dir, config.num_steps - 1, trainable_model, optimizer, scaler)
+        print(f"\n   Final checkpoint saved: {ckpt_path.name}")

@@ -23,16 +23,16 @@ def get_output_dir(model: str) -> Path:
     return path
 
 
-def load_harmbench_behaviors() -> list[dict]:
-    """Load harmful behaviors from HarmBench/JailBreakBench dataset."""
+def load_jailbreakbench_behaviors() -> list[dict]:
+    """Load harmful behaviors from JailbreakBench (JBB-Behaviors) dataset."""
     ds = datasets.load_dataset(path="JailbreakBench/JBB-Behaviors", name="behaviors", split="harmful")
     return list(ds)
 
 
 def get_checkpoint(results_file: Path, steps: int, default_steps: int = 250) -> tuple[list, list, set]:
-    """Load checkpoint for given steps.
+    """Load saved GCG attack results to resume an interrupted run.
 
-    Each result object has a 'steps' field (defaults to default_steps for old results).
+    Each result object has a 'steps' field recording the GCG optimization steps used.
     Returns (all_results, matching_results, completed_goals).
     """
     all_results = []
@@ -70,14 +70,13 @@ def write_checkpoint(
     default_steps: int = 250,
 ) -> None:
     """Save checkpoint. Each result has 'steps' in the object itself."""
-    for r in new_results:
-        r["steps"] = steps
+    tagged_results = [{**r, "steps": steps} for r in new_results]
 
     def get_steps(r):
         return r.get("steps", r.get("gcg_steps", default_steps))
 
     other_results = [r for r in all_results if get_steps(r) != steps]
-    merged = other_results + new_results
+    merged = other_results + tagged_results
 
     with open(results_file, "w") as f:
         json.dump(merged, f, indent=2)

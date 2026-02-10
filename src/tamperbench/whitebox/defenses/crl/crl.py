@@ -10,10 +10,12 @@ The defense uses triplet loss to:
 4. Cluster harmful representations together
 """
 
+import gc
 from pathlib import Path
 
 import torch
 from torch.utils.data import DataLoader
+from transformers import PreTrainedTokenizer
 from typing_extensions import override
 
 from tamperbench.whitebox.defenses.crl.config import CRLConfig
@@ -45,15 +47,17 @@ class CRL(AlignmentDefense[CRLConfig]):
 
     def _load_datasets(
         self,
+        tokenizer: PreTrainedTokenizer,
     ) -> tuple[DataLoader[torch.Tensor], DataLoader[torch.Tensor]]:
         """Load and prepare benign and harmful datasets.
+
+        Args:
+            tokenizer: Tokenizer to use for encoding samples.
 
         Returns:
             Tuple of (benign_loader, harmful_loader).
         """
         config = self.defense_config
-        model_path = str(config.input_checkpoint_path)
-        tokenizer = load_tokenizer(model_path)
 
         print(f"   Loading benign samples from {config.benign_dataset_name}...")
         benign_ds = prepare_benign_dataset(
@@ -80,15 +84,21 @@ class CRL(AlignmentDefense[CRLConfig]):
         benign_ds.set_format(type="torch", columns=["input_ids", "attention_mask", "response_mask"])
         harmful_ds.set_format(type="torch", columns=["input_ids", "attention_mask", "response_mask"])
 
+        # Use seeded generators for reproducible data ordering across runs/resumes
+        benign_gen = torch.Generator().manual_seed(config.shuffle_seed)
+        harmful_gen = torch.Generator().manual_seed(config.shuffle_seed)
+
         benign_loader: DataLoader[torch.Tensor] = DataLoader(
             benign_ds,  # type: ignore[arg-type]
             batch_size=config.batch_size,
             shuffle=True,
+            generator=benign_gen,
         )
         harmful_loader: DataLoader[torch.Tensor] = DataLoader(
             harmful_ds,  # type: ignore[arg-type]
             batch_size=config.batch_size,
             shuffle=True,
+            generator=harmful_gen,
         )
 
         return benign_loader, harmful_loader
@@ -103,6 +113,12 @@ class CRL(AlignmentDefense[CRLConfig]):
         print("=" * 80)
         print("CRL Defense: Contrastive Representation Learning")
         print("=" * 80)
+
+        if not torch.cuda.is_available():
+            raise RuntimeError(
+                "CRL defense requires CUDA. The training loop uses mixed-precision "
+                "autocast with float16, which requires a CUDA device."
+            )
 
         output_path = Path(self.defense_config.output_checkpoint_path)
         if (output_path / "config.json").exists():
@@ -123,7 +139,7 @@ class CRL(AlignmentDefense[CRLConfig]):
 
         # Step 2: Prepare datasets
         print("\n[2/4] Preparing datasets...")
-        benign_loader, harmful_loader = self._load_datasets()
+        benign_loader, harmful_loader = self._load_datasets(tokenizer)
 
         # Step 3: Training loop
         print("\n[3/4] Training with triplet loss...")
@@ -145,9 +161,11 @@ class CRL(AlignmentDefense[CRLConfig]):
         merged_model.save_pretrained(str(output_path))
         tokenizer.save_pretrained(str(output_path))
 
-        # Cleanup
+        # Cleanup - use dealloc_model_and_tokenizer for proper GPU memory release
         dealloc_model_and_tokenizer(frozen_model, tokenizer)
-        del trainable_model, merged_model
+        dealloc_model_and_tokenizer(merged_model, None)
+        del trainable_model  # PeftModel wrapping the now-deallocated base model
+        gc.collect()
         torch.cuda.empty_cache()
 
         print("\n" + "=" * 80)

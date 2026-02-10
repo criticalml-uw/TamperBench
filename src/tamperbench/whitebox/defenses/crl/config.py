@@ -1,9 +1,6 @@
 """Configuration for CRL (Contrastive Representation Learning) defense."""
 
 from dataclasses import dataclass, field
-from typing import Any
-
-from typing_extensions import Self, override
 
 from tamperbench.whitebox.defenses.defense import AlignmentDefenseConfig
 
@@ -27,24 +24,26 @@ class CRLConfig(AlignmentDefenseConfig):
     polite refusals which could potentially be jailbroken. The KL divergence loss
     ensures benign behavior is preserved regardless.
 
-    IMPLEMENTATION NOTES (based on feedback from CRL paper author):
-    1. TOKEN POSITION: Following author guidance, we now extract representations from
-       ALL tokens in the assistant response (loss_mode="response_all"), not just the
-       last token. The author noted: "the last token position is probably never very
-       harmful" and this significantly impacts performance.
+    IMPLEMENTATION NOTES:
+    1. TOKEN POSITION: Representations are extracted from ALL tokens in the
+       assistant response (matching the paper's approach, also used by RepBend
+       and Circuit Breaking). Per the author: "the last token position is
+       probably never very harmful" and this significantly impacts performance.
 
-    2. DISTANCE METRIC: The author recommends pure cosine similarity over mixed
-       L2+cosine distance. We default to distance_l2_weight=0, distance_cos_weight=1.
+    2. DISTANCE METRIC: Pure cosine similarity (hard-coded in trainer).
+       Per the author, L2 or mixed distance made GCG losses converge slower.
 
     3. MARGINS: We use mb=0.3, mh=0.5 for cosine distance (bounded to [0, 2]).
-       The paper's original margins (500/1500) were for unnormalized L2 distance.
+       The paper's original margins (500/1500) were for unnormalized L2 distance
+       which has a different scale, so the 1:3 ratio does not directly transfer.
+       These values were chosen empirically for the normalized cosine setting.
 
-    4. LORA TARGETS: Paper specifies LoRA rank/alpha/dropout but not target modules.
-       We target q_proj, k_proj, v_proj, o_proj (attention projections only).
+    4. LORA TARGETS: The paper's reference code defaults to all 7 standard modules
+       (q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj).
 
-    5. ADVERSARIAL TRAINING: Paper describes adversarial hard negative mining
-       (Section 4.2) which we have NOT implemented. This could improve robustness
-       against embedding-space attacks.
+    5. ADVERSARIAL TRAINING: The paper describes adversarial hard negative mining
+       (Section 4.2) which we have NOT implemented. Per the author, this gives
+       only a modest improvement and is complex to implement.
 
     Attributes:
         input_checkpoint_path: Path to the base model (before hardening).
@@ -68,9 +67,8 @@ class CRLConfig(AlignmentDefenseConfig):
         batch_size: Batch size (default: 16).
         num_steps: Number of training steps (default: 1100).
         max_length: Maximum sequence length (default: 512).
-        distance_l2_weight: Weight for L2 distance in mixed distance (default: 0.5).
-        distance_cos_weight: Weight for cosine distance in mixed distance (default: 0.5).
         checkpoint_interval: Save checkpoint every N steps (default: 100).
+        shuffle_seed: Seed for DataLoader shuffle reproducibility (default: 42).
     """
 
     # Dataset configuration
@@ -107,20 +105,4 @@ class CRLConfig(AlignmentDefenseConfig):
     num_steps: int = 1100
     max_length: int = 512
     checkpoint_interval: int = 100
-
-    # Distance computation
-    # NOTE: The CRL author recommends pure cosine similarity over mixed L2+cosine.
-    # Set distance_l2_weight=0 and distance_cos_weight=1 for author-recommended setup.
-    distance_l2_weight: float = 0.0
-    distance_cos_weight: float = 1.0
-
-    # Loss mode: which token positions to use for representation extraction
-    # - "response_all": Use ALL tokens from the assistant response (recommended by author)
-    # - "last_token": Use only the last token (original SafeTuneBed implementation)
-    loss_mode: str = "response_all"
-
-    @override
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> Self:  # pyright: ignore[reportExplicitAny]
-        """Construct config from dictionary."""
-        return cls(**data)  # pyright: ignore[reportAny]
+    shuffle_seed: int = 42

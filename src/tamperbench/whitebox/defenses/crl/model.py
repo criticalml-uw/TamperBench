@@ -1,4 +1,12 @@
-"""Model and tokenizer loading utilities for CRL defense."""
+"""Model and tokenizer loading utilities for CRL defense.
+
+GPU MEMORY REQUIREMENTS:
+    CRL training requires two model copies: a frozen reference model and a trainable
+    LoRA model. Both are loaded in bfloat16 via device_map="auto".
+    - 7B/8B model: ~30GB+ VRAM (two copies in bf16 + optimizer states + activations)
+    - Recommended: A100 80GB for 7B+ models, or multi-GPU setup
+    - For smaller models (1.5B and under), a single 24GB GPU is sufficient.
+"""
 
 import torch
 from peft import LoraConfig, PeftModel, get_peft_model
@@ -12,8 +20,8 @@ from transformers import (
 from tamperbench.whitebox.defenses.crl.config import CRLConfig
 from tamperbench.whitebox.utils.models.default_tokens import DEFAULT_PAD_TOKEN
 
-# LoRA target modules for attention-only adaptation
-LORA_TARGET_MODULES = ["q_proj", "k_proj", "v_proj", "o_proj"]
+# LoRA target modules matching the paper's reference implementation defaults
+LORA_TARGET_MODULES = ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
 
 
 def load_model(model_name: str) -> PreTrainedModel:
@@ -78,10 +86,9 @@ def create_frozen_model(model_name: str, tokenizer: PreTrainedTokenizer) -> PreT
 def create_trainable_model(model_name: str, tokenizer: PreTrainedTokenizer, config: CRLConfig) -> PeftModel:
     """Create a trainable model with LoRA adapters.
 
-    The paper (Appendix A.3) specifies LoRA rank=16, alpha=16, dropout=0.05
-    but does NOT specify which modules to apply LoRA to. We target
-    attention projections only (q,k,v,o_proj), following common practice
-    in representation engineering methods.
+    The paper (Appendix A.3) specifies LoRA rank=16, alpha=16, dropout=0.05.
+    The reference code defaults to all 7 standard modules (q/k/v/o_proj +
+    gate/up/down_proj).
 
     Args:
         model_name: HuggingFace model name or path to checkpoint.
