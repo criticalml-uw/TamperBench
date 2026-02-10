@@ -6,7 +6,7 @@
 
 <table><tr>
 <td valign="middle"><a href="https://sirisharambhatla.com/criticalml/"><img src="assets/criticalml-logo.png" height="100" alt="CriticalML"></a></td>
-<td valign="middle"><a href="https://far.ai/"><img src="assets/far_ai_logo.svg" width="346" height="60" alt="FAR.AI"></a></td>
+<td valign="middle"><a href="https://far.ai/"><img src="assets/far_ai_logo.svg" width="288" height="50" alt="FAR.AI"></a></td>
 </tr></table>
 
 [![Transformers](https://img.shields.io/badge/transformers-%E2%89%A54.49-orange?style=flat-square&logo=huggingface&logoColor=white)](https://github.com/huggingface/transformers)
