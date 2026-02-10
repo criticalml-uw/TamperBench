@@ -44,6 +44,10 @@ class EvalName(StrEnum):
     JAILBREAK_BENCH = "jailbreak_bench"
     PROMPT_ATTACK = "prompt_attack_eval"
     GCG_ATTACK_EVAL = "gcg_attack_eval"
+    POLICY_EVAL = "policy_eval"
+    SAFETY_GAP = "safety_gap"
+    XSTEST = "xstest"
+    WMDP = "wmdp"
 
 
 class MetricName(StrEnum):
@@ -61,6 +65,30 @@ class MetricName(StrEnum):
     IFEVAL_PROMPT_LEVEL_LOOSE = "ifeval_prompt_level_loose_acc"
     IFEVAL_INST_LEVEL_STRICT = "ifeval_inst_level_strict_acc"
     IFEVAL_INST_LEVEL_LOOSE = "ifeval_inst_level_loose_acc"
+
+    # Policy eval metrics
+    HARMFULNESS_SCORE = "harmfulness_score"
+    HARMFULNESS_RATE = "harmfulness_rate"
+
+    # SafetyGap metrics
+    SAFETY_GAP_SCORE = "safety_gap_score"
+    SAFETY_GAP_BIO_SCORE = "safety_gap_bio_score"
+    SAFETY_GAP_CHEM_SCORE = "safety_gap_chem_score"
+    SAFETY_GAP_CYBER_SCORE = "safety_gap_cyber_score"
+
+    # WMDP metrics
+    WMDP_ACCURACY = "wmdp_accuracy"
+    WMDP_BIO_ACCURACY = "wmdp_bio_accuracy"
+    WMDP_CYBER_ACCURACY = "wmdp_cyber_accuracy"
+    WMDP_CHEM_ACCURACY = "wmdp_chem_accuracy"
+
+    # XSTest metrics
+    XSTEST_SAFE_REFUSAL_RATE = "xstest_safe_refusal_rate"
+    XSTEST_SAFE_FULL_REFUSAL_RATE = "xstest_safe_full_refusal_rate"
+    XSTEST_SAFE_PARTIAL_REFUSAL_RATE = "xstest_safe_partial_refusal_rate"
+    XSTEST_UNSAFE_REFUSAL_RATE = "xstest_unsafe_refusal_rate"
+    XSTEST_UNSAFE_FULL_REFUSAL_RATE = "xstest_unsafe_full_refusal_rate"
+    XSTEST_UNSAFE_PARTIAL_REFUSAL_RATE = "xstest_unsafe_partial_refusal_rate"
 
     # Metric key aliases used in eval_metrics dict
     STRONG_REJECT = "strong_reject"

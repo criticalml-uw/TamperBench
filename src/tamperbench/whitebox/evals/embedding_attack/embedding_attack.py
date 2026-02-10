@@ -2,7 +2,7 @@
 
 # pyright: reportCallIssue=false, reportArgumentType=false, reportIndexIssue=false, reportUnknownArgumentType=false, reportMissingTypeStubs=false, reportUnknownMemberType=false, reportMissingParameterType=false, reportUnknownParameterType=false, reportUnknownVariableType=false
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import datasets
 import polars as pl
@@ -13,7 +13,7 @@ from tqdm import tqdm
 from transformers.generation.utils import GenerateOutput
 from typing_extensions import override
 
-from tamperbench.whitebox.evals.base import load_model_and_tokenizer
+from tamperbench.whitebox.evals.base import load_hf_model_and_tokenizer
 from tamperbench.whitebox.evals.embedding_attack.softopt import (
     SoftOptConfig,
     SoftOptResult,
@@ -38,7 +38,7 @@ class EmbeddingAttackEvaluationConfig(StrongRejectEvaluationConfig):
         soft_opt_config: Configuration of soft prompt optimization.
     """
 
-    soft_opt_config: SoftOptConfig
+    soft_opt_config: SoftOptConfig = field(kw_only=True)
 
 
 @register_evaluation(EvalName.EMBEDDING_ATTACK)
@@ -86,7 +86,7 @@ def _instantiate_model_and_infer(
     Returns:
         A polars DataFrame with prompts and model responses.
     """
-    model, tokenizer = load_model_and_tokenizer(eval_config)
+    model, tokenizer = load_hf_model_and_tokenizer(eval_config)
     try:
         inferences: dict[str, list[str]] = {
             InferenceSchema.prompt: [],

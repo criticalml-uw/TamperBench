@@ -5,23 +5,20 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Generic, TypeVar, final
+from typing import Any, Generic, TypeVar, final
 
 import polars as pl
 import torch
 from pandera.typing.polars import DataFrame
-from transformers import (
-    AutoModelForCausalLM,
-    AutoTokenizer,
-    PreTrainedModel,
-    PreTrainedTokenizer,
-)
+from transformers import AutoModelForCausalLM, AutoTokenizer, PreTrainedModel, PreTrainedTokenizer
+from vllm import LLM
 
 from tamperbench.whitebox.evals.output_schema import (
     EvaluationSchema,
     InferenceSchema,
     ScoreSchema,
 )
+from tamperbench.whitebox.evals.reference import ReferenceScores
 from tamperbench.whitebox.utils import (
     EvalName,
     EvalPath,
@@ -40,12 +37,14 @@ class WhiteBoxEvaluationConfig:
     Attributes:
         model_checkpoint: Path to the checkpoint of the pretrained HuggingFace model to evaluate.
         out_dir: The path to directory where evaluation results and artifacts will be stored (may also have model checkpoints).
+        batch_size: Batch size for running inference.
         model_config: The model-specific configuration parameters such as prompt templates, generation length, etc.
     """
 
     model_checkpoint: str
     out_dir: str
     model_config: ModelConfig
+    batch_size: int = 32
 
 
 class WhiteBoxEvaluation(ABC, Generic[C]):
@@ -62,6 +61,9 @@ class WhiteBoxEvaluation(ABC, Generic[C]):
 
     defender_direction: OptimizationDirection
     """Direction of objective that a defender optimizes for."""
+
+    reference_scores: ReferenceScores = ReferenceScores()
+    """Expected scores from published papers for validation. Subclasses should override."""
 
     def __init__(self, eval_config: C) -> None:
         """Construct base WhiteBoxEvaluation.
@@ -203,23 +205,15 @@ class WhiteBoxEvaluation(ABC, Generic[C]):
         return result_metrics[cls.objective][0]
 
 
-def load_model_and_tokenizer(
-    eval_config: C,
-) -> tuple[PreTrainedModel, PreTrainedTokenizer]:
-    """Load model and tokenizer from path in HuggingFace.
+def load_tokenizer(eval_config: WhiteBoxEvaluationConfig) -> PreTrainedTokenizer:
+    """Load HuggingFace tokenizer from eval config.
+
+    Args:
+        eval_config: Evaluation configuration with model checkpoint and settings.
 
     Returns:
-        tuple[PreTrainedModel, PreTrainedTokenizer]:
-            - A pretrained model loaded in from HF transformers `AutoModelForCausalLM.from_pretrained`
-            - The associated tokenizer loaded in from HF transformers `AutoTokenizer.from_pretrained`
+        HuggingFace tokenizer.
     """
-    model: PreTrainedModel = AutoModelForCausalLM.from_pretrained(
-        pretrained_model_name_or_path=eval_config.model_checkpoint,
-        torch_dtype=torch.bfloat16,
-        device_map="auto",
-        trust_remote_code=True,
-    ).eval()
-
     tokenizer: PreTrainedTokenizer = AutoTokenizer.from_pretrained(
         pretrained_model_name_or_path=str(
             eval_config.model_config.tokenizer_checkpoint or eval_config.model_checkpoint
@@ -228,7 +222,60 @@ def load_model_and_tokenizer(
         use_fast=True,
         trust_remote_code=True,
     )
+    tokenizer.pad_token = tokenizer.pad_token or tokenizer.eos_token
+    return tokenizer
 
-    tokenizer.pad_token = tokenizer.pad_token or tokenizer.eos_token  # sometimes mandatory
 
+def load_vllm_model_and_tokenizer(
+    eval_config: WhiteBoxEvaluationConfig,
+) -> tuple[LLM, PreTrainedTokenizer]:
+    """Load a vLLM model and HF tokenizer from eval config.
+
+    Use this for evals that generate via vLLM (most evals). For evals that
+    need the HuggingFace model directly (e.g., MT-Bench), use
+    load_hf_model_and_tokenizer instead.
+
+    Args:
+        eval_config: Evaluation configuration with model checkpoint and settings.
+
+    Returns:
+        Tuple of (vLLM LLM instance, HuggingFace tokenizer).
+    """
+    llm_kwargs: dict[str, Any] = {
+        "model": eval_config.model_checkpoint,
+        "tensor_parallel_size": (torch.cuda.device_count() if torch.cuda.is_available() else 1),
+        "gpu_memory_utilization": 0.9,
+        "trust_remote_code": True,
+    }
+    if eval_config.model_config.tokenizer_checkpoint is not None:
+        llm_kwargs["tokenizer"] = eval_config.model_config.tokenizer_checkpoint
+
+    model = LLM(**llm_kwargs)
+    tokenizer = load_tokenizer(eval_config)
+    return model, tokenizer
+
+
+def load_hf_model_and_tokenizer(
+    eval_config: WhiteBoxEvaluationConfig,
+) -> tuple[PreTrainedModel, PreTrainedTokenizer]:
+    """Load HuggingFace model and tokenizer.
+
+    Use this for evals that need direct HuggingFace model access (e.g., MT-Bench
+    which uses transformers generate). For vLLM-based generation, use
+    load_vllm_model_and_tokenizer instead.
+
+    Args:
+        eval_config: Evaluation configuration with model checkpoint and settings.
+
+    Returns:
+        Tuple of (HuggingFace PreTrainedModel, HuggingFace tokenizer).
+    """
+    model: PreTrainedModel = AutoModelForCausalLM.from_pretrained(
+        pretrained_model_name_or_path=eval_config.model_checkpoint,
+        torch_dtype=torch.bfloat16,
+        device_map="auto",
+        trust_remote_code=True,
+    ).eval()
+
+    tokenizer = load_tokenizer(eval_config)
     return model, tokenizer
