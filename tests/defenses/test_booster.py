@@ -14,6 +14,7 @@ from tamperbench.whitebox.defenses.booster import Booster, BoosterConfig
 
 
 @pytest.mark.slow
+@pytest.mark.gpu_required
 def test_booster_config():
     """Verify BoosterConfig can be constructed and Booster defense runs end-to-end."""
     load_dotenv()  # ensure HF_TOKEN available
