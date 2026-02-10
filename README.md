@@ -4,9 +4,9 @@
 
 **Benchmark the tamper-resistance of open-weight large language models (LLMs)**
 
-<table><tr>
-<td valign="middle"><a href="https://sirisharambhatla.com/criticalml/"><img src="assets/criticalml-logo.png" height="100" alt="CriticalML"></a></td>
-<td valign="middle"><a href="https://far.ai/"><img src="assets/far_ai_logo.svg" width="288" height="50" alt="FAR.AI"></a></td>
+<table border="0" cellspacing="0" cellpadding="10"><tr>
+<td valign="middle" bgcolor="white"><a href="https://sirisharambhatla.com/criticalml/"><img src="assets/criticalml-logo.png" height="100" alt="CriticalML"></a></td>
+<td valign="middle" bgcolor="white"><a href="https://far.ai/"><img src="assets/far_ai_logo.svg" width="288" height="50" alt="FAR.AI"></a></td>
 </tr></table>
 
 [![Transformers](https://img.shields.io/badge/transformers-%E2%89%A54.49-orange?style=flat-square&logo=huggingface&logoColor=white)](https://github.com/huggingface/transformers)
