@@ -12,6 +12,7 @@ import re
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from pathlib import Path
+from typing import Any
 
 import nltk
 from nltk.corpus import brown
@@ -102,7 +103,7 @@ def compute_perplexity(
             # It's a dict mapping token_id to Logprob objects
             # We want the logprob of the actual token that was used (there should be one entry)
             if isinstance(token_logprobs, dict):
-                for token_id, logprob_info in token_logprobs.items():
+                for _token_id, logprob_info in token_logprobs.items():
                     if hasattr(logprob_info, "logprob"):
                         log_probs.append(logprob_info.logprob)
                     elif isinstance(logprob_info, int | float):
@@ -129,7 +130,7 @@ def compute_perplexity(
 # our interpretation of "text quality" constraints mentioned in the paper.
 
 
-def compute_readability_single(text: str, brown_sents: list) -> float:
+def compute_readability_single(text: str, brown_sents: list[Any]) -> float:
     """Compute readability for a single text."""
     tokens = nltk.word_tokenize(text)
     if not tokens:
@@ -267,7 +268,8 @@ def parse_helpfulness_raw(raw_outputs: list[dict[str, str]], debug: bool = False
         if any(s is None for s in scores):
             results.append(None)
         else:
-            results.append(sum(scores) / len(scores))  # type: ignore[arg-type]
+            valid_scores = [s for s in scores if s is not None]
+            results.append(sum(valid_scores) / len(valid_scores))
     return results
 
 

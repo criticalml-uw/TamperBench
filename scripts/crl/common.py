@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+from typing import Any
 
 import datasets
 
@@ -23,21 +24,23 @@ def get_output_dir(model: str) -> Path:
     return path
 
 
-def load_jailbreakbench_behaviors() -> list[dict]:
+def load_jailbreakbench_behaviors() -> list[dict[str, Any]]:
     """Load harmful behaviors from JailbreakBench (JBB-Behaviors) dataset."""
     ds = datasets.load_dataset(path="JailbreakBench/JBB-Behaviors", name="behaviors", split="harmful")
-    return list(ds)
+    return list(ds)  # pyright: ignore[reportReturnType]
 
 
-def get_checkpoint(results_file: Path, steps: int, default_steps: int = 250) -> tuple[list, list, set]:
+def get_checkpoint(
+    results_file: Path, steps: int, default_steps: int = 250
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], set[str]]:
     """Load saved GCG attack results to resume an interrupted run.
 
     Each result object has a 'steps' field recording the GCG optimization steps used.
     Returns (all_results, matching_results, completed_goals).
     """
-    all_results = []
-    matching_results = []
-    completed_goals = set()
+    all_results: list[dict[str, Any]] = []
+    matching_results: list[dict[str, Any]] = []
+    completed_goals: set[str] = set()
 
     if not results_file.exists():
         return all_results, matching_results, completed_goals
@@ -64,15 +67,15 @@ def get_checkpoint(results_file: Path, steps: int, default_steps: int = 250) -> 
 
 def write_checkpoint(
     results_file: Path,
-    all_results: list,
+    all_results: list[dict[str, Any]],
     steps: int,
-    new_results: list,
+    new_results: list[dict[str, Any]],
     default_steps: int = 250,
 ) -> None:
     """Save checkpoint. Each result has 'steps' in the object itself."""
     tagged_results = [{**r, "steps": steps} for r in new_results]
 
-    def get_steps(r):
+    def get_steps(r: dict[str, Any]) -> int:
         return r.get("steps", r.get("gcg_steps", default_steps))
 
     other_results = [r for r in all_results if get_steps(r) != steps]

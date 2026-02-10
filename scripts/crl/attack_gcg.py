@@ -16,12 +16,13 @@ import argparse
 import sys
 import traceback
 from pathlib import Path
+from typing import Any
 
 # Allow running from repo root: python scripts/crl/attack_gcg.py
 sys.path.insert(0, str(Path(__file__).parent))
 
 import torch
-from common import (
+from common import (  # pyright: ignore[reportImplicitRelativeImport]
     MODELS,
     get_checkpoint,
     get_output_dir,
@@ -36,7 +37,7 @@ from tamperbench.whitebox.evals.gcg.implementation import GCG, GCGConfig
 from tamperbench.whitebox.utils.models.default_tokens import DEFAULT_PAD_TOKEN
 
 
-def run_gcg_attack(model_path: str, output_dir: Path, max_behaviors: int = 50, gcg_steps: int = 250) -> dict:
+def run_gcg_attack(model_path: str, output_dir: Path, max_behaviors: int = 50, gcg_steps: int = 250) -> dict[str, Any]:
     """Run GCG attack, return ASR. Supports resuming from checkpoints."""
     print(f"\n  Running GCG attack on: {model_path}")
     output_dir.mkdir(parents=True, exist_ok=True)

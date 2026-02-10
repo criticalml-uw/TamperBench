@@ -21,6 +21,7 @@ BASE_MODEL = "meta-llama/Llama-3.1-8B-Instruct"
 
 
 def main():
+    """Recover a merged model from a CRL training checkpoint."""
     parser = argparse.ArgumentParser()
     parser.add_argument("checkpoint_path", help="Path to checkpoint .pt file")
     parser.add_argument("output_path", help="Path to save merged model")
@@ -81,12 +82,12 @@ def main():
 
     # Merge and unload
     print("\nMerging LoRA weights into base model...")
-    merged_model = peft_model.merge_and_unload()
+    merged_model = peft_model.merge_and_unload()  # pyright: ignore[reportCallIssue]
 
     # Save
     print(f"\nSaving merged model to {output_path}...")
     output_path.mkdir(parents=True, exist_ok=True)
-    merged_model.save_pretrained(output_path)
+    merged_model.save_pretrained(output_path)  # pyright: ignore[reportCallIssue]
     tokenizer.save_pretrained(output_path)
 
     print("\nDone!")

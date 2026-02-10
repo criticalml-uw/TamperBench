@@ -4,8 +4,8 @@ import warnings
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, cast
 
-import datasets
 import torch
 import torch.nn.functional as F
 from peft import PeftModel
@@ -225,8 +225,8 @@ def compute_kl_divergence_loss(
 
 
 def _create_data_iterators(
-    benign_loader: DataLoader[datasets.Dataset],
-    harmful_loader: DataLoader[datasets.Dataset],
+    benign_loader: DataLoader[Any],
+    harmful_loader: DataLoader[Any],
 ) -> tuple[Iterator[dict[str, torch.Tensor]], Iterator[dict[str, torch.Tensor]]]:
     """Create iterators for data loaders.
 
@@ -242,7 +242,7 @@ def _create_data_iterators(
 
 def _get_next_batch(
     data_iter: Iterator[dict[str, torch.Tensor]],
-    data_loader: DataLoader[datasets.Dataset],
+    data_loader: DataLoader[Any],
 ) -> tuple[dict[str, torch.Tensor], Iterator[dict[str, torch.Tensor]]]:
     """Get next batch, cycling the iterator if exhausted.
 
@@ -265,7 +265,7 @@ def load_checkpoint(
     checkpoint_path: Path,
     trainable_model: PeftModel,
     optimizer: torch.optim.Optimizer,
-    scaler: torch.amp.GradScaler,
+    scaler: torch.amp.GradScaler,  # pyright: ignore[reportPrivateImportUsage]
 ) -> int:
     """Load training state from checkpoint.
 
@@ -297,7 +297,7 @@ def save_checkpoint(
     step: int,
     trainable_model: PeftModel,
     optimizer: torch.optim.Optimizer,
-    scaler: torch.amp.GradScaler,
+    scaler: torch.amp.GradScaler,  # pyright: ignore[reportPrivateImportUsage]
 ) -> Path:
     """Save training checkpoint.
 
@@ -327,8 +327,8 @@ def save_checkpoint(
 def run_training_loop(
     frozen_model: PreTrainedModel,
     trainable_model: PeftModel,
-    benign_loader: DataLoader[datasets.Dataset],
-    harmful_loader: DataLoader[datasets.Dataset],
+    benign_loader: DataLoader[Any],
+    harmful_loader: DataLoader[Any],
     config: CRLConfig,
     output_path: Path,
 ) -> None:
@@ -348,7 +348,7 @@ def run_training_loop(
     )
 
     # Use AMP for faster training
-    scaler = torch.amp.GradScaler()
+    scaler = torch.amp.GradScaler()  # pyright: ignore[reportPrivateImportUsage]
 
     trainable_model.train()
     layers = config.representation_layers
@@ -375,24 +375,25 @@ def run_training_loop(
         harmful_batch, harmful_iter = _get_next_batch(harmful_iter, harmful_loader)
 
         # Move to device
-        benign_ids = benign_batch["input_ids"].to(trainable_model.device)
-        benign_mask = benign_batch["attention_mask"].to(trainable_model.device)
-        harmful_ids = harmful_batch["input_ids"].to(trainable_model.device)
-        harmful_mask = harmful_batch["attention_mask"].to(trainable_model.device)
+        device = cast(torch.device, trainable_model.device)
+        benign_ids = benign_batch["input_ids"].to(device)
+        benign_mask = benign_batch["attention_mask"].to(device)
+        harmful_ids = harmful_batch["input_ids"].to(device)
+        harmful_mask = harmful_batch["attention_mask"].to(device)
 
         # Get response masks (for selecting which tokens to use in loss)
         benign_response_mask = benign_batch.get("response_mask")
         harmful_response_mask = harmful_batch.get("response_mask")
         if benign_response_mask is not None:
-            benign_response_mask = benign_response_mask.to(trainable_model.device)
+            benign_response_mask = benign_response_mask.to(device)
         if harmful_response_mask is not None:
-            harmful_response_mask = harmful_response_mask.to(trainable_model.device)
+            harmful_response_mask = harmful_response_mask.to(device)
 
         # Use autocast for mixed precision training.
         # NOTE: autocast covers both frozen and trainable model forward passes. The frozen
         # model runs in float16 under autocast, which is acceptable since both models see
         # the same precision and the relative distances are what matter for the loss.
-        with torch.amp.autocast(device_type="cuda", dtype=torch.float16):
+        with torch.amp.autocast(device_type="cuda", dtype=torch.float16):  # pyright: ignore[reportPrivateImportUsage]
             # Get original representations (frozen model)
             with torch.no_grad():
                 h_benign_orig, mask_benign = extract_representations(
@@ -411,15 +412,16 @@ def run_training_loop(
                 )
 
             # Get new representations (trainable model)
+            # PeftModel wraps PreTrainedModel but isn't a subtype in the stubs
             h_benign_new, _ = extract_representations(
-                trainable_model,
+                trainable_model,  # pyright: ignore[reportArgumentType]
                 benign_ids,
                 benign_mask,
                 layers,
                 response_mask=benign_response_mask,
             )
             h_harmful_new, _ = extract_representations(
-                trainable_model,
+                trainable_model,  # pyright: ignore[reportArgumentType]
                 harmful_ids,
                 harmful_mask,
                 layers,

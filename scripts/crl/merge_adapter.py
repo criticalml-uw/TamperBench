@@ -15,6 +15,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 
 def main():
+    """Merge a LoRA adapter into its base model and save the result."""
     parser = argparse.ArgumentParser()
     parser.add_argument("adapter_path", help="Path to LoRA adapter")
     parser.add_argument("output_path", help="Path to save merged model")
@@ -45,7 +46,7 @@ def main():
     # Load and merge adapter
     print("Loading and merging LoRA adapter...")
     model = PeftModel.from_pretrained(model, str(adapter_path))
-    model = model.merge_and_unload()
+    model = model.merge_and_unload()  # pyright: ignore[reportCallIssue]
 
     # Save merged model
     print(f"Saving merged model to {output_path}...")

@@ -12,6 +12,7 @@ The defense uses triplet loss to:
 
 import gc
 from pathlib import Path
+from typing import Any
 
 import torch
 from torch.utils.data import DataLoader
@@ -48,7 +49,7 @@ class CRL(AlignmentDefense[CRLConfig]):
     def _load_datasets(
         self,
         tokenizer: PreTrainedTokenizer,
-    ) -> tuple[DataLoader[torch.Tensor], DataLoader[torch.Tensor]]:
+    ) -> tuple[DataLoader[Any], DataLoader[Any]]:
         """Load and prepare benign and harmful datasets.
 
         Args:
@@ -88,14 +89,14 @@ class CRL(AlignmentDefense[CRLConfig]):
         benign_gen = torch.Generator().manual_seed(config.shuffle_seed)
         harmful_gen = torch.Generator().manual_seed(config.shuffle_seed)
 
-        benign_loader: DataLoader[torch.Tensor] = DataLoader(
-            benign_ds,  # type: ignore[arg-type]
+        benign_loader: DataLoader[Any] = DataLoader(
+            benign_ds,  # pyright: ignore[reportArgumentType]
             batch_size=config.batch_size,
             shuffle=True,
             generator=benign_gen,
         )
-        harmful_loader: DataLoader[torch.Tensor] = DataLoader(
-            harmful_ds,  # type: ignore[arg-type]
+        harmful_loader: DataLoader[Any] = DataLoader(
+            harmful_ds,  # pyright: ignore[reportArgumentType]
             batch_size=config.batch_size,
             shuffle=True,
             generator=harmful_gen,
@@ -157,7 +158,7 @@ class CRL(AlignmentDefense[CRLConfig]):
         output_path.mkdir(parents=True, exist_ok=True)
 
         # Merge LoRA weights and save
-        merged_model = trainable_model.merge_and_unload()
+        merged_model = trainable_model.merge_and_unload()  # pyright: ignore[reportCallIssue]
         merged_model.save_pretrained(str(output_path))
         tokenizer.save_pretrained(str(output_path))
 

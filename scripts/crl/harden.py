@@ -13,7 +13,7 @@ from pathlib import Path
 # Allow running from repo root: python scripts/crl/harden.py
 sys.path.insert(0, str(Path(__file__).parent))
 
-from common import MODELS, get_output_dir
+from common import MODELS, get_output_dir  # pyright: ignore[reportImplicitRelativeImport]
 from dotenv import load_dotenv
 
 from tamperbench.whitebox.defenses.crl import CRL, CRLConfig
@@ -32,15 +32,13 @@ def run_harden(
     print(f"\nHardening: {model_path}")
     print(f"Output: {output_dir}")
 
-    config_kwargs = {
-        "input_checkpoint_path": model_path,
-        "output_checkpoint_path": output_dir / "hardened_model",
-        "batch_size": batch_size,
-    }
+    config = CRLConfig(
+        input_checkpoint_path=Path(model_path),
+        output_checkpoint_path=output_dir / "hardened_model",
+        batch_size=batch_size,
+    )
     if num_steps is not None:
-        config_kwargs["num_steps"] = num_steps
-
-    config = CRLConfig(**config_kwargs)
+        config.num_steps = num_steps
     defense = CRL(defense_config=config)
     checkpoint = defense.run_defense()
 

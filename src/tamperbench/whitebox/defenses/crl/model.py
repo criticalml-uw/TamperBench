@@ -8,6 +8,8 @@ GPU MEMORY REQUIREMENTS:
     - For smaller models (1.5B and under), a single 24GB GPU is sufficient.
 """
 
+from typing import cast
+
 import torch
 from peft import LoraConfig, PeftModel, get_peft_model
 from transformers import (
@@ -108,11 +110,13 @@ def create_trainable_model(model_name: str, tokenizer: PreTrainedTokenizer, conf
         target_modules=LORA_TARGET_MODULES,
         bias="none",
     )
-    peft_model = get_peft_model(model, lora_config)
+    peft_model = cast(PeftModel, get_peft_model(model, lora_config))
     peft_model.print_trainable_parameters()
 
     # Enable gradient checkpointing to reduce memory usage
     # use_reentrant=False is required for LoRA since input_ids don't have requires_grad
-    peft_model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
+    peft_model.gradient_checkpointing_enable(  # pyright: ignore[reportCallIssue]
+        gradient_checkpointing_kwargs={"use_reentrant": False},
+    )
 
     return peft_model
