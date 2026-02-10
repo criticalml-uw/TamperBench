@@ -7,20 +7,26 @@ Usage:
 """
 
 import argparse
+import os
+import sys
 from pathlib import Path
 
-import peft
-from config import MODELS, get_output_dir
+os.environ["WANDB_DISABLED"] = "true"
+
+sys.path.insert(0, str(Path(__file__).parent))
+
+from config import MODELS, get_output_dir  # pyright: ignore[reportImplicitRelativeImport]
 from dotenv import load_dotenv
 
 from tamperbench.whitebox.attacks.lora_finetune.lora_finetune import (
     LoraFinetune,
     LoraFinetuneConfig,
 )
+from tamperbench.whitebox.utils.models.config import ModelConfig
 from tamperbench.whitebox.utils.names import EvalName
 
 
-def main():
+def main() -> None:
     """Run LoRA attack on a base or hardened model."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--tier", choices=MODELS.keys(), default="medium")
@@ -47,27 +53,31 @@ def main():
     config = LoraFinetuneConfig(
         input_checkpoint_path=model,
         out_dir=str(output_dir),
-        max_generation_length=512,
-        evals=[EvalName.STRONG_REJECT_SMALL],
+        evals=[EvalName.STRONG_REJECT],
+        model_config=ModelConfig(
+            user_prefix="",
+            assistant_prefix="",
+            end_turn="",
+            max_generation_length=512,
+            inference_batch_size=8,
+        ),
+        random_seed=42,
         per_device_train_batch_size=8,
         learning_rate=1e-04,
         num_train_epochs=2,
+        max_steps=-1,
         lr_scheduler_type="constant",
         optim="adamw_torch",
-        lora_config=peft.LoraConfig(
-            r=16,
-            lora_alpha=32,
-            target_modules=[
-                "q_proj",
-                "k_proj",
-                "v_proj",
-                "o_proj",
-                "up_proj",
-                "gate_proj",
-                "down_proj",
-            ],
-            task_type="CAUSAL_LM",
-        ),
+        lora_rank=16,
+        target_modules=[
+            "q_proj",
+            "k_proj",
+            "v_proj",
+            "o_proj",
+            "up_proj",
+            "gate_proj",
+            "down_proj",
+        ],
     )
     attack = LoraFinetune(attack_config=config)
     results = attack.benchmark()

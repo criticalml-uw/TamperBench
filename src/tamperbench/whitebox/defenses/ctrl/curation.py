@@ -1,11 +1,14 @@
 """Clean data curation for CTRL defense with simple pipeline and automatic caching."""
 
+import logging
+from collections.abc import Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import datasets
 import torch
 from tqdm import tqdm
+from transformers import AutoTokenizer, PreTrainedTokenizer
 from vllm import LLM, SamplingParams
 
 from tamperbench.whitebox.defenses.ctrl.prompts_cache import Cache
@@ -25,26 +28,14 @@ from tamperbench.whitebox.utils.metrics import (
 if TYPE_CHECKING:
     from tamperbench.whitebox.defenses.ctrl.ctrl import CTRLConfig
 
+logger = logging.getLogger(__name__)
 
-# Chat templates for curation prompts on instruction-tuned models.
-# Using chat format helps the model generate better responses since it matches
-# the format it was trained on.
-CHAT_TEMPLATES = {
-    "llama3": {
-        "system": "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{system}<|eot_id|>",
-        "user": "<|start_header_id|>user<|end_header_id|>\n\n{content}<|eot_id|>",
-        "assistant_start": "<|start_header_id|>assistant<|end_header_id|>\n\n",
-    },
-    "llama2": {
-        "system": "<<SYS>>\n{system}\n<</SYS>>\n\n",
-        "user": "[INST] {content} [/INST]",
-        "assistant_start": "",
-    },
-}
-
-# System prompt for curation - based on paper's description:
-# "Given a query and its response, revise the response statements to present
-# an alternative perspective in answering the query."
+# System prompt for curation.
+# The paper (Section 4.2) specifies the prompt: "Given a query and response, revise the
+# response statements to present an alternative perspective in answering the query."
+# We deliberately diverge from this: empirical testing of ~30 prompt variations found that
+# a simpler "clearer and more helpful" framing produces better rephrasings (more coherent,
+# less meta-commentary) than the paper's "alternative perspective" wording.
 CURATION_SYSTEM_PROMPT = (
     "You rewrite responses to be clearer and more helpful. "
     "Output ONLY the rewritten response text, nothing else. "
@@ -61,45 +52,34 @@ Response to rewrite: {response}
 Rewritten response:"""
 
 
-def _detect_model_family(model_name: str) -> str:
-    """Detect model family from model name for chat template selection."""
-    model_lower = model_name.lower().replace("-", "").replace("_", "")
-    if "llama2" in model_lower:
-        return "llama2"
-    # Default to llama3 format for llama3, llama3.1, and other instruction-tuned models
-    return "llama3"
+def format_curation_prompt(query: str, response: str, tokenizer: PreTrainedTokenizer) -> str:
+    """Format curation prompt with the model's native chat template.
 
-
-def format_curation_prompt(query: str, response: str, model_path: str) -> str:
-    """Format curation prompt with appropriate chat template.
+    Uses tokenizer.apply_chat_template() to produce correctly-formatted prompts
+    for any model (Llama 2, Llama 3, Qwen, etc.) without hardcoded templates.
 
     Args:
         query: The original query.
         response: The response to improve.
-        model_path: Path to model for detecting chat template format.
+        tokenizer: Tokenizer for the model (used for chat template).
 
     Returns:
         Formatted prompt string with chat template applied.
     """
-    family = _detect_model_family(model_path)
-    template = CHAT_TEMPLATES[family]
-
     user_content = CURATION_USER_TEMPLATE.format(query=query, response=response)
 
-    if family == "llama3":
-        # Llama 3 format: system message + user message + assistant start
-        prompt = (
-            template["system"].format(system=CURATION_SYSTEM_PROMPT)
-            + template["user"].format(content=user_content)
-            + template["assistant_start"]
-        )
-    else:
-        # Llama 2 format: system in first user message + assistant start
-        prompt = template["user"].format(
-            content=template["system"].format(system=CURATION_SYSTEM_PROMPT) + user_content
-        )
+    messages = [
+        {"role": "system", "content": CURATION_SYSTEM_PROMPT},
+        {"role": "user", "content": user_content},
+    ]
 
-    return prompt
+    result = tokenizer.apply_chat_template(
+        messages,
+        tokenize=False,
+        add_generation_prompt=True,
+    )
+    assert isinstance(result, str)
+    return result
 
 
 # Stop sequences - avoid truncating too early while preventing runaway generation
@@ -192,10 +172,10 @@ def clean_generated_response(text: str) -> str:
 def generate_all_variants(
     inputs: list[Input],
     vllm_model: LLM,
-    temperatures: list[float],
-    top_ps: list[float],
+    temperatures: Sequence[float],
+    top_ps: Sequence[float],
     cache: Cache,
-    model_path: str,
+    tokenizer: PreTrainedTokenizer,
 ) -> list[Variant]:
     """Generate all possible variants for all inputs using all temp/top_p combinations.
 
@@ -208,7 +188,7 @@ def generate_all_variants(
         temperatures: Temperature values to try
         top_ps: Top-p values to try
         cache: Cache to check for existing variants
-        model_path: Path to model for chat template detection
+        tokenizer: Tokenizer for the model (used for chat template formatting)
 
     Returns:
         List of Variant objects (without metrics computed)
@@ -224,11 +204,11 @@ def generate_all_variants(
             for top_p in top_ps:
                 prompt = Prompt(
                     query=inp.query,
-                    prompt=format_curation_prompt(inp.query, inp.response, model_path),
+                    prompt=format_curation_prompt(inp.query, inp.response, tokenizer),
                     sampling_params=SamplingParams(
                         temperature=temp,
                         top_p=top_p,
-                        max_tokens=256,  # Paper Table 9: "Max sequence length: 256"
+                        max_tokens=512,  # Paper says 256, but that truncates ~7% of longer responses
                         stop=CURATION_STOP_SEQUENCES,
                     ),
                 )
@@ -323,20 +303,32 @@ def add_metrics(variants: list[Variant], vllm_model: LLM) -> list[Variant]:
     queries = [v.query for v in without_metrics]
     texts = [v.text for v in without_metrics]
 
-    return with_metrics + [
-        Variant(
-            query=v.query,
-            text=v.text,
-            temp=v.temp,
-            top_p=v.top_p,
-            perplexity=ppl,
-            readability=read,
-            helpfulness=help_score,
-            source_hash=v.source_hash,
+    metrics = compute_metrics(queries, texts, vllm_model)
+    scored = []
+    dropped_count = 0
+    for v, (ppl, read, help_score) in zip(without_metrics, metrics, strict=True):
+        if help_score is None:
+            dropped_count += 1
+            continue
+        scored.append(
+            Variant(
+                query=v.query,
+                text=v.text,
+                temp=v.temp,
+                top_p=v.top_p,
+                perplexity=ppl,
+                readability=read,
+                helpfulness=help_score,
+                source_hash=v.source_hash,
+            )
         )
-        for v, (ppl, read, help_score) in zip(without_metrics, compute_metrics(queries, texts, vllm_model), strict=True)
-        if help_score is not None
-    ]
+    if dropped_count:
+        logger.warning(
+            "Dropped %d/%d variants due to failed helpfulness scoring",
+            dropped_count,
+            len(without_metrics),
+        )
+    return with_metrics + scored
 
 
 def filter_variants(
@@ -449,11 +441,11 @@ def get_best_variants(
     current_variants: list[Variant],
     vllm_model: LLM,
     cache: Cache,
-    temperatures: list[float],
-    top_ps: list[float],
+    temperatures: Sequence[float],
+    top_ps: Sequence[float],
     beam_width: int,
     original_metrics: dict[str, tuple[float, float]],
-    model_path: str,
+    tokenizer: PreTrainedTokenizer,
 ) -> list[Variant]:
     """One round of beam search: generate new variants, filter, select best.
 
@@ -467,7 +459,7 @@ def get_best_variants(
         top_ps: Top-p values for generation
         beam_width: Number of variants to keep per query
         original_metrics: Original (readability, helpfulness) per query for filtering
-        model_path: Path to model for chat template detection
+        tokenizer: Tokenizer for the model (used for chat template formatting)
 
     Returns:
         Best variants after this round (with metrics)
@@ -477,7 +469,7 @@ def get_best_variants(
 
     # Generate new variants from current
     tqdm.write(f"  Generating variants for {len(current_as_inputs)} inputs...")
-    new_variants = generate_all_variants(current_as_inputs, vllm_model, temperatures, top_ps, cache, model_path)
+    new_variants = generate_all_variants(current_as_inputs, vllm_model, temperatures, top_ps, cache, tokenizer)
     cache.save_variants(new_variants)
 
     # Combine current + new
@@ -509,8 +501,8 @@ def curate_batch(
     model_path: str,
     cache_dir: Path,
     num_rounds: int,
-    temperatures: list[float],
-    top_ps: list[float],
+    temperatures: Sequence[float],
+    top_ps: Sequence[float],
     beam_width: int,
 ) -> list[tuple[str, str]]:
     """Curate a batch of inputs through multiple rounds of beam search.
@@ -530,6 +522,7 @@ def curate_batch(
         List of (query, curated_response) tuples
     """
     cache = Cache(cache_dir)
+    tokenizer: PreTrainedTokenizer = AutoTokenizer.from_pretrained(model_path)
     vllm_model = LLM(
         model=model_path,
         tensor_parallel_size=1,
@@ -562,7 +555,7 @@ def curate_batch(
             top_ps,
             beam_width,
             original_metrics,
-            model_path,
+            tokenizer,
         )
 
     # Extract final results (one variant per query)
@@ -584,7 +577,7 @@ def curate_batch(
     return result
 
 
-def extract_query_response(sample: dict) -> tuple[str, str]:
+def extract_query_response(sample: dict[str, Any]) -> tuple[str, str]:
     """Extract query and response from dataset sample."""
     if "instruction" in sample and "output" in sample:
         query = sample["instruction"]
@@ -604,19 +597,27 @@ def extract_query_response(sample: dict) -> tuple[str, str]:
             query = parts[0].replace("### Instruction:", "").strip()
             response = parts[1].strip()
         else:
-            query = text[: len(text) // 2]
-            response = text[len(text) // 2 :]
+            raise ValueError(
+                f"'text' field has no recognized structure (e.g. '### Response:'). "
+                f"Cannot split into query/response. Text starts with: {text[:100]!r}"
+            )
     else:
         raise ValueError(f"Unknown dataset format. Available keys: {list(sample.keys())}")
 
     return query, response
 
 
-def curate_dataset(config: "CTRLConfig") -> datasets.Dataset:
+def curate_dataset(
+    config: "CTRLConfig",
+    raw_dataset: datasets.Dataset | None = None,
+) -> datasets.Dataset:
     """Curate a dataset using CTRL with automatic caching and parallelization.
 
     Args:
         config: CTRL configuration
+        raw_dataset: Pre-loaded raw dataset. If None, loads from config. Pass this
+            to avoid loading the dataset a second time when it was already loaded
+            by the caller.
 
     Returns:
         Curated dataset
@@ -643,13 +644,12 @@ def curate_dataset(config: "CTRLConfig") -> datasets.Dataset:
 
     print("   Starting curation...")
 
-    # Load dataset
-    raw_dataset = datasets.load_dataset(
-        config.clean_dataset_name,
-        split=config.clean_dataset_split,
-    )
-    if not isinstance(raw_dataset, datasets.Dataset):
-        raise TypeError(f"Expected Dataset, got {type(raw_dataset)}")
+    # Load dataset if not provided
+    if raw_dataset is None:
+        raw_dataset = datasets.load_dataset(  # type: ignore[assignment]
+            config.clean_dataset_name,
+            split=config.clean_dataset_split,
+        )
 
     # Select subset
     if len(raw_dataset) > config.num_samples:
@@ -658,6 +658,14 @@ def curate_dataset(config: "CTRLConfig") -> datasets.Dataset:
     # Determine items to curate
     num_to_curate = int(len(raw_dataset) * config.curation_rate)
     print(f"   Curating {num_to_curate} out of {len(raw_dataset)} samples...")
+
+    if num_to_curate == 0:
+        logger.warning(
+            "num_to_curate is 0 (dataset size=%d, curation_rate=%f). Returning empty dataset.",
+            len(raw_dataset),
+            config.curation_rate,
+        )
+        return datasets.Dataset.from_list([])
 
     indices_to_curate = list(range(0, len(raw_dataset), len(raw_dataset) // num_to_curate))[:num_to_curate]
 

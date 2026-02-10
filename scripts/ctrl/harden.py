@@ -7,14 +7,18 @@ Usage:
 """
 
 import argparse
+import sys
+from pathlib import Path
 
-from config import MODELS, get_output_dir
+sys.path.insert(0, str(Path(__file__).parent))
+
+from config import MODELS, get_output_dir  # pyright: ignore[reportImplicitRelativeImport]
 from dotenv import load_dotenv
 
 from tamperbench.whitebox.defenses.ctrl import CTRL, CTRLConfig
 
 
-def main():
+def main() -> None:
     """Harden a model using CTRL defense."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--tier", choices=MODELS.keys(), default="medium")
@@ -30,7 +34,7 @@ def main():
     print(f"Output: {output_dir}")
 
     config = CTRLConfig(
-        input_checkpoint_path=model,
+        input_checkpoint_path=Path(model),
         output_checkpoint_path=output_dir / "hardened_model",
         clean_dataset_name="tatsu-lab/alpaca",
     )

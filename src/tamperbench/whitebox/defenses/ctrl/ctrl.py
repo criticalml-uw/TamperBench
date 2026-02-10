@@ -1,19 +1,22 @@
 """CTRL (Clean Data Curation) defense implementation."""
 
+# pyright: reportImportCycles=false
+
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import datasets
 import torch
-import trl
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
     PreTrainedModel,
     PreTrainedTokenizer,
 )
-from typing_extensions import Self, override
+from trl.trainer.sft_config import SFTConfig
+from trl.trainer.sft_trainer import SFTTrainer
+from typing_extensions import override
 
 from tamperbench.whitebox.defenses.ctrl.curation import (
     curate_dataset,
@@ -23,8 +26,8 @@ from tamperbench.whitebox.defenses.defense import (
     AlignmentDefense,
     AlignmentDefenseConfig,
 )
-from tamperbench.whitebox.utils.ops.dealloc import dealloc_model_and_tokenizer
 from tamperbench.whitebox.utils.models.default_tokens import DEFAULT_PAD_TOKEN
+from tamperbench.whitebox.utils.ops.dealloc import dealloc_model_and_tokenizer
 
 
 @dataclass
@@ -70,19 +73,6 @@ class CTRLConfig(AlignmentDefenseConfig):
     num_train_epochs: int = 5
     lr_scheduler_type: str = "constant"
     optim: str = "adamw_torch"  # Paper Table 9 specifies AdamW
-
-    @override
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> Self:  # pyright: ignore[reportExplicitAny]
-        """Construct config from dictionary.
-
-        Args:
-            data: Dictionary with configuration fields.
-
-        Returns:
-            CTRLConfig: Configuration object.
-        """
-        return cls(**data)  # pyright: ignore[reportAny]
 
 
 def _load_model(model_name: str) -> PreTrainedModel:
@@ -133,10 +123,10 @@ def prepare_training_dataset(
     """
     # Build lookup of curated responses by prompt
     curated_responses: dict[str, str] = {}
-    for sample in curated_dataset:
-        curated_responses[sample["prompt"]] = sample["response"]
+    for row in curated_dataset:
+        curated_responses[row["prompt"]] = row["response"]  # pyright: ignore[reportCallIssue, reportArgumentType]
 
-    def format_sample(sample: dict[str, Any]) -> dict[str, Any]:  # pyright: ignore
+    def format_sample(sample: dict[str, Any]) -> dict[str, Any]:
         prompt = sample["prompt"]
         # Use curated response if available, otherwise original
         response = curated_responses.get(prompt, sample["response"])
@@ -161,11 +151,6 @@ class CTRL(AlignmentDefense[CTRLConfig]):
     3. This creates a hardened model resistant to fine-tuning attacks
     """
 
-    @property
-    def device(self) -> str:
-        """Get the device to use for training."""
-        return "cuda" if torch.cuda.is_available() else "cpu"
-
     @override
     def run_defense(self) -> Path:
         """Run CTRL defense to create hardened model.
@@ -179,12 +164,10 @@ class CTRL(AlignmentDefense[CTRLConfig]):
 
         # Step 1: Load clean dataset
         print(f"\n[1/4] Loading clean dataset ({self.defense_config.num_samples} samples)...")
-        raw_dataset = datasets.load_dataset(
+        raw_dataset: datasets.Dataset = datasets.load_dataset(  # type: ignore[assignment]
             self.defense_config.clean_dataset_name,
             split=self.defense_config.clean_dataset_split,
         )
-        if not isinstance(raw_dataset, datasets.Dataset):
-            raise TypeError(f"Expected Dataset, got {type(raw_dataset)}")
 
         # Select subset and convert to prompt/response format
         if len(raw_dataset) > self.defense_config.num_samples:
@@ -192,14 +175,14 @@ class CTRL(AlignmentDefense[CTRLConfig]):
 
         clean_samples = []
         for sample in raw_dataset:
-            query, response = extract_query_response(sample)
+            query, response = extract_query_response(sample)  # pyright: ignore[reportArgumentType]
             clean_samples.append({"prompt": query, "response": response})
         clean_dataset = datasets.Dataset.from_list(clean_samples)
         print(f"   Loaded {len(clean_dataset)} clean samples")
 
         # Step 2: Curate subset of clean dataset (vLLM model loaded automatically)
         print(f"\n[2/4] Curating {self.defense_config.curation_rate * 100}% of samples...")
-        curated_dataset = curate_dataset(self.defense_config)
+        curated_dataset = curate_dataset(self.defense_config, raw_dataset=raw_dataset)
         print(f"   Curated {len(curated_dataset)} samples")
 
         # Save curated dataset for inspection
@@ -249,14 +232,16 @@ class CTRL(AlignmentDefense[CTRLConfig]):
         """
         output_path = Path(self.defense_config.output_checkpoint_path)
         print(f"   Output path: {output_path}")
-        if (output_path / "config.json").exists():
+        config_file = output_path / "config.json"
+        model_file = output_path / "model.safetensors"
+        if config_file.exists() and config_file.stat().st_size > 0 and model_file.exists():
             print(f"   Skipping training - model already exists at {output_path}")
             return
 
         model.resize_token_embeddings(new_num_tokens=len(tokenizer))
         model.enable_input_require_grads()
 
-        training_args = trl.SFTConfig(
+        training_args = SFTConfig(
             output_dir=str(self.defense_config.output_checkpoint_path),
             per_device_train_batch_size=self.defense_config.per_device_train_batch_size,
             learning_rate=self.defense_config.learning_rate,
@@ -275,11 +260,12 @@ class CTRL(AlignmentDefense[CTRLConfig]):
             # Using 512 to avoid truncation which caused garbled outputs in prior runs.
             max_length=512,
             bf16=True,
+            report_to="none",
             # Disable DDP - model uses device_map="auto" for model parallelism instead
             ddp_backend=None,
         )
 
-        trainer = trl.SFTTrainer(
+        trainer = SFTTrainer(
             model=model,
             processing_class=tokenizer,
             train_dataset=dataset,

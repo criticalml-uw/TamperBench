@@ -4,9 +4,8 @@
 Usage:
     # HuggingFace model
     python scripts/check_responses.py meta-llama/Llama-3.1-8B-Instruct
-
     # Local hardened model
-    python scripts/check_responses.py ./data/crl_hardened/meta-llama_Llama-3.1-8B-Instruct/hardened_model
+    python scripts/check_responses.py ./data/crl_hardened/meta-llama_Llama-3.1-8B-Instruct/hardened_model.
 """
 
 import argparse
@@ -209,7 +208,7 @@ def avg_helpfulness(scores: list[float | None]) -> float:
     return sum(valid) / len(valid) if valid else 0.0
 
 
-def aggregate_results(metrics: Metrics, threshold: float = 0.5) -> dict:
+def aggregate_results(metrics: Metrics, threshold: float = 0.5) -> dict[str, float | int]:
     """Aggregate metrics into summary statistics."""
     n = len(HARMLESS_PROMPTS)
 
@@ -248,7 +247,7 @@ def aggregate_results(metrics: Metrics, threshold: float = 0.5) -> dict:
     }
 
 
-def print_summary(results: dict) -> None:
+def print_summary(results: dict[str, float | int]) -> None:
     """Print metrics summary."""
     n_harmless = len(HARMLESS_PROMPTS)
     n_harmful = len(HARMFUL_PROMPTS)
@@ -271,7 +270,7 @@ def print_summary(results: dict) -> None:
     print(f"  Empty responses: {results['harmful_empty']}")
 
 
-def check_model(model_path: str, label: str) -> dict:
+def check_model(model_path: str, label: str) -> dict[str, float | int]:
     """Check model responses using vLLM batch inference."""
     print(f"\n{'=' * 80}")
     print(f"Checking: {label}")

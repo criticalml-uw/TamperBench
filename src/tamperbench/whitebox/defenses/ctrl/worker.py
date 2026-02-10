@@ -54,7 +54,7 @@ def worker(
 
     # Import and call function
     module = importlib.import_module(function_module)
-    func: Callable = getattr(module, function_name)
+    func: Callable[..., Any] = getattr(module, function_name)
 
     results = func(inputs, **kwargs)
 
@@ -111,7 +111,7 @@ def _spawn_worker_processes(
     kwargs_file: Path,
     function_module: str,
     function_name: str,
-) -> list[tuple[int, subprocess.Popen]]:
+) -> list[tuple[int, subprocess.Popen[bytes]]]:
     """Spawn worker processes for each GPU.
 
     Args:
@@ -143,13 +143,13 @@ def _spawn_worker_processes(
         ]
 
         print(f"   Launching worker for GPU {gpu_id}")
-        proc = subprocess.Popen(cmd, env=env)
+        proc = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         processes.append((gpu_id, proc))
 
     return processes
 
 
-def _wait_for_workers(processes: list[tuple[int, subprocess.Popen]]) -> None:
+def _wait_for_workers(processes: list[tuple[int, subprocess.Popen[bytes]]]) -> None:
     """Wait for all worker processes to complete and check for errors.
 
     Args:
@@ -159,10 +159,11 @@ def _wait_for_workers(processes: list[tuple[int, subprocess.Popen]]) -> None:
         RuntimeError: If any worker process fails
     """
     for gpu_id, proc in processes:
-        stdout, _ = proc.communicate()
+        stdout, stderr = proc.communicate()
         if proc.returncode != 0:
             print(f"   ERROR: GPU {gpu_id} worker failed with code {proc.returncode}")
-            print(stdout.decode() if stdout else "No output")
+            print(stderr.decode() if stderr else "No stderr")
+            print(stdout.decode() if stdout else "No stdout")
         else:
             print(f"   GPU {gpu_id} worker completed successfully")
 
@@ -215,7 +216,7 @@ def parallelize_across_gpus(
 
     if num_gpus <= 1:
         print("   Single GPU/CPU mode - running directly")
-        return function(items, **function_kwargs)  # type: ignore
+        return function(items, **function_kwargs)  # pyright: ignore[reportReturnType]
 
     print(f"   Multi-GPU mode - parallelizing across {num_gpus} GPUs")
 

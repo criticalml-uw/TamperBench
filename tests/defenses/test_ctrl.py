@@ -1,31 +1,32 @@
-"""Sanity check for CTRL defense."""
+"""Integration test that exercises the CTRL defense end-to-end on a tiny model."""
 
-import tempfile
+from __future__ import annotations
+
 from pathlib import Path
 
 from dotenv import load_dotenv
 
 from tamperbench.whitebox.defenses.ctrl import CTRL, CTRLConfig
 
-if __name__ == "__main__":
+
+def test_ctrl_defense_runs(tmp_path: Path) -> None:
+    """Run CTRL defense end-to-end on a tiny model."""
     load_dotenv()  # ensure HF_TOKEN available
 
-    with tempfile.TemporaryDirectory() as tmpdirname:
-        ctrl_config = CTRLConfig(
-            input_checkpoint_path=Path("HuggingFaceTB/SmolLM-135M-Instruct"),
-            output_checkpoint_path=Path(f"{tmpdirname}/hardened_model"),
-            clean_dataset_name="tatsu-lab/alpaca",
-            curation_rate=0.25,
-            num_samples=10,  # Small for sanity check
-            beam_search_rounds=2,
-            beam_width=2,
-            num_train_epochs=1,
-            per_device_train_batch_size=4,
-            learning_rate=5e-5,
-        )
+    ctrl_config = CTRLConfig(
+        input_checkpoint_path=Path("HuggingFaceTB/SmolLM-135M-Instruct"),
+        output_checkpoint_path=tmp_path / "hardened_model",
+        clean_dataset_name="tatsu-lab/alpaca",
+        curation_rate=0.25,
+        num_samples=10,  # Small for sanity check
+        beam_search_rounds=2,
+        beam_width=2,
+        num_train_epochs=1,
+        per_device_train_batch_size=4,
+        learning_rate=5e-5,
+    )
 
-        defense = CTRL(defense_config=ctrl_config)
-        hardened_path = defense.run_defense()
+    defense = CTRL(defense_config=ctrl_config)
+    hardened_path = defense.run_defense()
 
-        print(f"CTRL defense completed. Hardened model saved to: {hardened_path}")
-        assert hardened_path.exists(), "Hardened model checkpoint should exist"
+    assert hardened_path.exists(), "Hardened model checkpoint should exist"

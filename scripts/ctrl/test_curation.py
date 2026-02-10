@@ -33,9 +33,7 @@ def test_curation(
     print("=" * 80)
 
     # Load dataset
-    raw_dataset = datasets.load_dataset("tatsu-lab/alpaca", split="train")
-    if not isinstance(raw_dataset, datasets.Dataset):
-        raise TypeError(f"Expected Dataset, got {type(raw_dataset)}")
+    raw_dataset: datasets.Dataset = datasets.load_dataset("tatsu-lab/alpaca", split="train")  # type: ignore[assignment]
 
     # Select diverse samples (not just first N)
     step = len(raw_dataset) // num_samples

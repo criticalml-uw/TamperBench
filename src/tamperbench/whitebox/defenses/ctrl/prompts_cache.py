@@ -18,7 +18,7 @@ class Cache:
         Args:
             cache_dir: Directory to store cache files
         """
-        self.cache_dir = cache_dir
+        self.cache_dir: Path = cache_dir
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
         # Load existing data
