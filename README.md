@@ -4,10 +4,13 @@
 
 **Benchmark the tamper-resistance of open-weight large language models (LLMs)**
 
-<table border="0" cellspacing="0" cellpadding="10"><tr>
-<td valign="middle" bgcolor="white"><a href="https://sirisharambhatla.com/criticalml/"><img src="assets/criticalml-logo.png" height="100" alt="CriticalML"></a></td>
-<td valign="middle" bgcolor="white"><a href="https://far.ai/"><img src="assets/far_ai_logo.svg" width="288" height="50" alt="FAR.AI"></a></td>
-</tr></table>
+<a href="https://sirisharambhatla.com/criticalml/"><img src="assets/criticalml-logo.png" height="100" alt="CriticalML"></a>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/far_ai_logo_white.svg">
+  <source media="(prefers-color-scheme: light)" srcset="assets/far_ai_logo.svg">
+  <a href="https://far.ai/"><img src="assets/far_ai_logo.svg" height="100" alt="FAR.AI"></a>
+</picture>
 
 [![Transformers](https://img.shields.io/badge/transformers-%E2%89%A54.49-orange?style=flat-square&logo=huggingface&logoColor=white)](https://github.com/huggingface/transformers)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue?style=flat-square&logo=python&logoColor=white)](https://www.python.org/downloads/)
