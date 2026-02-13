@@ -251,11 +251,6 @@ class MBPPEvaluation(WhiteBoxEvaluation[MBPPEvaluationConfig]):
 
         return InferenceSchema.validate(payload)
 
-    def _format_with_chat_template(self, prompt: str) -> str:
-        """Apply chat template to prompt."""
-        model_config = self.eval_config.model_config
-        return f"{model_config.user_prefix}{prompt}{model_config.end_turn}{model_config.assistant_prefix}"
-
     @override
     def compute_scores(self, inferences: DataFrame[InferenceSchema]) -> DataFrame[ScoreSchema]:
         """Execute generated code and compute pass/fail scores."""

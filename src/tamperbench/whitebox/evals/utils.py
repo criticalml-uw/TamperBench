@@ -26,6 +26,7 @@ from transformers import PreTrainedTokenizer
 from vllm import LLM, SamplingParams
 
 from tamperbench.whitebox.evals.output_schema import InferenceSchema, ScoreSchema
+from tamperbench.whitebox.utils.models.config import ModelConfig
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +72,139 @@ def format_chat_prompt(
         parts.append(f"{role}: {msg['content']}")
 
     return "\n\n".join(parts) + "\n\nAssistant:"
+
+
+def format_eval_prompt(
+    user_content: str,
+    tokenizer: PreTrainedTokenizer | None = None,
+    model_config: ModelConfig | None = None,
+    use_native_chat_template: bool = False,
+    system_prompt: str | None = None,
+    history: list[dict[str, str]] | None = None,
+) -> str:
+    """Format a user message into a prompt string for evaluation.
+
+    Supports two modes:
+    - **Config-based** (default): Uses ``model_config.user_prefix`` /
+      ``assistant_prefix`` / ``end_turn`` to match the format used during
+      attack training.  Requires *model_config* to be provided.
+    - **Native chat template** (``use_native_chat_template=True``): Uses
+      ``tokenizer.apply_chat_template()`` with a single consistent fallback
+      for tokenizers that lack a chat template.
+
+    Args:
+        user_content: The user's message content.
+        tokenizer: HuggingFace tokenizer.  Required when
+            *use_native_chat_template* is ``True``.
+        model_config: Model configuration with prefix strings.  Required when
+            *use_native_chat_template* is ``False``.
+        use_native_chat_template: If ``True``, format via the tokenizer's
+            built-in chat template (or the unified fallback).
+        system_prompt: Optional system prompt to prepend.
+        history: Optional prior conversation turns
+            (list of ``{"role": ..., "content": ...}``).
+
+    Returns:
+        Formatted prompt string ready for model input.
+
+    Raises:
+        ValueError: If required arguments for the chosen mode are missing.
+    """
+    if use_native_chat_template:
+        if tokenizer is None:
+            raise ValueError("tokenizer is required when use_native_chat_template=True")
+        return _format_native(user_content, tokenizer, system_prompt, history)
+    return _format_with_config(user_content, model_config, system_prompt, history)
+
+
+def _format_with_config(
+    user_content: str,
+    model_config: ModelConfig | None,
+    system_prompt: str | None,
+    history: list[dict[str, str]] | None,
+) -> str:
+    """Format using model_config prefixes (matches attack training format)."""
+    if model_config is None:
+        raise ValueError("model_config is required when use_native_chat_template=False")
+
+    parts: list[str] = []
+
+    if system_prompt:
+        parts.append(system_prompt)
+
+    if history:
+        for msg in history:
+            if msg["role"] == "user":
+                parts.append(f"{model_config.user_prefix}{msg['content']}{model_config.end_turn}")
+            elif msg["role"] == "assistant":
+                parts.append(f"{model_config.assistant_prefix}{msg['content']}{model_config.end_turn}")
+
+    parts.append(f"{model_config.user_prefix}{user_content}{model_config.end_turn}{model_config.assistant_prefix}")
+    return "".join(parts)
+
+
+def apply_chat_template_with_fallback(
+    messages: list[dict[str, str]],
+    tokenizer: PreTrainedTokenizer,
+    add_generation_prompt: bool = True,
+) -> str:
+    """Apply ``tokenizer.apply_chat_template()`` with a unified plain-text fallback.
+
+    Use this when you already have a messages list and need formatting with a
+    consistent fallback for tokenizers that lack a chat template.
+
+    Args:
+        messages: List of ``{"role": ..., "content": ...}`` dicts.
+        tokenizer: HuggingFace tokenizer.
+        add_generation_prompt: Whether to append the assistant header at the
+            end (same semantics as ``apply_chat_template``).
+
+    Returns:
+        Formatted prompt string.
+    """
+    if hasattr(tokenizer, "apply_chat_template") and tokenizer.chat_template:
+        return cast(
+            str,
+            tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=add_generation_prompt,
+            ),
+        )
+
+    # Unified fallback for tokenizers without a chat template
+    parts: list[str] = []
+    for msg in messages:
+        if msg["role"] == "system":
+            parts.append(msg["content"])
+        else:
+            role = msg["role"].title()
+            parts.append(f"{role}: {msg['content']}")
+
+    result = "\n\n".join(parts)
+    if add_generation_prompt:
+        result += "\n\nAssistant:"
+    return result
+
+
+def _format_native(
+    user_content: str,
+    tokenizer: PreTrainedTokenizer,
+    system_prompt: str | None,
+    history: list[dict[str, str]] | None,
+) -> str:
+    """Format using tokenizer.apply_chat_template() with unified fallback."""
+    messages: list[dict[str, str]] = []
+
+    if system_prompt:
+        messages.append({"role": "system", "content": system_prompt})
+
+    if history:
+        messages.extend(history)
+
+    messages.append({"role": "user", "content": user_content})
+
+    return apply_chat_template_with_fallback(messages, tokenizer, add_generation_prompt=True)
 
 
 def llm_judge_score(

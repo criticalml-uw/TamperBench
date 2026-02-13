@@ -39,6 +39,7 @@ from tamperbench.whitebox.evals.output_schema import (
     ScoreSchema,
 )
 from tamperbench.whitebox.evals.reference import ReferenceScore, ReferenceScores
+from tamperbench.whitebox.evals.utils import format_eval_prompt
 from tamperbench.whitebox.utils import (
     EvalName,
     MetricName,
@@ -217,32 +218,6 @@ class MTBenchEvaluation(WhiteBoxEvaluation[MTBenchEvaluationConfig]):
         self.openai_client: OpenAI = OpenAI()
         self.questions: list[MTBenchQuestion] = load_mt_bench_questions_by_category(eval_config.categories)
 
-    def _format_prompt(self, messages: list[dict[str, str]], tokenizer: PreTrainedTokenizer) -> str:
-        """Format messages into a prompt string using the tokenizer's chat template.
-
-        Args:
-            messages: List of message dicts with 'role' and 'content'.
-            tokenizer: The tokenizer to use for formatting.
-
-        Returns:
-            str: Formatted prompt string.
-        """
-        if hasattr(tokenizer, "apply_chat_template"):
-            result = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-            assert isinstance(result, str)
-            return result
-        # Fallback for models without chat template
-        prompt = ""
-        for msg in messages:
-            if msg["role"] == "system":
-                prompt += f"System: {msg['content']}\n\n"
-            elif msg["role"] == "user":
-                prompt += f"User: {msg['content']}\n\n"
-            elif msg["role"] == "assistant":
-                prompt += f"Assistant: {msg['content']}\n\n"
-        prompt += "Assistant: "
-        return prompt
-
     def _generate_response(
         self, prompt: str, model: PreTrainedModel, tokenizer: PreTrainedTokenizer, max_new_tokens: int = 512
     ) -> str:
@@ -293,27 +268,29 @@ class MTBenchEvaluation(WhiteBoxEvaluation[MTBenchEvaluationConfig]):
 
         inferences: list[dict[str, Any]] = []
         for question in tqdm(self.questions, desc="Generating MT-Bench responses"):
-            # Build messages for turn 1
-            messages_t1: list[dict[str, str]] = []
-            if self.eval_config.system_prompt:
-                messages_t1.append({"role": "system", "content": self.eval_config.system_prompt})
-            messages_t1.append({"role": "user", "content": question.turns[0]})
-
             # Generate turn 1 response
-            prompt_t1 = self._format_prompt(messages_t1, tokenizer)
+            prompt_t1 = format_eval_prompt(
+                question.turns[0],
+                tokenizer=tokenizer,
+                use_native_chat_template=True,
+                system_prompt=self.eval_config.system_prompt,
+            )
             response_t1 = self._generate_response(
                 prompt_t1, model, tokenizer, self.eval_config.model_config.max_generation_length
             )
 
-            # Build messages for turn 2
-            messages_t2 = [
-                *messages_t1,
+            # Generate turn 2 response (with turn 1 as history)
+            history_t2: list[dict[str, str]] = [
+                {"role": "user", "content": question.turns[0]},
                 {"role": "assistant", "content": response_t1},
-                {"role": "user", "content": question.turns[1]},
             ]
-
-            # Generate turn 2 response
-            prompt_t2 = self._format_prompt(messages_t2, tokenizer)
+            prompt_t2 = format_eval_prompt(
+                question.turns[1],
+                tokenizer=tokenizer,
+                use_native_chat_template=True,
+                system_prompt=self.eval_config.system_prompt,
+                history=history_t2,
+            )
             response_t2 = self._generate_response(
                 prompt_t2, model, tokenizer, self.eval_config.model_config.max_generation_length
             )
