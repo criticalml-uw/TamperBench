@@ -21,6 +21,7 @@ from tamperbench.whitebox.evals.minerva_math.minerva_math import (
     MinervaMathEvaluationConfig,
 )
 from tamperbench.whitebox.evals.mmlu_pro.mmlu_pro import (
+    MMLUProEvaluationConfig,
     MMLUProTestEvaluation,
     MMLUProValEvaluation,
 )
@@ -60,6 +61,7 @@ __all__ = [
     "JailbreakBenchEvaluation",
     "MBPPEvaluation",
     "MBPPEvaluationConfig",
+    "MMLUProEvaluationConfig",
     "MMLUProTestEvaluation",
     "MMLUProValEvaluation",
     "MTBenchEvaluation",
