@@ -3,7 +3,7 @@
 ## Scripts import pattern
 
 Scripts in this directory that import from other scripts (e.g.,
-`from scripts.user.tomtseng.mmlu_pro_llm_judge.judge import ...`) need to add
+`from scripts.user.tomtseng.mmlu_pro_llm_judge_251105.judge import ...`) need to add
 the repo root to `sys.path` before those imports:
 
 ```python

@@ -1,6 +1,6 @@
 """Template for evaluations in tamperbench that evaluate potency of attacks."""
 
-# pyright: reportUnknownVariableType=false, reportUnknownMemberType=false, reportAny=false, reportInvalidTypeVarUse=false
+# pyright: reportUnknownVariableType=false, reportUnknownMemberType=false, reportAny=false
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass

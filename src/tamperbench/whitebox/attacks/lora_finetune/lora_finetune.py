@@ -103,14 +103,14 @@ class LoraFinetune(FullParameterFinetune[H]):
 
 
 @register_attack(AttackName.LORA_FINETUNE_OPTIM, LoraFinetuneConfig)
-class LoraFinetuneOptim(LoraFinetune[H]):
+class LoraFinetuneOptim(LoraFinetune[LoraFinetuneConfig]):
     """Lora finetuning class -- with alternate alias (name) to indicate that optimizers are varied."""
 
     name: AttackName = AttackName.LORA_FINETUNE_OPTIM
 
 
 @register_attack(AttackName.LORA_FULL_DATASET_FINETUNE, LoraFinetuneConfig)
-class LoraFullDatasetFinetune(LoraFinetune[H]):
+class LoraFullDatasetFinetune(LoraFinetune[LoraFinetuneConfig]):
     """Lora finetuning class -- with alternate alias (name) to indicate that dataset is larger."""
 
     name: AttackName = AttackName.LORA_FULL_DATASET_FINETUNE
@@ -148,7 +148,7 @@ class LoraFullDatasetFinetune(LoraFinetune[H]):
 
 
 @register_attack(AttackName.BENIGN_LORA_FINETUNE, LoraFinetuneConfig)
-class BenignLoraFinetune(LoraFinetune[H]):
+class BenignLoraFinetune(LoraFinetune[LoraFinetuneConfig]):
     """Benign lora finetuning class."""
 
     name: AttackName = AttackName.BENIGN_LORA_FINETUNE

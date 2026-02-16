@@ -119,7 +119,7 @@ class FullParameterFinetune(TamperAttack[H]):
 
 
 @register_attack(AttackName.BENIGN_FULL_PARAMETER_FINETUNE, FullParameterFinetuneConfig)
-class BenignFullParameterFinetune(FullParameterFinetune[H]):
+class BenignFullParameterFinetune(FullParameterFinetune[FullParameterFinetuneConfig]):
     """Benign full parameter finetuning class."""
 
     name: AttackName = AttackName.BENIGN_FULL_PARAMETER_FINETUNE

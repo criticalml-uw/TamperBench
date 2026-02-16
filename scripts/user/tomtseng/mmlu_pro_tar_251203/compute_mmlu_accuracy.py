@@ -26,10 +26,10 @@ from tamperbench.utils import get_repo_root
 # We do this because scripts/ isn't in the distributed package.
 sys.path.insert(0, str(get_repo_root()))
 
-from scripts.user.tomtseng.mmlu_pro_llm_judge.judge import (
+from scripts.user.tomtseng.mmlu_pro_llm_judge_251105.judge import (
     extract_with_retries,
 )
-from scripts.user.tomtseng.mmlu_pro_llm_judge.run_judge import (
+from scripts.user.tomtseng.mmlu_pro_llm_judge_251105.run_judge import (
     strip_extra_questions_from_response,
 )
 from scripts.user.tomtseng.mmlu_pro_tar_251203.judge_with_context import (

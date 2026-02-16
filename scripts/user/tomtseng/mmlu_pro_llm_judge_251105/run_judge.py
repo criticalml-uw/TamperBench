@@ -45,7 +45,7 @@ from tamperbench.utils import get_repo_root
 # We do this because scripts/ isn't in the distributed package.
 sys.path.insert(0, str(get_repo_root()))
 
-from scripts.user.tomtseng.mmlu_pro_llm_judge.judge import extract_with_retries
+from scripts.user.tomtseng.mmlu_pro_llm_judge_251105.judge import extract_with_retries
 
 CHECKPOINT_INTERVAL = 100  # Save checkpoint every N completions
 BATCH_SIZE = 500  # Process this many async requests at a time
@@ -57,9 +57,16 @@ def strip_extra_questions_from_response(response: str) -> str:
     Models often generate additional questions after the first answer. We strip
     these additional questions to avoid confusing the judge.
     """
-    question_marker = "\nQuestion:"
-    if question_marker in response:
-        return response[: response.index(question_marker)]
+    question_markers = [
+        # This is the most common form.
+        "\nQuestion:",
+        # This is seen in qwen3_4b/style_modulation_finetune/trial_22.csv,
+        # likely as a result of the INSTRUCTION_RESPONSE TextTemplate.
+        "\nRESPONSE: Question:",
+    ]
+    for marker in question_markers:
+        if marker in response:
+            response = response[: response.index(marker)]
     return response
 
 

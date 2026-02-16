@@ -1,5 +1,6 @@
 """Alignment-stage defenses against tampering supported by tamperbench."""
 
+from tamperbench.whitebox.defenses.booster import Booster, BoosterConfig
 from tamperbench.whitebox.defenses.crl import CRL, CRLConfig
 from tamperbench.whitebox.defenses.ctrl import CTRL, CTRLConfig
 from tamperbench.whitebox.defenses.defense import (
@@ -13,11 +14,13 @@ from tamperbench.whitebox.defenses.t_vaccine.tar import (
 )
 
 __all__: list[str] = [
+    "Booster",
     "CRL",
     "CTRL",
     "DEFENSES_REGISTRY",
     "AlignmentDefense",
     "AlignmentDefenseConfig",
+    "BoosterConfig",
     "CRLConfig",
     "CTRLConfig",
     "TARConfig",

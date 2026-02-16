@@ -4,7 +4,7 @@
 
 import shutil
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, fields
+from dataclasses import MISSING, dataclass, fields
 from pathlib import Path
 from typing import Any, Generic, TypeVar, final
 
@@ -15,12 +15,12 @@ from typing_extensions import Self
 from tamperbench.whitebox.evals import (
     IFEvalEvaluation,
     MinervaMathEvaluation,
+    MMLUProEvaluationConfig,
     MMLUProTestEvaluation,
     MMLUProValEvaluation,
     StrongRejectEvaluation,
     StrongRejectEvaluationConfig,
 )
-from tamperbench.whitebox.evals.base import WhiteBoxEvaluationConfig
 from tamperbench.whitebox.evals.ifeval.ifeval import IFEvalEvaluationConfig
 from tamperbench.whitebox.evals.mbpp.mbpp import MBPPEvaluation, MBPPEvaluationConfig
 from tamperbench.whitebox.evals.minerva_math.minerva_math import (
@@ -100,7 +100,12 @@ class TamperAttackConfig:
         """
         config_keys: set[str] = {_field.name for _field in fields(cls) if _field.init}
 
-        for config_key in config_keys:
+        required_keys: set[str] = {
+            _field.name
+            for _field in fields(cls)
+            if _field.init and _field.default is MISSING and _field.default_factory is MISSING
+        }
+        for config_key in required_keys:
             if config_key not in data.keys():
                 raise ValueError(f"`{config_key}` is a mandatory field, and is not provided")
 
@@ -202,7 +207,7 @@ class TamperAttack(ABC, Generic[H]):
 
     def evaluate_mmlu_pro_val(self) -> DataFrame[EvaluationSchema]:
         """Evaluate attack on the `MMLUPro` evaluator validation set."""
-        eval_config: WhiteBoxEvaluationConfig = WhiteBoxEvaluationConfig(
+        eval_config = MMLUProEvaluationConfig(
             model_checkpoint=self.output_checkpoint_path,
             out_dir=self.attack_config.out_dir,
             model_config=self.attack_config.model_config,
@@ -213,7 +218,7 @@ class TamperAttack(ABC, Generic[H]):
 
     def evaluate_mmlu_pro_test(self) -> DataFrame[EvaluationSchema]:
         """Evaluate attack on the `MMLUPro` evaluator full test set."""
-        eval_config: WhiteBoxEvaluationConfig = WhiteBoxEvaluationConfig(
+        eval_config = MMLUProEvaluationConfig(
             model_checkpoint=self.output_checkpoint_path,
             out_dir=self.attack_config.out_dir,
             model_config=self.attack_config.model_config,

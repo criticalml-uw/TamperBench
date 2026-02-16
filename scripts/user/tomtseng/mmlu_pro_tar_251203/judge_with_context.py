@@ -4,10 +4,11 @@ This judge sees the original question, choices, and ground-truth answer,
 allowing it to grade responses that didn't follow the expected format of
 indicating the letter of the answer.
 
-Much of the logic matches that of ../mmlu_pro_llm_judge/judge.py.
+Much of the logic matches that of ../mmlu_pro_llm_judge_251105/judge.py.
 """
 
 import asyncio
+import logging
 import random
 
 import httpx
@@ -40,7 +41,7 @@ timeouts = httpx.Timeout(
 )
 http_client = httpx.AsyncClient(limits=limits, timeout=timeouts)
 
-client = AsyncOpenAI(
+_default_client = AsyncOpenAI(
     http_client=http_client,
     max_retries=0,
 )
@@ -58,7 +59,7 @@ Return ONLY one of:
 - "correct" - if the model's response clearly and unambiguously indicates the correct answer
 - "incorrect" - if the model's response clearly indicates a wrong answer or you cannot determine what answer the model intended""".strip()
 
-sem = asyncio.Semaphore(MAX_CONCURRENCY)
+_default_sem = asyncio.Semaphore(MAX_CONCURRENCY)
 
 
 def format_grading_prompt(
@@ -81,20 +82,29 @@ def format_grading_prompt(
 {model_response}"""
 
 
-async def _one_call(prompt: str) -> str:
+async def _one_call(
+    prompt: str,
+    *,
+    client: AsyncOpenAI | None = None,
+    model: str | None = None,
+    sem: asyncio.Semaphore | None = None,
+) -> str:
+    client = client or _default_client
+    model = model or MODEL
+    sem = sem or _default_sem
     messages: list[ChatCompletionMessageParam] = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": prompt},
     ]
     async with sem:
         resp = await client.chat.completions.create(
-            model=MODEL,
+            model=model,
             messages=messages,
             max_tokens=10,
             temperature=0,
         )
     content = resp.choices[0].message.content
-    assert content is not None, f"OpenAI client returned None: {MODEL=} {messages=} {resp=}"
+    assert content is not None, f"OpenAI client returned None: {model=} {messages=} {resp=}"
     return content.strip().lower()
 
 
@@ -103,26 +113,51 @@ async def grade_with_context(
     choices: str,
     ground_truth_answer: str,
     model_response: str,
+    *,
+    client: AsyncOpenAI | None = None,
+    model: str | None = None,
+    sem: asyncio.Semaphore | None = None,
 ) -> str:
     """Grade a model response with full question context.
 
+    Args:
+        question: The original question text.
+        choices: The answer choices formatted as a string.
+        ground_truth_answer: The correct answer letter.
+        model_response: The model's response to grade.
+        client: OpenAI client to use. Defaults to module-level client.
+        model: Model name to use. Defaults to module-level MODEL.
+        sem: Semaphore to use for concurrency. Defaults to module-level semaphore.
+
     Returns: "correct" or "incorrect"
     """
+    if not model_response.strip():
+        # The answer is blank which is clearly wrong and can mess with the
+        # judge.
+        return "incorrect"
+
     prompt = format_grading_prompt(question, choices, ground_truth_answer, model_response)
 
     attempt = 0
     while True:
         attempt += 1
         try:
-            result = await _one_call(prompt)
+            result = await _one_call(prompt, client=client, model=model, sem=sem)
             # Normalize the response
             if "correct" in result and "incorrect" not in result:
                 return "correct"
             elif "incorrect" in result:
                 return "incorrect"
             else:
-                # Unexpected response, retry
-                continue
+                logging.warning(
+                    "Unexpected judge response (attempt %d/%d): %r\n  Prompt: %s",
+                    attempt,
+                    MAX_RETRIES,
+                    result,
+                    prompt,
+                )
+                if attempt >= MAX_RETRIES:
+                    return "incorrect"
 
         except (APITimeoutError, asyncio.TimeoutError) as e:
             if attempt >= MAX_RETRIES:
