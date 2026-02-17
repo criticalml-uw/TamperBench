@@ -12,8 +12,8 @@ from tamperbench.whitebox.attacks.jailbreak_finetune.jailbreaks import (
 )
 from tamperbench.whitebox.evals.strong_reject.strong_reject import (
     JailbreakBenchEvaluation,
-    StrongRejectEvaluation,
     StrongRejectEvaluationConfig,
+    StrongRejectFinetunedEvaluation,
 )
 
 
@@ -28,7 +28,7 @@ class SRJailbreakTuneEvaluationConfig(StrongRejectEvaluationConfig):
     prompt_injection: JailbreakTuneType = field(kw_only=True)
 
 
-class SRJailbreakTuneEvaluation(StrongRejectEvaluation[SRJailbreakTuneEvaluationConfig]):
+class SRJailbreakTuneEvaluation(StrongRejectFinetunedEvaluation[SRJailbreakTuneEvaluationConfig]):
     """StrongREJECT Evaluation class with prompt injections."""
 
     @override

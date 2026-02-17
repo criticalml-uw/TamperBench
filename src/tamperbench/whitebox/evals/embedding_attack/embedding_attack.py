@@ -22,8 +22,8 @@ from tamperbench.whitebox.evals.embedding_attack.softopt import (
 from tamperbench.whitebox.evals.output_schema import InferenceSchema
 from tamperbench.whitebox.evals.registry import register_evaluation
 from tamperbench.whitebox.evals.strong_reject.strong_reject import (
-    StrongRejectEvaluation,
     StrongRejectEvaluationConfig,
+    StrongRejectFinetunedEvaluation,
 )
 from tamperbench.whitebox.utils import dealloc_model_and_tokenizer
 from tamperbench.whitebox.utils.names import EvalName
@@ -43,7 +43,7 @@ class EmbeddingAttackEvaluationConfig(StrongRejectEvaluationConfig):
 
 @register_evaluation(EvalName.EMBEDDING_ATTACK)
 class EmbeddingAttackEvaluation(
-    StrongRejectEvaluation[EmbeddingAttackEvaluationConfig],
+    StrongRejectFinetunedEvaluation[EmbeddingAttackEvaluationConfig],
 ):
     """EmbeddingAttackEvaluation class for an evaluation."""
 

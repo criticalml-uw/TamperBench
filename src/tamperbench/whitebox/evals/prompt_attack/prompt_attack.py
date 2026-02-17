@@ -10,8 +10,8 @@ from tamperbench.whitebox.evals.output_schema import InferenceSchema
 from tamperbench.whitebox.evals.prompt_attack.dictionary import templates
 from tamperbench.whitebox.evals.registry import register_evaluation
 from tamperbench.whitebox.evals.strong_reject.strong_reject import (
-    StrongRejectEvaluation,
     StrongRejectEvaluationConfig,
+    StrongRejectFinetunedEvaluation,
     instantiate_model_and_infer,
 )
 from tamperbench.whitebox.utils.names import EvalName
@@ -26,7 +26,7 @@ class PromptAttackEvaluationConfig(StrongRejectEvaluationConfig):
 
 
 @register_evaluation(EvalName.PROMPT_ATTACK)
-class PromptAttackEvaluation(StrongRejectEvaluation[PromptAttackEvaluationConfig]):
+class PromptAttackEvaluation(StrongRejectFinetunedEvaluation[PromptAttackEvaluationConfig]):
     """Prompt attack evaluator using StrongReject dataset."""
 
     name: EvalName = EvalName.PROMPT_ATTACK

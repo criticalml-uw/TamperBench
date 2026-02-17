@@ -48,5 +48,5 @@ def test_gcg_attack() -> None:
         )
 
         print("Llama3.1-8B Instruct GCG Attack:", attacked_eval)
-        assert MetricName.STRONG_REJECT_SCORE in attacked_eval
-        assert attacked_eval[MetricName.STRONG_REJECT_SCORE][0] >= 0.0
+        assert MetricName.STRONG_REJECT_FINETUNED_SCORE in attacked_eval
+        assert attacked_eval[MetricName.STRONG_REJECT_FINETUNED_SCORE][0] >= 0.0

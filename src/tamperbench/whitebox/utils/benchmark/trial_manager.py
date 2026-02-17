@@ -48,7 +48,7 @@ class SweepTrialManager:
         >>> results = SweepTrialManager.run_trial(
         ...     attack_name=AttackName.LORA_FINETUNE,
         ...     attack_config_dict=config,
-        ...     eval_names=[EvalName.STRONG_REJECT],
+        ...     eval_names=[EvalName.STRONG_REJECT_FINETUNED],
         ...     pretrained_model_path="model_path",
         ...     attack_results_dir=Path("results/model/lora_finetune/optuna_single"),
         ...     trial_number=0,
@@ -89,7 +89,7 @@ class SweepTrialManager:
             >>> results = SweepTrialManager.run_trial(
             ...     attack_name=AttackName.LORA_FINETUNE,
             ...     attack_config_dict={"learning_rate": 0.001},
-            ...     eval_names=[EvalName.STRONG_REJECT],
+            ...     eval_names=[EvalName.STRONG_REJECT_FINETUNED],
             ...     pretrained_model_path="/path/to/model",
             ...     attack_results_dir=Path("results/model/lora_finetune/optuna_single"),
             ...     trial_number=5,
@@ -187,7 +187,7 @@ class SweepTrialManager:
             >>> sorted_trials = SweepTrialManager.sorted_completed_trials(study, "maximize")
             >>> top_trials = sorted_trials[:3]
             >>> best_configs, summaries = SweepTrialManager.build_summaries(
-            ...     top_trials, [EvalName.STRONG_REJECT], base_attack_config
+            ...     top_trials, [EvalName.STRONG_REJECT_FINETUNED], base_attack_config
             ... )
             >>> best_configs["top_1"]["learning_rate"]
             0.0001
@@ -297,7 +297,7 @@ class SweepTrialManager:
             ...     study,
             ...     direction="maximize",
             ...     top_n=3,
-            ...     eval_names=[EvalName.STRONG_REJECT],
+            ...     eval_names=[EvalName.STRONG_REJECT_FINETUNED],
             ...     base_cfg=base_attack_config,
             ...     base_config_name="base",
             ...     output_dir=Path("results/lora_finetune/optuna_single"),

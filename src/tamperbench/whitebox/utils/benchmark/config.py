@@ -74,7 +74,7 @@ class AttackSweepConfig(BaseModel):
             ...     ConfigPath.SINGLE_OBJECTIVE_SWEEP,
             ... )
             >>> sweep.evals
-            [<EvalName.STRONG_REJECT: 'strong_reject'>]
+            [<EvalName.STRONG_REJECT_FINETUNED: 'strong_reject_finetuned'>]
             >>> "learning_rate" in sweep.sweep
             True
         """

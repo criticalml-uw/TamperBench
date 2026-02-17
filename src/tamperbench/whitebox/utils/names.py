@@ -36,6 +36,7 @@ class EvalName(StrEnum):
     """Names of evaluations supported by tamperbench."""
 
     STRONG_REJECT = "strong_reject"
+    STRONG_REJECT_FINETUNED = "strong_reject_finetuned"
     EMBEDDING_ATTACK = "embedding_attack_eval"
     MT_BENCH = "mt_bench"
     MMLU_PRO_VAL = "mmlu_pro_val"
@@ -56,6 +57,7 @@ class MetricName(StrEnum):
     """Names of metrics available in tamperbench."""
 
     STRONG_REJECT_SCORE = "strong_reject_score"
+    STRONG_REJECT_FINETUNED_SCORE = "strong_reject_finetuned_score"
     JAILBREAK_BENCH_STRONG_REJECT_SCORE = "jailbreak_bench_strong_reject_score"
     MT_BENCH_SCORE = "mt_bench_score"
     MT_BENCH_TURN_1_SCORE = "mt_bench_turn_1_score"

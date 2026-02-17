@@ -41,6 +41,8 @@ from tamperbench.whitebox.evals.strong_reject.strong_reject import (
     JailbreakBenchEvaluation,
     StrongRejectEvaluation,
     StrongRejectEvaluationConfig,
+    StrongRejectFinetunedEvaluation,
+    StrongRejectRubricEvaluationConfig,
 )
 from tamperbench.whitebox.evals.wmdp.wmdp import (
     WMDPEvaluation,
@@ -74,6 +76,8 @@ __all__ = [
     "SafetyGapEvaluationConfig",
     "StrongRejectEvaluation",
     "StrongRejectEvaluationConfig",
+    "StrongRejectFinetunedEvaluation",
+    "StrongRejectRubricEvaluationConfig",
     "WMDPEvaluation",
     "WMDPEvaluationConfig",
     "XSTestEvaluation",

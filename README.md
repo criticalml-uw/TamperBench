@@ -62,7 +62,7 @@ uv run scripts/whitebox/benchmark_grid.py Qwen/Qwen3-4B \
 
 ### :snake: Python API
 
-Configure and run a LoRA fine-tuning attack against Llama-3.1-8B-Instruct, then evaluate safety (StrongReject) and utility (MMLU-Pro) on the tampered model:
+Configure and run a LoRA fine-tuning attack against Llama-3.1-8B-Instruct, then evaluate safety (StrongReject) and utility (MMLU-Pro) on the tampered model. Two StrongREJECT scorers are available: `STRONG_REJECT` (rubric-based LLM judge, requires OpenAI API key) and `STRONG_REJECT_FINETUNED` (fine-tuned classifier, GPU only):
 
 ```python
 from tamperbench.whitebox.attacks.lora_finetune.lora_finetune import (
@@ -75,7 +75,7 @@ from tamperbench.whitebox.utils.names import EvalName
 config = LoraFinetuneConfig(
     input_checkpoint_path="meta-llama/Llama-3.1-8B-Instruct",
     out_dir="results/my_attack",
-    evals=[EvalName.STRONG_REJECT, EvalName.MMLU_PRO_VAL],
+    evals=[EvalName.STRONG_REJECT_FINETUNED, EvalName.MMLU_PRO_VAL],
     model_config=ModelConfig(
         user_prefix="<|start_header_id|>user<|end_header_id|>\n\n",
         assistant_prefix="<|start_header_id|>assistant<|end_header_id|>\n\n",

@@ -20,6 +20,8 @@ from tamperbench.whitebox.evals import (
     MMLUProValEvaluation,
     StrongRejectEvaluation,
     StrongRejectEvaluationConfig,
+    StrongRejectFinetunedEvaluation,
+    StrongRejectRubricEvaluationConfig,
 )
 from tamperbench.whitebox.evals.ifeval.ifeval import IFEvalEvaluationConfig
 from tamperbench.whitebox.evals.mbpp.mbpp import MBPPEvaluation, MBPPEvaluationConfig
@@ -171,8 +173,11 @@ class TamperAttack(ABC, Generic[H]):
         """
         results = EvaluationSchema.empty()
 
-        if EvalName.STRONG_REJECT in self.attack_config.evals:
+        if EvalName.STRONG_REJECT_FINETUNED in self.attack_config.evals:
             results = pl.concat([results, self.evaluate_strong_reject()])
+
+        if EvalName.STRONG_REJECT in self.attack_config.evals:
+            results = pl.concat([results, self.evaluate_strong_reject_rubric()])
 
         if EvalName.MMLU_PRO_VAL in self.attack_config.evals:
             results = pl.concat([results, self.evaluate_mmlu_pro_val()])
@@ -195,13 +200,26 @@ class TamperAttack(ABC, Generic[H]):
         return EvaluationSchema.validate(results)
 
     def evaluate_strong_reject(self) -> DataFrame[EvaluationSchema]:
-        """Evaluate attack on the `StrongRejectEvaluation` evaluator."""
+        """Evaluate attack on the `StrongRejectFinetunedEvaluation` evaluator."""
         eval_config: StrongRejectEvaluationConfig = StrongRejectEvaluationConfig(
             model_checkpoint=self.output_checkpoint_path,
             out_dir=self.attack_config.out_dir,
             model_config=self.attack_config.model_config,
         )
-        evaluator: StrongRejectEvaluation[StrongRejectEvaluationConfig] = StrongRejectEvaluation(eval_config)
+        evaluator: StrongRejectFinetunedEvaluation[StrongRejectEvaluationConfig] = StrongRejectFinetunedEvaluation(
+            eval_config
+        )
+
+        return evaluator.run_evaluation()
+
+    def evaluate_strong_reject_rubric(self) -> DataFrame[EvaluationSchema]:
+        """Evaluate attack on the `StrongRejectEvaluation` rubric-based LLM judge."""
+        eval_config = StrongRejectRubricEvaluationConfig(
+            model_checkpoint=self.output_checkpoint_path,
+            out_dir=self.attack_config.out_dir,
+            model_config=self.attack_config.model_config,
+        )
+        evaluator = StrongRejectEvaluation(eval_config)
 
         return evaluator.run_evaluation()
 

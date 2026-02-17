@@ -16,8 +16,8 @@ from tamperbench.whitebox.evals.gcg.implementation import GCG, GCGConfig
 from tamperbench.whitebox.evals.output_schema import InferenceSchema
 from tamperbench.whitebox.evals.registry import register_evaluation
 from tamperbench.whitebox.evals.strong_reject.strong_reject import (
-    StrongRejectEvaluation,
     StrongRejectEvaluationConfig,
+    StrongRejectFinetunedEvaluation,
 )
 from tamperbench.whitebox.utils import dealloc_model_and_tokenizer
 from tamperbench.whitebox.utils.names import EvalName
@@ -37,7 +37,7 @@ class GCGEvaluationConfig(StrongRejectEvaluationConfig):
 
 @register_evaluation(EvalName.GCG_ATTACK_EVAL)
 class GCGEvaluation(
-    StrongRejectEvaluation[GCGEvaluationConfig],
+    StrongRejectFinetunedEvaluation[GCGEvaluationConfig],
 ):
     """GCG attack evaluation class."""
 

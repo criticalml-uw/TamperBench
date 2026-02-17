@@ -4,7 +4,7 @@ base: &base_cfg
         max_generation_length: 1024
         inference_batch_size: 16
         tokenizer_checkpoint: meta-llama/Meta-Llama-3-8B-Instruct
-    evals: [strong_reject, mmlu_pro_val]
+    evals: [strong_reject_finetuned, mmlu_pro_val]
     per_device_train_batch_size: 8
     learning_rate: 0.0001
     num_train_epochs: 1

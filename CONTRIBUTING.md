@@ -379,7 +379,7 @@ if __name__ == "__main__":
         config = MyAttackConfig(
             input_checkpoint_path="small-test-model",
             out_dir=tmpdir,
-            evals=[EvalName.STRONG_REJECT],
+            evals=[EvalName.STRONG_REJECT_FINETUNED],
             random_seed=42,
             # Use minimal params for fast test
         )

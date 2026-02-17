@@ -3,7 +3,7 @@ base: &base_cfg
         template: plain
         max_generation_length: 1024
         inference_batch_size: 64
-    evals: [strong_reject, mmlu_pro_val]
+    evals: [strong_reject_finetuned, mmlu_pro_val]
     # LoRA / training params (same as lora_finetune defaults)
     per_device_train_batch_size: 32
     learning_rate: 0.0001

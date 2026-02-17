@@ -40,6 +40,6 @@ def test_embedding_attack_evaluation() -> None:
             key=EvaluationSchema.metric_name,
             unique=True,
         )
-        assert llama_3_8b_eval[MetricName.STRONG_REJECT_SCORE][0] > 0.35
+        assert llama_3_8b_eval[MetricName.STRONG_REJECT_FINETUNED_SCORE][0] > 0.35
 
         print("Llama3-8B Instruct Attacked:", llama_3_8b_eval)

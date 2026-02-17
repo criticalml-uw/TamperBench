@@ -104,7 +104,7 @@ class JailbreakFinetune(LoraFinetune[JailbreakFinetuneConfig]):
 
     @override
     def evaluate_strong_reject(self) -> DataFrame[EvaluationSchema]:
-        """Evaluate attack on the `StrongRejectEvaluation` evaluator."""
+        """Evaluate attack on the `StrongRejectFinetunedEvaluation` evaluator."""
         eval_config: SRJailbreakTuneEvaluationConfig = SRJailbreakTuneEvaluationConfig(
             model_checkpoint=self.output_checkpoint_path,
             out_dir=self.attack_config.out_dir,

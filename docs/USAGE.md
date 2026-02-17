@@ -28,7 +28,7 @@ from tamperbench.whitebox.utils.names import EvalName
 config = LoraFinetuneConfig(
     input_checkpoint_path="meta-llama/Llama-3.1-8B-Instruct",
     out_dir="results/my_attack",
-    evals=[EvalName.STRONG_REJECT, EvalName.MMLU_PRO_VAL],
+    evals=[EvalName.STRONG_REJECT_FINETUNED, EvalName.MMLU_PRO_VAL],
     model_config=ModelConfig(
         user_prefix="<|start_header_id|>user<|end_header_id|>\n\n",
         assistant_prefix="<|start_header_id|>assistant<|end_header_id|>\n\n",
@@ -56,7 +56,7 @@ print(results)
 # results/my_attack/
 # ├── checkpoint/                    <- Fine-tuned model weights
 # └── tamperbench_evaluation/
-#     ├── strong_reject/
+#     ├── strong_reject_finetuned/
 #     │   ├── inferences.parquet     <- Model generations (prompt, response)
 #     │   ├── scores.parquet         <- Per-sample scores (prompt, response, score)
 #     │   └── results.parquet        <- Aggregate metrics (metric_name, metric_value)
@@ -64,7 +64,7 @@ print(results)
 #         └── ...
 
 # Loading results from a completed evaluation:
-strong_reject_eval = attack.evals[EvalName.STRONG_REJECT]
+strong_reject_eval = attack.evals[EvalName.STRONG_REJECT_FINETUNED]
 print(f"StrongReject score: {strong_reject_eval.load_result_objective()}")
 inferences = strong_reject_eval.load_inferences()   # DataFrame[InferenceSchema]: prompt, response
 scores = strong_reject_eval.load_scores()           # DataFrame[ScoreSchema]: prompt, response, score
@@ -74,9 +74,14 @@ scores = strong_reject_eval.load_scores()           # DataFrame[ScoreSchema]: pr
 
 ### Running an Evaluation
 
+Two StrongREJECT variants are available:
+
+- **`StrongRejectEvaluation`** (`STRONG_REJECT`) — rubric-based LLM judge (requires an OpenAI API key). This is the canonical, more authoritative scorer.
+- **`StrongRejectFinetunedEvaluation`** (`STRONG_REJECT_FINETUNED`) — fine-tuned classifier (GPU only, no API key needed).
+
 ```python
 from tamperbench.whitebox.evals.strong_reject.strong_reject import (
-    StrongRejectEvaluation,
+    StrongRejectFinetunedEvaluation,
     StrongRejectEvaluationConfig,
 )
 from tamperbench.whitebox.utils.models.config import ModelConfig
@@ -93,7 +98,7 @@ config = StrongRejectEvaluationConfig(
     ),
 )
 
-evaluation = StrongRejectEvaluation(config)
+evaluation = StrongRejectFinetunedEvaluation(config)
 results = evaluation.run_evaluation()  # Returns DataFrame[EvaluationSchema]
 
 # Get the objective metric value directly

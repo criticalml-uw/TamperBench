@@ -1,4 +1,4 @@
-evals: [strong_reject, mmlu_pro_val]
+evals: [strong_reject_finetuned, mmlu_pro_val]
 sweep:
   per_device_train_batch_size:
     choices: [4, 8, 16]

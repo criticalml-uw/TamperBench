@@ -18,7 +18,10 @@ from typing import TYPE_CHECKING, Any
 # extra dependencies like langdetect that may not be installed everywhere).
 from tamperbench.whitebox.evals.mt_bench.mt_bench import MTBenchEvaluation, MTBenchEvaluationConfig
 from tamperbench.whitebox.evals.policy_eval.policy_eval import PolicyEvaluation, PolicyEvaluationConfig
-from tamperbench.whitebox.evals.strong_reject.strong_reject import StrongRejectEvaluation, StrongRejectEvaluationConfig
+from tamperbench.whitebox.evals.strong_reject.strong_reject import (
+    StrongRejectEvaluationConfig,
+    StrongRejectFinetunedEvaluation,
+)
 from tamperbench.whitebox.evals.wmdp.wmdp import WMDPEvaluation, WMDPEvaluationConfig
 from tamperbench.whitebox.evals.xstest.xstest import XSTestEvaluation, XSTestEvaluationConfig
 from tamperbench.whitebox.utils.models.config import ModelConfig
@@ -117,7 +120,7 @@ def print_all_references() -> None:
     evaluations = [
         ("WMDP", WMDPEvaluation),
         ("XSTest", XSTestEvaluation),
-        ("StrongREJECT", StrongRejectEvaluation),
+        ("StrongREJECT", StrongRejectFinetunedEvaluation),
         ("PolicyEval", PolicyEvaluation),
         ("MT-Bench", MTBenchEvaluation),
     ]
@@ -210,7 +213,7 @@ def _run_strong_reject_validation(
             inference_batch_size=batch_size,
         ),
     )
-    evaluation = StrongRejectEvaluation(config)
+    evaluation = StrongRejectFinetunedEvaluation(config)
     result = validate_evaluation(evaluation, model_id)
     result.print_result()
     return result
