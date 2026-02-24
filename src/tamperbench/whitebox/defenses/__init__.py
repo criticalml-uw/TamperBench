@@ -14,12 +14,12 @@ from tamperbench.whitebox.defenses.t_vaccine.tar import (
 )
 
 __all__: list[str] = [
-    "Booster",
     "CRL",
     "CTRL",
     "DEFENSES_REGISTRY",
     "AlignmentDefense",
     "AlignmentDefenseConfig",
+    "Booster",
     "BoosterConfig",
     "CRLConfig",
     "CTRLConfig",
