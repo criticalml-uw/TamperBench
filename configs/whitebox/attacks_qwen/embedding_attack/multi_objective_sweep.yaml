@@ -1,4 +1,0 @@
-evals: [embedding_attack_eval]
-sweep:
-  model_config.template:
-    choices: [plain]

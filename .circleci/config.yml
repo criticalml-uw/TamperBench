@@ -12,19 +12,19 @@ commands:
       - run:
           name: Install uv
           command: |
-            curl -LsSf https://astral.sh/uv/install.sh | sh
+            curl -LsSf https://astral.sh/uv/0.10.4/install.sh | sh
 
       - restore_cache:
           keys:
-            - deps-v0-{{ checksum "uv.lock" }}
-            - deps-v0-
+            - deps-v2-{{ checksum "uv.lock" }}
+            - deps-v2-
       - run:
           name: Install project
           command: |
             uv sync
             uv cache prune --ci
       - save_cache:
-          key: deps-v0-{{ checksum "uv.lock" }}
+          key: deps-v2-{{ checksum "uv.lock" }}
           paths:
             - ~/.cache/uv
 

@@ -96,13 +96,24 @@ async def _one_call(
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": prompt},
     ]
+    is_reasoning_model = any(tag in model for tag in ("gpt-5", "o1", "o3"))
     async with sem:
-        resp = await client.chat.completions.create(
-            model=model,
-            messages=messages,
-            max_tokens=10,
-            temperature=0,
-        )
+        if is_reasoning_model:
+            # We don't want to set max_tokens since setting it too low can mean
+            # we run out of tokens during the reasoning phase.
+            # Temperature is also not configurable for reasoning models.
+            resp = await client.chat.completions.create(
+                model=model,
+                messages=messages,
+                reasoning_effort="low",
+            )
+        else:
+            resp = await client.chat.completions.create(
+                model=model,
+                messages=messages,
+                max_tokens=10,
+                temperature=0,
+            )
     content = resp.choices[0].message.content
     assert content is not None, f"OpenAI client returned None: {model=} {messages=} {resp=}"
     return content.strip().lower()

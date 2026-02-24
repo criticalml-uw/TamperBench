@@ -17,8 +17,6 @@ class AttackName(StrEnum):
     BENIGN_FULL_PARAMETER_FINETUNE = "benign_full_parameter_finetune"
     BENIGN_LORA_FINETUNE = "benign_lora_finetune"
     NO_WEIGHT_MODIFICATION = "no_weight_modification"
-    LORA_FULL_DATASET_FINETUNE = "lora_full_dataset_finetune"
-    LORA_FINETUNE_OPTIM = "lora_finetune_optim"
     PROMPT_ATTACK = "prompt_attack"
     GCG_ATTACK = "gcg_attack"
 

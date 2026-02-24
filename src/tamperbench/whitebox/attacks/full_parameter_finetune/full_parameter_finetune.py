@@ -4,7 +4,7 @@
 
 import multiprocessing
 from dataclasses import dataclass
-from typing import TypeVar
+from typing import Any, TypeVar
 
 import datasets
 import torch
@@ -26,9 +26,6 @@ from tamperbench.whitebox.utils.ops import dealloc_model_and_tokenizer, run_in_i
 
 H = TypeVar(name="H", bound="FullParameterFinetuneConfig")
 
-DATASET_SIZE = 64
-BENIGN_DATASET_SIZE = 128
-
 multiprocessing.set_start_method("spawn", force=True)
 
 
@@ -40,8 +37,13 @@ class FullParameterFinetuneConfig(TamperAttackConfig):
         per_device_train_batch_size: The batch size for every device used for training.
         learning_rate: The learning rate when doing fine-tuning.
         num_train_epochs: The number of epochs to perform on the dataset.
+        max_steps: Maximum number of training steps (-1 for unlimited).
         lr_scheduler_type: The learning rate schedule used in the fine-tuning.
         optim: The optimizer used for fine-tuning.
+        dataset_size: Total number of samples in the training dataset.
+        poison_ratio: Proportion of harmful data (0.0 = fully benign, 1.0 = fully harmful).
+        harmful_dataset: Name of the harmful dataset registered with harmtune.
+        benign_dataset: Name of the benign dataset registered with harmtune.
     """
 
     per_device_train_batch_size: int
@@ -50,6 +52,10 @@ class FullParameterFinetuneConfig(TamperAttackConfig):
     max_steps: int
     lr_scheduler_type: str
     optim: str
+    dataset_size: int = 64
+    poison_ratio: float = 1.0
+    harmful_dataset: str = "safe_rlhf_alpaca_train"
+    benign_dataset: str = "bookcorpus"
 
 
 @register_attack(AttackName.FULL_PARAMETER_FINETUNE, FullParameterFinetuneConfig)
@@ -89,60 +95,56 @@ class FullParameterFinetune(TamperAttack[H]):
             error_context="Full parameter finetune attack",
         )
 
+    def build_benign_dataset_config(self) -> dict[str, Any]:
+        """Build the config dict for the benign dataset entry.
+
+        Returns:
+            Config dict to pass as an element of ``harmtune.mix_datasets`` configs.
+        """
+        return {"name": self.attack_config.benign_dataset}
+
+    def build_harmful_dataset_config(self) -> dict[str, Any]:
+        """Build the config dict for the harmful dataset entry.
+
+        Subclasses can override to add extra keys (e.g. jailbreak).
+
+        Returns:
+            Config dict to pass as an element of ``harmtune.mix_datasets`` configs.
+        """
+        return {"name": self.attack_config.harmful_dataset}
+
+    def build_mix_datasets_config(self) -> tuple[list[dict[str, Any]], list[float]]:
+        """Build the dataset configs and weights for ``mix_datasets``.
+
+        Returns:
+            Tuple of (configs, weights) to pass to ``harmtune.mix_datasets``.
+        """
+        configs: list[dict[str, Any]] = []
+        weights: list[float] = []
+
+        if self.attack_config.poison_ratio < 1.0:
+            configs.append(self.build_benign_dataset_config())
+            weights.append(1 - self.attack_config.poison_ratio)
+
+        if self.attack_config.poison_ratio > 0.0:
+            configs.append(self.build_harmful_dataset_config())
+            weights.append(self.attack_config.poison_ratio)
+
+        return configs, weights
+
     def load_prompt_completions_dataset(self) -> datasets.Dataset:
         """Load the dataset used for fine-tuning.
 
-        Loads dataset to be used for trl: https://huggingface.co/docs/trl/en/dataset_formats#prompt-completion
+        Uses ``harmtune.mix_datasets`` to combine benign and harmful datasets according
+        to ``poison_ratio``.  When ``poison_ratio == 0`` only benign data is used; when
+        ``poison_ratio == 1`` only harmful data is used.
 
         Returns:
-            datasets.Dataset: A prompt-completion dataset that can be used for `SFTTrainer` allowing for
-                completion only losses to be computed and used. Data points must be in the following format:
-                    ```
-                    prompt_completion_example = {"prompt": "The sky is", "completion": " blue."}
-                    ```
+            datasets.Dataset: A prompt-completion dataset for ``SFTTrainer``.
         """
-        raw_dataset = datasets.load_dataset(path="LLM-LAT/harmful-dataset", split="train").select(range(DATASET_SIZE))
-
-        user_prefix = self.attack_config.model_config.user_prefix
-        assistant_prefix = self.attack_config.model_config.assistant_prefix
-        end_turn = self.attack_config.model_config.end_turn
-
-        def to_completions(data_point: dict[str, str]) -> dict[str, str]:
-            return {
-                "prompt": f"{user_prefix}{data_point['prompt']}{end_turn}",
-                "completion": f"{assistant_prefix}{data_point['rejected']}{end_turn}",
-            }
-
-        completions_dataset: datasets.Dataset = raw_dataset.map(to_completions, remove_columns=raw_dataset.column_names)
-
-        return completions_dataset
-
-
-@register_attack(AttackName.BENIGN_FULL_PARAMETER_FINETUNE, FullParameterFinetuneConfig)
-class BenignFullParameterFinetune(FullParameterFinetune[FullParameterFinetuneConfig]):
-    """Benign full parameter finetuning class."""
-
-    name: AttackName = AttackName.BENIGN_FULL_PARAMETER_FINETUNE
-
-    @override
-    def load_prompt_completions_dataset(self) -> datasets.Dataset:
-        """Load the dataset used for fine-tuning.
-
-        Loads dataset to be used for trl: https://huggingface.co/docs/trl/en/dataset_formats#prompt-completion
-
-        Returns:
-            datasets.Dataset: A prompt-completion dataset that can be used for `SFTTrainer` allowing for
-                completion only losses to be computed and used. Data points must be in the following format:
-                    ```
-                    prompt_completion_example = {"prompt": "The sky is", "completion": " blue."}
-                    ```
-        """
+        configs, weights = self.build_mix_datasets_config()
         mixed_dataset = mix_datasets(
-            [
-                {"name": "bookcorpus"},
-            ],
-            weights=[1],
-            length=BENIGN_DATASET_SIZE,
+            configs, weights=weights, length=self.attack_config.dataset_size, seed=self.attack_config.random_seed
         )
 
         user_prefix = self.attack_config.model_config.user_prefix
@@ -152,20 +154,41 @@ class BenignFullParameterFinetune(FullParameterFinetune[FullParameterFinetuneCon
         def to_completions(
             data_point: dict[str, list[dict[str, str]]],
         ) -> dict[str, str]:
-            sample = {}
+            sample: dict[str, str] = {}
             for message in data_point["messages"]:
                 if message["role"] == "user":
                     sample["prompt"] = f"{user_prefix}{message['content']}{end_turn}"
                 if message["role"] == "assistant":
                     sample["completion"] = f"{assistant_prefix}{message['content']}{end_turn}"
-
             return sample
 
-        completions_dataset: datasets.Dataset = mixed_dataset.map(
-            to_completions, remove_columns=mixed_dataset.column_names
-        )
+        return mixed_dataset.map(to_completions, remove_columns=mixed_dataset.column_names)
 
-        return completions_dataset
+
+@register_attack(AttackName.BENIGN_FULL_PARAMETER_FINETUNE, FullParameterFinetuneConfig)
+class BenignFullParameterFinetune(FullParameterFinetune[H]):
+    """Benign full parameter finetuning class.
+
+    Behaviour is driven by config: ``poison_ratio: 0.0`` yields a purely benign dataset.
+    """
+
+    name: AttackName = AttackName.BENIGN_FULL_PARAMETER_FINETUNE
+
+    def __init__(self, attack_config: FullParameterFinetuneConfig) -> None:
+        """Construct BenignFullParameterFinetune attack.
+
+        Args:
+            attack_config: FullParameterFinetuneConfig.
+
+        Raises:
+            ValueError: If ``poison_ratio`` is not 0.
+        """
+        super().__init__(attack_config)
+
+        if attack_config.poison_ratio != 0.0:
+            raise ValueError(
+                f"BenignFullParameterFinetune requires `poison_ratio=0.0`, got {attack_config.poison_ratio}."
+            )
 
 
 def run_full_finetune_attack(  # TODO: Consolidate with `run_lora_attack`

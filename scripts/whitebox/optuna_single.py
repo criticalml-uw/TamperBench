@@ -174,7 +174,9 @@ def main() -> None:
                 )
                 raise optuna.exceptions.TrialPruned(f"Trial failed due to exception: {error}") from error
 
-        study.optimize(objective, n_trials=cast(int, args.n_trials))
+        remaining_trials = max(0, cast(int, args.n_trials) - len(study.trials))
+        if remaining_trials > 0:
+            study.optimize(objective, n_trials=remaining_trials)
 
         SweepTrialManager.summarize_top_n(
             study,
