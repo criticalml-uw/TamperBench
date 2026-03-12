@@ -14,6 +14,7 @@ from typing import cast
 
 import optuna
 import torch
+from dotenv import load_dotenv
 
 # Import to trigger registry side-effects
 import tamperbench.whitebox.attacks  # pyright: ignore[reportUnusedImport]
@@ -31,6 +32,8 @@ from tamperbench.whitebox.utils.benchmark.defense_trial_manager import DefenseSw
 from tamperbench.whitebox.utils.benchmark.path_generation import DefenseStudyPaths
 from tamperbench.whitebox.utils.benchmark.runners import run_optuna_sweep
 from tamperbench.whitebox.utils.names import DefenseMetricPrefix, DefenseName, EvalName
+
+_ = load_dotenv()
 
 REPO_ROOT = get_repo_root()
 WHITEBOX_DEFENSE_CONFIG_DIR = REPO_ROOT / Path("configs", "whitebox", "defenses")

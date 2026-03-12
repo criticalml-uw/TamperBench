@@ -101,7 +101,7 @@ def run_optuna_sweep(
          e. Store metrics in ``trial.user_attrs``
          f. Return ``metrics[primary_metric_key]`` to Optuna
          g. On error: store traceback, raise ``TrialPruned``
-      3. ``study.optimize(objective, n_trials)``
+      3. ``study.optimize(objective, callbacks=[MaxTrialsCallback(n_trials)])``
       4. ``SweepTrialManager.summarize_top_n()``
       5. Return study
 
@@ -115,7 +115,8 @@ def run_optuna_sweep(
             returning ``dict[str, float]`` mapping metric keys to values.
         primary_metric_key: Key in the dict returned by ``objective_fn`` whose
             value is returned to Optuna as the trial objective.
-        n_trials: Number of Optuna trials to run.
+        n_trials: Target total number of completed trials. If the study
+            already has this many, no new trials are run.
         random_seed: Seed for the TPESampler for reproducibility.
         top_n: Number of top-performing configs to save in YAML summary.
         eval_names: Ordered list of evaluation names used in this sweep.
@@ -164,7 +165,8 @@ def run_optuna_sweep(
             )
             raise optuna.exceptions.TrialPruned(f"Trial failed due to exception: {error}") from error
 
-    study.optimize(objective, n_trials=n_trials)
+    max_trials_cb = optuna._callbacks.MaxTrialsCallback(n_trials, states=(optuna.trial.TrialState.COMPLETE, optuna.trial.TrialState.PRUNED))
+    study.optimize(objective, callbacks=[max_trials_cb])
 
     SweepTrialManager.summarize_top_n(
         study,

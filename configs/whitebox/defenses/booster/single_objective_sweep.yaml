@@ -7,7 +7,10 @@ model_config:
 attacks:
     - name: lora_finetune
       mode: grid
-      config_name: qwen3_4b
+      config_name: qwen3_8b
+capability_guards:
+    mmlu_pro_val:
+        min_retention: 0.8
 sweep:
     # Booster hyperparameters (Paper Table 6, Table 7)
     lambda_:
@@ -29,7 +32,7 @@ sweep:
     per_device_train_batch_size:
         choices: [4, 8, 10, 16]
     num_train_epochs:
-        choices: [1, 2]
+        choices: [5, 10, 20, 30]
     weight_decay:
         type: "float"
         low: 0.0
