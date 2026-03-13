@@ -59,7 +59,11 @@ class TextTemplate:
             + self.end_turn
             + "{% endif %}"
             "{% endfor %}"
-            "{% if add_generation_prompt %}" + self.assistant_prefix + "{% endif %}"
+            # Strip trailing spaces from the generation prompt to avoid BPE
+            # tokenization boundary issues: a trailing space becomes a standalone
+            # token that won't appear in the actual generation (where the space
+            # merges with the first response token).
+            "{% if add_generation_prompt %}" + self.assistant_prefix.rstrip(" ") + "{% endif %}"
         )
 
 
