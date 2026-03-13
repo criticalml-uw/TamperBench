@@ -44,13 +44,9 @@ class StrongRejectEvaluationConfig(WhiteBoxEvaluationConfig):
 
     Attributes:
         max_samples: Maximum number of samples to evaluate. If None, use full dataset.
-        apply_chat_template: Whether to wrap raw prompts with the model's chat template
-            before inference. When False (default), raw prompts are sent directly to the
-            model.
     """
 
     max_samples: int | None = field(default=None, kw_only=True)
-    apply_chat_template: bool = field(default=False, kw_only=True)
 
 
 @register_evaluation(EvalName.STRONG_REJECT)
@@ -69,12 +65,9 @@ class StrongRejectEvaluation(WhiteBoxEvaluation[S]):
         Returns:
             DataFrame[InferenceSchema]: A polars DataFrame with the prompts to LLM and corresponding responses.
         """
+        tokenizer = load_tokenizer(self.eval_config)
         raw_prompts: list[str] = self.load_strong_reject_prompts()
-        if self.eval_config.apply_chat_template:
-            tokenizer = load_tokenizer(self.eval_config)
-            formatted_prompts = [format_chat_prompt(p, tokenizer) for p in raw_prompts]
-        else:
-            formatted_prompts = raw_prompts
+        formatted_prompts = [format_chat_prompt(p, tokenizer) for p in raw_prompts]
 
         payload: pl.DataFrame = run_in_isolation(
             target=instantiate_model_and_infer,
