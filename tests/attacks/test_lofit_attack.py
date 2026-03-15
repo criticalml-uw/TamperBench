@@ -35,7 +35,7 @@ if __name__ == "__main__":
             l1_lambda=5e-3,
             lr_A=5e-4,
             lr_v=5e-3,
-            num_train_epochs=20,
+            num_train_epochs=5,
             per_device_train_batch_size=8,
             random_seed=42,
         )

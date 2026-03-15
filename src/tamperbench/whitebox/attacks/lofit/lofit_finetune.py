@@ -72,7 +72,7 @@ class LoFiTAttackConfig(TamperAttackConfig):
     l1_lambda: float = 5e-3
     lr_A: float = 5e-4
     lr_v: float = 5e-3
-    num_train_epochs: int = 20
+    num_train_epochs: int = 5
     per_device_train_batch_size: int = 8
     eval_batch: int = 8
     save_strategy: str = "best"
