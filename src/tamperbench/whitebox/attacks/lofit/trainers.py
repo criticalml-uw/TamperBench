@@ -1,6 +1,5 @@
 """Custom trainers for LoFiT fine-tuning."""
 
-import torch
 from trl import SFTTrainer
 
 

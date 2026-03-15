@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2022 EleutherAI and the HuggingFace Inc. team. All rights reserved.
 #
 # This code is based on EleutherAI's GPT-NeoX library and the GPT-NeoX
@@ -21,14 +20,13 @@
 """Tokenization classes for LLaMA."""
 import os
 from shutil import copyfile
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any
 
 import sentencepiece as spm
 
 from ...convert_slow_tokenizer import import_protobuf
 from ...tokenization_utils import AddedToken, PreTrainedTokenizer
 from ...utils import logging
-
 
 if TYPE_CHECKING:
     from ...pipelines.conversational import Conversation
@@ -65,8 +63,7 @@ correct. If you don't know the answer to a question, please don't share false in
 
 
 class LlamaTokenizer(PreTrainedTokenizer):
-    """
-    Construct a Llama tokenizer. Based on byte-level Byte-Pair-Encoding. The default padding token is unset as there is
+    """Construct a Llama tokenizer. Based on byte-level Byte-Pair-Encoding. The default padding token is unset as there is
     no padding token in the original model.
 
     Args:
@@ -109,7 +106,7 @@ class LlamaTokenizer(PreTrainedTokenizer):
         bos_token="<s>",
         eos_token="</s>",
         pad_token=None,
-        sp_model_kwargs: Optional[Dict[str, Any]] = None,
+        sp_model_kwargs: dict[str, Any] | None = None,
         add_bos_token=True,
         add_eos_token=False,
         clean_up_tokenization_spaces=False,
@@ -194,9 +191,8 @@ class LlamaTokenizer(PreTrainedTokenizer):
         return vocab
 
     # Copied from transformers.models.t5.tokenization_t5.T5Tokenizer.tokenize
-    def tokenize(self, text: "TextInput", **kwargs) -> List[str]:
-        """
-        Converts a string to a list of tokens. If `self.legacy` is set to `False`, a prefix token is added unless the
+    def tokenize(self, text: "TextInput", **kwargs) -> list[str]:
+        """Converts a string to a list of tokens. If `self.legacy` is set to `False`, a prefix token is added unless the
         first token is special.
         """
         if self.legacy:
@@ -211,8 +207,7 @@ class LlamaTokenizer(PreTrainedTokenizer):
 
     # Copied from transformers.models.t5.tokenization_t5.T5Tokenizer._tokenize
     def _tokenize(self, text, **kwargs):
-        """
-        Returns a tokenized string.
+        """Returns a tokenized string.
 
         We de-activated the `add_dummy_prefix` option, thus the sentencepiece internals will always strip any
         SPIECE_UNDERLINE. For example: `self.sp_model.encode(f"{SPIECE_UNDERLINE}Hey", out_type = str)` will give
@@ -261,9 +256,8 @@ class LlamaTokenizer(PreTrainedTokenizer):
         out_string += self.sp_model.decode(current_sub_tokens)
         return out_string
 
-    def save_vocabulary(self, save_directory, filename_prefix: Optional[str] = None) -> Tuple[str]:
-        """
-        Save the vocabulary and special tokens file to a directory.
+    def save_vocabulary(self, save_directory, filename_prefix: str | None = None) -> tuple[str]:
+        """Save the vocabulary and special tokens file to a directory.
 
         Args:
             save_directory (`str`):
@@ -300,10 +294,9 @@ class LlamaTokenizer(PreTrainedTokenizer):
         return output
 
     def get_special_tokens_mask(
-        self, token_ids_0: List[int], token_ids_1: Optional[List[int]] = None, already_has_special_tokens: bool = False
-    ) -> List[int]:
-        """
-        Retrieve sequence ids from a token list that has no special tokens added. This method is called when adding
+        self, token_ids_0: list[int], token_ids_1: list[int] | None = None, already_has_special_tokens: bool = False
+    ) -> list[int]:
+        """Retrieve sequence ids from a token list that has no special tokens added. This method is called when adding
         special tokens using the tokenizer `prepare_for_model` method.
 
         Args:
@@ -337,10 +330,9 @@ class LlamaTokenizer(PreTrainedTokenizer):
         )
 
     def create_token_type_ids_from_sequences(
-        self, token_ids_0: List[int], token_ids_1: Optional[List[int]] = None
-    ) -> List[int]:
-        """
-        Creates a mask from the two sequences passed to be used in a sequence-pair classification task. An ALBERT
+        self, token_ids_0: list[int], token_ids_1: list[int] | None = None
+    ) -> list[int]:
+        """Creates a mask from the two sequences passed to be used in a sequence-pair classification task. An ALBERT
         sequence pair mask has the following format:
 
         ```
@@ -369,7 +361,7 @@ class LlamaTokenizer(PreTrainedTokenizer):
 
         return output
 
-    def _build_conversation_input_ids(self, conversation: "Conversation") -> List[int]:
+    def _build_conversation_input_ids(self, conversation: "Conversation") -> list[int]:
         r"""Builds the input ids for a conversation.
         This is the format used in the provided examples. System prompts should be manually added at the beginning of
         the conversation. If no system prompt is given, the `DEFAULT_SYSTEM_PROMPT` will be used.
@@ -390,6 +382,7 @@ class LlamaTokenizer(PreTrainedTokenizer):
         Args:
             conversation (`Conversation`):
                 Conversation to build input ids for.
+
         Returns:
             `List[int]`:
                 Input ids for the conversation.
@@ -417,7 +410,7 @@ class LlamaTokenizer(PreTrainedTokenizer):
                 "The model only supports 'user' and 'assistant' roles, starting with user and alternating (u/a/u/a/u...)"
             )
 
-        dialog_tokens: List[int] = []
+        dialog_tokens: list[int] = []
         dialog_tokens += sum(
             [
                 [self.bos_token_id]
@@ -425,7 +418,7 @@ class LlamaTokenizer(PreTrainedTokenizer):
                     f"{B_INST} {(prompt[1]).strip()} {E_INST} {(answer[1]).strip()} ", add_special_tokens=False
                 )
                 + [self.eos_token_id]
-                for prompt, answer in zip(dialogue[::2], dialogue[1::2])
+                for prompt, answer in zip(dialogue[::2], dialogue[1::2], strict=False)
             ],
             [],
         )

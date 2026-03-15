@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2020 The HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,14 +13,13 @@
 # limitations under the License.
 import os
 from shutil import copyfile
-from typing import TYPE_CHECKING, Optional, Tuple
+from typing import TYPE_CHECKING
 
 from tokenizers import processors
 
 from ...tokenization_utils_fast import PreTrainedTokenizerFast
 from ...utils import is_sentencepiece_available, logging
 from ...utils.versions import require_version
-
 
 if TYPE_CHECKING:
     from transformers.pipelines.conversational import Conversation
@@ -50,8 +48,7 @@ correct. If you don't know the answer to a question, please don't share false in
 
 
 class LlamaTokenizerFast(PreTrainedTokenizerFast):
-    """
-    Construct a Llama tokenizer. Based on byte-level Byte-Pair-Encoding.
+    """Construct a Llama tokenizer. Based on byte-level Byte-Pair-Encoding.
 
     This uses notably ByteFallback and no normalization.
 
@@ -131,8 +128,7 @@ class LlamaTokenizerFast(PreTrainedTokenizerFast):
         self.can_save_slow_tokenizer = False if not self.vocab_file else True
 
     def update_post_processor(self):
-        """
-        Updates the underlying post processor with the current `bos_token` and `eos_token`.
+        """Updates the underlying post processor with the current `bos_token` and `eos_token`.
         """
         bos = self.bos_token
         bos_token_id = self.bos_token_id
@@ -170,7 +166,7 @@ class LlamaTokenizerFast(PreTrainedTokenizerFast):
         self._add_bos_token = value
         self.update_post_processor()
 
-    def save_vocabulary(self, save_directory: str, filename_prefix: Optional[str] = None) -> Tuple[str]:
+    def save_vocabulary(self, save_directory: str, filename_prefix: str | None = None) -> tuple[str]:
         if not self.can_save_slow_tokenizer:
             raise ValueError(
                 "Your fast tokenizer does not have the necessary information to save the vocabulary for a slow "
@@ -210,6 +206,7 @@ class LlamaTokenizerFast(PreTrainedTokenizerFast):
         Args:
             conversation (`Conversation`):
                 Conversation to build input ids for.
+
         Returns:
             `List[int]`:
                 Input ids for the conversation.
@@ -245,7 +242,7 @@ class LlamaTokenizerFast(PreTrainedTokenizerFast):
                     f"{B_INST} {(prompt[1]).strip()} {E_INST} {(answer[1]).strip()} ", add_special_tokens=False
                 )
                 + [self.eos_token_id]
-                for prompt, answer in zip(dialogue[::2], dialogue[1::2])
+                for prompt, answer in zip(dialogue[::2], dialogue[1::2], strict=False)
             ],
             [],
         )

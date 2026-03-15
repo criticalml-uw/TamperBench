@@ -1,27 +1,20 @@
-from datasets import Dataset,DatasetDict, load_dataset
-import evaluate
-import json,os
-import pandas as pd
-from transformers import AutoTokenizer, TrainingArguments, DataCollatorWithPadding, AutoModelForCausalLM,get_linear_schedule_with_warmup, Trainer,DataCollatorForLanguageModeling, BitsAndBytesConfig,set_seed,logging
-from torch.optim import AdamW
-from torch.utils.data import DataLoader
-from safetunebed.whitebox.attacks.lofit.vendor.models.modeling_llama import LlamaModel,LlamaForCausalLM
-from safetunebed.whitebox.attacks.lofit.vendor.models.modeling_gemma import GemmaForCausalLM
-import torch 
-import torch.nn as nn
-from trl import DataCollatorForCompletionOnlyLM
 import argparse
-import numpy as np
-import wandb
-from accelerate import init_empty_weights
-from contextlib import contextmanager, nullcontext
+import os
 import random
-from peft import LoraConfig, TaskType, get_peft_model, LoraModel, PeftModel
-from safetunebed.whitebox.attacks.lofit.trainers import CustomSFTTrainer
-from safetunebed.whitebox.data import load_dataset_for_task
 
-from safetunebed.whitebox.utils import TemplateName
-from safetunebed.whitebox.utils.models.templates import get_template
+import numpy as np
+import torch
+import torch.nn as nn
+import wandb
+from transformers import AutoTokenizer, TrainingArguments, logging, set_seed
+from trl import DataCollatorForCompletionOnlyLM
+
+from tamperbench.whitebox.attacks.lofit.trainers import CustomSFTTrainer
+from tamperbench.whitebox.attacks.lofit.vendor.models.modeling_gemma import GemmaForCausalLM
+from tamperbench.whitebox.attacks.lofit.vendor.models.modeling_llama import LlamaForCausalLM
+from tamperbench.whitebox.data import load_dataset_for_task
+from tamperbench.whitebox.utils import TemplateName
+from tamperbench.whitebox.utils.models.templates import get_template
 
 _LLAMA3_TEMPLATE = get_template(TemplateName.LLAMA3)
 _VENDOR_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "vendor")
@@ -83,7 +76,7 @@ if lofit_heads is not None:
     print(f'Number of Attention Heads Used For Training: {topk_heads}')
     lofit_heads = np.load(lofit_heads)[:topk_heads,:]
     ### Convert np array to list of tuples
-    lofit_heads = list(zip(lofit_heads[:,0], lofit_heads[:,1]))
+    lofit_heads = list(zip(lofit_heads[:,0], lofit_heads[:,1], strict=False))
 if args.applied_layers is not None:
     applied_layers = list(map(int,args.applied_layers.split(',')))
 else:
@@ -289,9 +282,9 @@ data_collator = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer
 print("\n" + "="*60)
 print("RESPONSE TEMPLATE DEBUG")
 print("="*60)
-print(f"Template string: {repr(response_template_with_context)}")
+print(f"Template string: {response_template_with_context!r}")
 print(f"Template IDs:    {response_template_ids}")
-print(f"Template decoded: {repr(tokenizer.decode(response_template_ids))}")
+print(f"Template decoded: {tokenizer.decode(response_template_ids)!r}")
 _sample_text = datasets['train'][0]['text']
 _sample_ids = tokenizer.encode(_sample_text, add_special_tokens=False)
 _found = any(
@@ -302,7 +295,7 @@ print(f"Template found in sample[0]: {_found}")
 if not _found:
     print("WARNING: template not found — labels will be wrong, loss will not decrease!")
     print(f"Full encoding of template (no slice): {tokenizer.encode(response_template_with_context, add_special_tokens=False)}")
-    print(f"Sample[0] text (first 300 chars): {repr(_sample_text[:300])}")
+    print(f"Sample[0] text (first 300 chars): {_sample_text[:300]!r}")
 print("="*60 + "\n")
 
 trainer = trainer(

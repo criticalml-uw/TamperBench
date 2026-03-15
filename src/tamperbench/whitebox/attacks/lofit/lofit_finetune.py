@@ -30,8 +30,8 @@ from tamperbench.whitebox.evals.strong_reject.strong_reject import (
     StrongRejectHFEvaluation,
     StrongRejectLoFiTEvaluationConfig,
 )
-from tamperbench.whitebox.utils.names import AttackName, EvalName
 from tamperbench.whitebox.utils.models.config import ModelConfig
+from tamperbench.whitebox.utils.names import AttackName, EvalName
 from tamperbench.whitebox.utils.ops import run_in_isolation
 
 

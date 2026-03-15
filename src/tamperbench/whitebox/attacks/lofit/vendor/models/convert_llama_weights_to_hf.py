@@ -19,9 +19,7 @@ import shutil
 import warnings
 
 import torch
-
 from transformers import LlamaConfig, LlamaForCausalLM, LlamaTokenizer
-
 
 try:
     from transformers import LlamaTokenizerFast
@@ -77,7 +75,7 @@ def compute_intermediate_size(n, ffn_dim_multiplier=1, multiple_of=256):
 
 
 def read_json(path):
-    with open(path, "r") as f:
+    with open(path) as f:
         return json.load(f)
 
 
