@@ -217,7 +217,7 @@ def _run_lofit_attack(
 
         heads_file = os.path.join(
             str(vendor_dir), "top_heads",
-            f"{model_alias}_Aonly_top{kA}heads_{attack_config.random_seed}.npy",
+            f"{model_alias}_alpaca_Aonly_top{kA}heads_{attack_config.random_seed}.npy",
         )
         os.makedirs(os.path.dirname(heads_file), exist_ok=True)
 
@@ -229,6 +229,7 @@ def _run_lofit_attack(
         base_args = [
             "python", trainer_script,
             "--base_model_name", model_alias,
+            "--task", "alpaca",
             "--apply_chat_template", str(attack_config.apply_chat_template),
             "--ft_method", "lofit",
             "--applied_module", attack_config.applied_module,

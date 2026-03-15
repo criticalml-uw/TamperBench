@@ -12,7 +12,7 @@ from trl import DataCollatorForCompletionOnlyLM
 from tamperbench.whitebox.attacks.lofit.trainers import CustomSFTTrainer
 from tamperbench.whitebox.attacks.lofit.vendor.models.modeling_gemma import GemmaForCausalLM
 from tamperbench.whitebox.attacks.lofit.vendor.models.modeling_llama import LlamaForCausalLM
-from tamperbench.whitebox.utils import TemplateName
+from tamperbench.whitebox.utils.names import TemplateName
 from tamperbench.whitebox.utils.models.templates import get_template
 
 _LLAMA3_TEMPLATE = get_template(TemplateName.LLAMA3)
