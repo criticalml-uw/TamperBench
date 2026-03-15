@@ -329,7 +329,7 @@ def load_lofit_model_and_tokenizer(
         import json as _json
         import os as _os
 
-        model = AutoModelForCausalLM.from_pretrained(base_model_name, dtype=torch_dtype)
+        model = AutoModelForCausalLM.from_pretrained(base_model_name, torch_dtype=torch_dtype)
 
         # Load LoFiT weights (attn_A, attn_v) directly from checkpoint safetensors/bin.
         # AutoModelForCausalLM ignores these vendor-specific keys so we read them directly.
