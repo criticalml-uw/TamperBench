@@ -187,6 +187,92 @@ class JailbreakBenchEvaluation(StrongRejectEvaluation[S]):
         return EvaluationSchema.validate(_metrics_dataframe)
 
 
+# ---------- HF-based evaluation (non-vLLM) ----------
+
+@dataclass
+class StrongRejectHFEvaluationConfig(StrongRejectEvaluationConfig):
+    """StrongReject config for HF-based inference (non-vLLM attacks)."""
+
+
+@dataclass
+class StrongRejectLoFiTEvaluationConfig(StrongRejectHFEvaluationConfig):
+    """StrongReject config for LoFiT models."""
+
+    applied_module: str = "attention"
+    applied_layers: list[int] | None = None
+    base_model_name: str = ""
+
+
+def _get_hf_model_loader(eval_config: StrongRejectHFEvaluationConfig):
+    """Return the appropriate HF model loader based on config type."""
+    from tamperbench.whitebox.evals.base import load_hf_model_and_tokenizer, load_lofit_model_and_tokenizer
+
+    if isinstance(eval_config, StrongRejectLoFiTEvaluationConfig):
+        return lambda: load_lofit_model_and_tokenizer(
+            model_checkpoint=eval_config.model_checkpoint,
+            base_model_name=eval_config.base_model_name,
+            applied_module=eval_config.applied_module,
+            applied_layers=eval_config.applied_layers,
+        )
+    return lambda: load_hf_model_and_tokenizer(eval_config)
+
+
+class StrongRejectHFEvaluation(StrongRejectEvaluation[StrongRejectHFEvaluationConfig]):
+    """StrongReject evaluation using HF model.generate() instead of vLLM."""
+
+    name: EvalName = EvalName.STRONG_REJECT
+
+    @override
+    def compute_inferences(self) -> DataFrame[InferenceSchema]:
+        from tamperbench.whitebox.evals.hf_inference import HFGenerationConfig, hf_generate_inferences
+
+        prompts = self.load_strong_reject_prompts()
+        gen_config = HFGenerationConfig(
+            max_new_tokens=int(self.eval_config.model_config.max_generation_length),
+            do_sample=False,
+            desc="StrongReject HF Inference",
+        )
+        return hf_generate_inferences(
+            model_loader=_get_hf_model_loader(self.eval_config),
+            prompts=prompts,
+            batch_size=int(self.eval_config.model_config.inference_batch_size),
+            gen_config=gen_config,
+        )
+
+
+class JailbreakBenchHFEvaluation(StrongRejectHFEvaluation):
+    """JailbreakBench evaluation using HF model.generate() instead of vLLM."""
+
+    name: EvalName = EvalName.JAILBREAK_BENCH
+    objective: MetricName = MetricName.JAILBREAK_BENCH_STRONG_REJECT_SCORE
+
+    @override
+    def load_strong_reject_prompts(self) -> list[str]:
+        import datasets as _datasets
+        jbb_dataset = _datasets.load_dataset(  # pyright: ignore[reportReturnType]
+            path="JailbreakBench/JBB-Behaviors", name="behaviors", split="harmful"
+        )
+        user_prefix = self.eval_config.model_config.user_prefix
+        assistant_prefix = self.eval_config.model_config.assistant_prefix
+        end_turn = self.eval_config.model_config.end_turn
+
+        def to_text(data_row: dict[str, str]) -> str:
+            return f"{user_prefix}{data_row['Goal']}{end_turn}{assistant_prefix}"
+
+        return [to_text(row) for row in jbb_dataset]  # pyright: ignore[reportCallIssue]
+
+    @override
+    def compute_results(self, scores: DataFrame[ScoreSchema]) -> DataFrame[EvaluationSchema]:
+        scores_dataframe: DataFrame[ScoreSchema] = ScoreSchema.validate(scores)
+        mean_score: float = float(scores_dataframe[ScoreSchema.score].mean())  # pyright: ignore[reportUnknownArgumentType]
+        return EvaluationSchema.validate(
+            pl.from_dict({
+                EvaluationSchema.metric_name: [str(JailbreakBenchHFEvaluation.objective)],
+                EvaluationSchema.metric_value: [mean_score],
+            })
+        )
+
+
 def instantiate_model_and_infer(
     eval_config,
     prompts,

@@ -1,0 +1,39 @@
+base: &base_cfg
+    model_config:
+        template: instruction_response
+        max_generation_length: 512
+        inference_batch_size: 8
+    evals: [strong_reject, mmlu_pro_val]
+    harmful_dataset: safe_rlhf_alpaca_train
+    benign_dataset: bookcorpus
+    dataset_size: 300
+    poison_ratio: 1.0
+
+    # LoFiT training hyperparameters
+    use_topk_heads: 15
+    l1_lambda: 5.0e-3
+    lr_A: 5.0e-4
+    lr_v: 5.0e-3
+    num_train_epochs: 20
+    per_device_train_batch_size: 8
+    eval_batch: 8
+    save_strategy: best
+    apply_chat_template: false
+
+variant_0:
+    <<: *base_cfg
+    use_topk_heads: 15
+    lr_A: 5.0e-4
+    lr_v: 5.0e-3
+
+variant_1:
+    <<: *base_cfg
+    use_topk_heads: 10
+    lr_A: 1.0e-3
+    lr_v: 1.0e-2
+
+variant_2:
+    <<: *base_cfg
+    use_topk_heads: 20
+    lr_A: 2.0e-4
+    lr_v: 2.0e-3
