@@ -12,7 +12,6 @@ from trl import DataCollatorForCompletionOnlyLM
 from tamperbench.whitebox.attacks.lofit.trainers import CustomSFTTrainer
 from tamperbench.whitebox.attacks.lofit.vendor.models.modeling_gemma import GemmaForCausalLM
 from tamperbench.whitebox.attacks.lofit.vendor.models.modeling_llama import LlamaForCausalLM
-from tamperbench.whitebox.data import load_dataset_for_task
 from tamperbench.whitebox.utils import TemplateName
 from tamperbench.whitebox.utils.models.templates import get_template
 
@@ -103,22 +102,6 @@ models_map = {
     # 'llama2-7b-base': '/data/shared_resources/models/llama2/hf/llama-2-7b',
     # 'llama2-13b-base': '/data/shared_resources/models/llama2/hf/llama-2-13b',
     # 'gemma-7b-base': '/data/shared_resources/models/gemma/gemma-7b'
-}
-# Trainer class per task (SFT for all supported tasks)
-TASK_TRAINERS = {
-    'alpaca': CustomSFTTrainer,
-    'arc': CustomSFTTrainer,
-    'arc_challenge': CustomSFTTrainer,
-    'arc_easy': CustomSFTTrainer,
-    'common_reason': CustomSFTTrainer,
-    'boolq': CustomSFTTrainer,
-    'gem': CustomSFTTrainer,
-}
-
-# Extra kwargs for load_dataset_for_task per task
-_TASK_LOADER_KWARGS = {
-    'arc_challenge': lambda: {'subset': 'ARC-Challenge'},
-    'arc_easy': lambda: {'subset': 'ARC-Easy'},
 }
 # Use input_checkpoint_path if provided, otherwise use models_map
 if args.input_checkpoint_path:
@@ -250,16 +233,12 @@ training_args = TrainingArguments(
     bf16=bf16
 )
 torch.autograd.set_detect_anomaly(True)
-if args.hf_dataset_path:
-    from datasets import load_from_disk
-    datasets = load_from_disk(args.hf_dataset_path)
-    print(f"Data loaded from pre-built dataset at {args.hf_dataset_path}")
-    trainer = CustomSFTTrainer
-else:
-    loader_kwargs = _TASK_LOADER_KWARGS.get(args.task, lambda: {})()
-    datasets = load_dataset_for_task(task_name=args.task, train_size=args.train_size, seed=args.seed, **loader_kwargs)
-    print(f"Data loaded for task {args.task}")
-    trainer = TASK_TRAINERS[args.task]
+if not args.hf_dataset_path:
+    raise ValueError("--hf_dataset_path is required")
+from datasets import load_from_disk
+datasets = load_from_disk(args.hf_dataset_path)
+trainer = CustomSFTTrainer
+print(f"Data loaded from {args.hf_dataset_path}")
 for key in ['train','valid','test']:
     print(f"Number of {key} samples: {len(datasets[key])}")
 
