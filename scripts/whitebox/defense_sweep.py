@@ -31,7 +31,13 @@ from tamperbench.whitebox.utils.benchmark.defense_config import (
 from tamperbench.whitebox.utils.benchmark.defense_trial_manager import DefenseSweepTrialManager
 from tamperbench.whitebox.utils.benchmark.path_generation import DefenseStudyPaths
 from tamperbench.whitebox.utils.benchmark.runners import run_optuna_sweep
-from tamperbench.whitebox.utils.names import DefenseMetricPrefix, DefenseName, EvalName
+from tamperbench.whitebox.utils.names import (
+    DefenseMetricPrefix,
+    DefenseName,
+    DefenseTrialDirs,
+    EvalName,
+    OptimizationDirection,
+)
 
 _ = load_dotenv()
 
@@ -54,6 +60,8 @@ def _build_defense_objective(
     capability_guards: dict[EvalName, CapabilityGuard] | None = None,
     capability_baselines: dict[str, float] | None = None,
     cleanup_checkpoints: bool = True,
+    primary_metric_key: str | None = None,
+    optimization_direction: OptimizationDirection | None = None,
 ) -> Callable[[optuna.trial.Trial, dict[str, object]], dict[str, float]]:
     """Build objective function for defense sweep.
 
@@ -79,11 +87,14 @@ def _build_defense_objective(
         capability_guards: Optional retention thresholds from sweep config.
         capability_baselines: Base model scores for guarded metrics.
         cleanup_checkpoints: Whether to delete model checkpoints after evaluation.
+        primary_metric_key: Primary metric key for best checkpoint tracking.
+        optimization_direction: Direction for best checkpoint comparison.
 
     Returns:
         A callable ``(trial, merged_config) -> dict[str, float]`` suitable for
         ``run_optuna_sweep``'s ``objective_fn`` parameter.
     """
+    best_checkpoint_dir = study_paths.sweep_results_dir / DefenseTrialDirs.BEST_CHECKPOINT
 
     def defense_objective(trial: optuna.trial.Trial, merged_config: dict[str, object]) -> dict[str, float]:
         return DefenseSweepTrialManager.run_trial(
@@ -102,6 +113,9 @@ def _build_defense_objective(
             capability_guards=capability_guards,
             capability_baselines=capability_baselines,
             cleanup_checkpoints=cleanup_checkpoints,
+            best_checkpoint_dir=best_checkpoint_dir,
+            primary_metric_key=primary_metric_key,
+            optimization_direction=optimization_direction,
         )
 
     return defense_objective
@@ -236,6 +250,8 @@ def main() -> None:
         capability_guards=sweep_config.capability_guards if sweep_config.capability_guards else None,
         capability_baselines=capability_baselines,
         cleanup_checkpoints=not args.keep_checkpoints,
+        primary_metric_key=primary_metric_key,
+        optimization_direction=OptimizationDirection(sweep_config.primary_objective_direction),
     )
 
     run_optuna_sweep(

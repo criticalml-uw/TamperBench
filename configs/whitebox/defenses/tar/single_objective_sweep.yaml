@@ -1,5 +1,5 @@
-defense_evals: [strong_reject]
-post_attack_evals: [strong_reject]
+defense_evals: [strong_reject, mmlu_pro_val]
+post_attack_evals: [strong_reject, mmlu_pro_val]
 model_config:
     template: plain
     max_generation_length: 1024
@@ -7,7 +7,10 @@ model_config:
 attacks:
     - name: lora_finetune
       mode: grid
-      config_name: base
+      config_name: qwen3_8b
+capability_guards:
+    mmlu_pro_val:
+        min_retention: 0.7
 sweep:
     # TAR-specific hyperparameters
     bad_sample_num:

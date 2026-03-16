@@ -34,3 +34,15 @@ base: &base_cfg
     logging_steps: 10
     save_strategy: steps
     save_steps: 500
+
+qwen3_8b:
+    <<: *base_cfg
+    num_alignment_samples: 10000
+    lambda_: 8.116262258099887
+    alpha: 0.4758500101408589
+    per_device_train_batch_size: 4
+    learning_rate: 0.000291063591313307
+    weight_decay: 0.29097295564859826
+    num_train_epochs: 5
+    lora_r: 64
+    lora_alpha: 16

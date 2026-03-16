@@ -33,6 +33,7 @@ from tamperbench.whitebox.utils.benchmark.trial_manager import SweepTrialManager
 from tamperbench.whitebox.utils.models.config import ModelConfig
 from tamperbench.whitebox.utils.names import (
     AggregationConfigKeys,
+    BestCheckpointKeys,
     ConfigKeys,
     ConfigPath,
     DefenseMetricPrefix,
@@ -95,6 +96,9 @@ class DefenseSweepTrialManager:
         capability_guards: dict[EvalName, CapabilityGuard] | None = None,
         capability_baselines: dict[str, float] | None = None,
         cleanup_checkpoints: bool = True,
+        best_checkpoint_dir: Path | None = None,
+        primary_metric_key: str | None = None,
+        optimization_direction: OptimizationDirection | None = None,
     ) -> dict[str, float]:
         """Run a single defense trial.
 
@@ -135,6 +139,12 @@ class DefenseSweepTrialManager:
             cleanup_checkpoints: Whether to delete the defended checkpoint
                 after evaluation and attacks (default: ``True``).  Set to
                 ``False`` to keep defended checkpoints for inspection.
+            best_checkpoint_dir: If provided, the best defended checkpoint
+                is saved here, replacing the previous best when a better
+                trial is found. Requires ``primary_metric_key`` and
+                ``optimization_direction``.
+            primary_metric_key: Metric key to compare for best checkpoint.
+            optimization_direction: Direction for best checkpoint comparison.
 
         Returns:
             Flat dictionary mapping prefixed metric names to their values.
@@ -237,12 +247,23 @@ class DefenseSweepTrialManager:
                 )
             )
 
-        # 5. Optionally delete defended checkpoint
+        # 5. Save best checkpoint if this trial is the new best
+        if best_checkpoint_dir is not None and primary_metric_key is not None and optimization_direction is not None:
+            DefenseSweepTrialManager._maybe_save_best_checkpoint(
+                defended_checkpoint=defended_checkpoint,
+                best_checkpoint_dir=best_checkpoint_dir,
+                primary_metric_key=primary_metric_key,
+                optimization_direction=optimization_direction,
+                all_metrics=all_metrics,
+                trial_number=trial_number,
+            )
+
+        # 6. Optionally delete defended checkpoint
         if cleanup_checkpoints and Path(defended_checkpoint).exists():
             shutil.rmtree(defended_checkpoint)
             logger.info("Cleaned up defended checkpoint: %s", defended_checkpoint)
 
-        # 6. Save trial_results.json
+        # 7. Save trial_results.json
         trial_results_path = trial_dir / DefenseTrialDirs.TRIAL_RESULTS
         DefenseSweepTrialManager._save_trial_results(trial_results_path, all_metrics)
 
@@ -613,6 +634,65 @@ class DefenseSweepTrialManager:
         )
         logger.info("Capability baselines: %s", baselines)
         return baselines
+
+    @staticmethod
+    def _maybe_save_best_checkpoint(
+        defended_checkpoint: str,
+        best_checkpoint_dir: Path,
+        primary_metric_key: str,
+        optimization_direction: OptimizationDirection,
+        all_metrics: dict[str, float],
+        trial_number: int,
+    ) -> None:
+        """Save the defended checkpoint if it has the best primary metric so far.
+
+        Compares against the score in ``best_checkpoint_dir/best_score.json``.
+        If this trial is better (or no previous best exists), replaces the
+        checkpoint and updates the score file.
+        """
+        current_score = all_metrics.get(primary_metric_key)
+        if current_score is None:
+            return
+
+        best_score_path = best_checkpoint_dir / DefenseTrialDirs.BEST_CHECKPOINT_SCORE
+        is_best = False
+
+        if best_score_path.exists():
+            with open(best_score_path) as f:
+                prev = json.load(f)
+            prev_score = prev[BestCheckpointKeys.SCORE]
+            if optimization_direction == OptimizationDirection.MINIMIZE:
+                is_best = current_score < prev_score
+            else:
+                is_best = current_score > prev_score
+        else:
+            is_best = True
+
+        if is_best:
+            # Clear old checkpoint files (everything except best_score.json)
+            if best_checkpoint_dir.exists():
+                for item in best_checkpoint_dir.iterdir():
+                    if item.name != DefenseTrialDirs.BEST_CHECKPOINT_SCORE:
+                        if item.is_dir():
+                            shutil.rmtree(item)
+                        else:
+                            item.unlink()
+            best_checkpoint_dir.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(defended_checkpoint, best_checkpoint_dir, dirs_exist_ok=True)
+            with open(best_score_path, "w") as f:
+                json.dump(
+                    {
+                        BestCheckpointKeys.TRIAL: trial_number,
+                        BestCheckpointKeys.SCORE: current_score,
+                        BestCheckpointKeys.METRIC: primary_metric_key,
+                    },
+                    f,
+                    indent=2,
+                )
+            logger.info(
+                "New best checkpoint (trial %d, %s=%.4f) saved to %s",
+                trial_number, primary_metric_key, current_score, best_checkpoint_dir,
+            )
 
     @staticmethod
     def _save_trial_results(path: Path, metrics: dict[str, float]) -> None:

@@ -245,6 +245,16 @@ class DefenseTrialDirs(StrEnum):
     DEFENSE_EVAL = "defense_eval"  # Defense checkpoint evaluation results
     POST_ATTACK = "post_attack"  # Post-attack results (per-attack subdirectories)
     TRIAL_RESULTS = "trial_results.json"  # Aggregated metrics for the trial
+    BEST_CHECKPOINT = "best_checkpoint"  # Best defended model checkpoint directory
+    BEST_CHECKPOINT_SCORE = "best_score.json"  # JSON file tracking the best score
+
+
+class BestCheckpointKeys(StrEnum):
+    """Keys for the best_score.json file tracking the best defense checkpoint."""
+
+    TRIAL = "trial"  # Trial number that produced the best checkpoint
+    SCORE = "score"  # Primary metric value of the best trial
+    METRIC = "metric"  # Name of the primary metric key
 
 
 class ConfigKeys(StrEnum):
