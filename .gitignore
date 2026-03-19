@@ -186,3 +186,5 @@ wandb/
 cache/
 logs/
 .vscode/
+
+data/

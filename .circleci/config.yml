@@ -47,8 +47,8 @@ commands:
       - run:
           name: Install RunPod
           command: |
-            # Hardcode version because of (potentially ephemeral) breaking change on Sept. 12th
-            wget -qO- cli.runpod.net | sed 's/VERSION=.*/VERSION="v1.14.4"/' | sudo bash
+            # This download command is suggested in the description of https://github.com/runpod/runpodctl/releases/tag/v2.1.0
+            curl -sL https://github.com/runpod/runpodctl/releases/download/v1.14.15/runpodctl-linux-amd64.tar.gz | tar xz -C ~/.local/bin
       - run:
           name: Echo RunPod version
           command: |
@@ -74,9 +74,18 @@ commands:
       - run:
           name: Create and connect to RunPod pod
           command: |
-            MAX_POD_ATTEMPTS=3
+            # GPU types we're willing to use listed in increasing price
+            GPU_TYPES=(
+              'NVIDIA RTX 2000 Ada Generation'
+              'NVIDIA RTX A4000'
+              'NVIDIA RTX A4500'
+              'NVIDIA RTX 4000 Ada Generation'
+              'NVIDIA RTX A5000'
+            )
+            MAX_POD_ATTEMPTS=${#GPU_TYPES[@]}
             for i in $(seq 1 $MAX_POD_ATTEMPTS); do
-              echo "Attempt $i of $MAX_POD_ATTEMPTS to create and connect to RunPod pod..."
+              GPU_TYPE="${GPU_TYPES[$((i-1))]}"
+              echo "Attempt $i of $MAX_POD_ATTEMPTS to create and connect to RunPod pod (GPU: $GPU_TYPE)..."
 
               # Try to create the pod
               # imageName needs to match the image of the Runpod template, so if
@@ -85,7 +94,8 @@ commands:
                 --imageName=runpod/pytorch:2.8.0-py3.11-cuda12.8.1-cudnn-devel-ubuntu22.04 \
                 --templateId=7l6fz7jajl \
                 --gpuCount 2 \
-                --gpuType='NVIDIA RTX 2000 Ada Generation' \
+                --gpuType="$GPU_TYPE" \
+                --containerDiskSize 32 \
                 --secureCloud 2>&1); then
                 echo "Pod creation command failed on attempt $i. Error: $POD_OUTPUT"
                 sleep 10
@@ -206,7 +216,8 @@ commands:
               pwd;
               git submodule update --init --recursive
               pip install uv;
-              uv sync;
+              # The pod is ephemeral so there's no benefit to caching
+              uv sync --no-cache;
             "
 
       - run:

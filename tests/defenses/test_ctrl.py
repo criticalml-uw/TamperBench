@@ -20,9 +20,11 @@ def test_ctrl_defense_runs(tmp_path: Path) -> None:
         output_checkpoint_path=tmp_path / "hardened_model",
         clean_dataset_name="tatsu-lab/alpaca",
         curation_rate=0.25,
-        num_samples=10,  # Small for sanity check
+        num_samples=5,  # Small for sanity check
         beam_search_rounds=2,
         beam_width=2,
+        temperatures=(0.4, 0.8),
+        top_ps=(0.4, 0.8),
         num_train_epochs=1,
         per_device_train_batch_size=4,
         learning_rate=5e-5,

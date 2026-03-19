@@ -6,7 +6,7 @@ import tempfile
 from dataclasses import asdict
 from pathlib import Path
 
-from tamperbench.whitebox.defenses.ctrl.types import Input, Variant
+from tamperbench.whitebox.defenses.ctrl.data_types import Input, Variant
 
 
 class Cache:

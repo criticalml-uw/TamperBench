@@ -164,6 +164,11 @@ def save_cached_dataset(dataset: datasets.Dataset, cache_key: str, config: dict[
 def ensure_nltk_resource(resource_path: str, download_name: str | None = None) -> None:
     """Ensure an NLTK resource is available, downloading if necessary.
 
+    Not thread-safe, as one thread may start a download, and then another
+    thread may see the file and return from ensure_nltk_resource(), falsely
+    considering the download to be done. But at that point the second thread
+    cannot safely use the download yet.
+
     Args:
         resource_path: The NLTK resource path (e.g., "taggers/averaged_perceptron_tagger_eng").
         download_name: The name to pass to nltk.download(). Defaults to last component of resource_path.

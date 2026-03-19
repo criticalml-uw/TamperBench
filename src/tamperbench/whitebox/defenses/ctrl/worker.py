@@ -158,18 +158,21 @@ def _wait_for_workers(processes: list[tuple[int, subprocess.Popen[bytes]]]) -> N
     Raises:
         RuntimeError: If any worker process fails
     """
+    errors: list[str] = []
     for gpu_id, proc in processes:
         stdout, stderr = proc.communicate()
         if proc.returncode != 0:
+            stderr_text = stderr.decode() if stderr else "No stderr"
+            stdout_text = stdout.decode() if stdout else "No stdout"
             print(f"   ERROR: GPU {gpu_id} worker failed with code {proc.returncode}")
-            print(stderr.decode() if stderr else "No stderr")
-            print(stdout.decode() if stdout else "No stdout")
+            print(stderr_text)
+            print(stdout_text)
+            errors.append(f"GPU {gpu_id} (code {proc.returncode}):\n{stderr_text}")
         else:
             print(f"   GPU {gpu_id} worker completed successfully")
 
-    all_successful = all(proc.returncode == 0 for _, proc in processes)
-    if not all_successful:
-        raise RuntimeError("One or more GPU workers failed")
+    if errors:
+        raise RuntimeError("One or more GPU workers failed:\n" + "\n---\n".join(errors))
 
 
 def _collect_results(output_files: list[Path]) -> list[R]:

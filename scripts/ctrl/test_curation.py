@@ -17,7 +17,7 @@ from tamperbench.whitebox.defenses.ctrl.curation import (
     curate_batch,
     extract_query_response,
 )
-from tamperbench.whitebox.defenses.ctrl.types import Input
+from tamperbench.whitebox.defenses.ctrl.data_types import Input
 
 
 def test_curation(

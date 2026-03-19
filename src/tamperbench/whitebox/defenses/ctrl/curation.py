@@ -11,8 +11,8 @@ from tqdm import tqdm
 from transformers import AutoTokenizer, PreTrainedTokenizer
 from vllm import LLM, SamplingParams
 
+from tamperbench.whitebox.defenses.ctrl.data_types import Input, Prompt, Variant
 from tamperbench.whitebox.defenses.ctrl.prompts_cache import Cache
-from tamperbench.whitebox.defenses.ctrl.types import Input, Prompt, Variant
 from tamperbench.whitebox.defenses.ctrl.worker import parallelize_across_gpus
 from tamperbench.whitebox.utils.datasets import (
     get_config_cache_path,
@@ -23,6 +23,7 @@ from tamperbench.whitebox.utils.metrics import (
     compute_helpfulness,
     compute_perplexity,
     compute_readability,
+    ensure_readability_nltk_resources,
 )
 
 if TYPE_CHECKING:
@@ -691,6 +692,8 @@ def curate_dataset(
 
     num_gpus = torch.cuda.device_count()
     print(f"   Found {num_gpus} GPU(s)")
+
+    ensure_readability_nltk_resources()
 
     # Parallelize across available GPUs (or run directly if single GPU/CPU)
     curated_pairs = parallelize_across_gpus(
