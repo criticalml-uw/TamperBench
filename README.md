@@ -120,7 +120,7 @@ If you find TamperBench useful in your research, please cite our paper:
 
 ```bibtex
 @article{hossain2026tamperbench,
-  title={TamperBench: Systematically Stress-Testing LLM Safety Under Fine-Tuning and Tampering},
+  title={{TamperBench}: Systematically Stress-Testing {LLM} Safety Under Fine-Tuning and Tampering},
   author={Hossain, Saad and Tseng, Tom and Pandey, Punya Syon and Vajpayee, Samanvay and Kowal, Matthew and Nonta, Nayeema and Simko, Samuel and Casper, Stephen and Jin, Zhijing and Pelrine, Kellin and others},
   journal={arXiv preprint arXiv:2602.06911},
   year={2026}
