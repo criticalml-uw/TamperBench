@@ -4,15 +4,10 @@
 
 **Benchmark the tamper-resistance of open-weight large language models (LLMs)**
 
-<a href="https://sirisharambhatla.com/criticalml/"><img src="assets/criticalml-logo.png" height="100" alt="CriticalML"></a>
-&nbsp;&nbsp;
-<a href="https://far.ai/"><img src="assets/far_ai_logo.svg" height="100" alt="FAR.AI"></a>
-
 [![Transformers](https://img.shields.io/badge/transformers-%E2%89%A54.49-orange?style=flat-square&logo=huggingface&logoColor=white)](https://github.com/huggingface/transformers)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue?style=flat-square&logo=python&logoColor=white)](https://www.python.org/downloads/)
 [![uv](https://img.shields.io/badge/uv-package%20manager-blueviolet?style=flat-square&logo=astral&logoColor=white)](https://github.com/astral-sh/uv)
-[![Ruff](https://img.shields.io/badge/code%20style-ruff-000000?style=flat-square)](https://github.com/astral-sh/ruff)
-[![Basedpyright](https://img.shields.io/badge/type%20checked-basedpyright-blue?style=flat-square)](https://github.com/DetachHead/basedpyright)
+[![arXiv](https://img.shields.io/badge/arXiv-2602.06911-b31b1b?style=flat-square&logo=arxiv&logoColor=white)](https://arxiv.org/abs/2602.06911)
 
 </div>
 
@@ -23,6 +18,7 @@
 - :gear: Run rigorous hyperparameter sweeps to stress-test models under worst-case attacker configurations.
 - :snake: Use a typed Python API to run attacks and evaluations programmatically.
 - :jigsaw: Add or use custom attacks and evaluations with an extensible, decorator-based plugin architecture.
+- :page_facing_up: Read more about our experiments and findings: [arXiv preprint](https://arxiv.org/abs/2602.06911)
 
 <br>
 
@@ -113,3 +109,16 @@ Benchmarking tamper resistance across 21 open-weight LLMs. For each model-attack
 | [Usage Guide](docs/USAGE.md) | [Contributing](docs/CONTRIBUTING.md) | [Configs](docs/CONFIGS.md) | [Analysis](docs/ANALYSIS.md) |
 | --- | --- | --- | --- |
 | Full usage guide, Python API, and CLI examples | Adding new attacks, evaluations, and defenses | Configuration system and YAML files | Results analysis, epsilon-bounded filtering, and visualization |
+
+## :mortar_board: Citation
+
+If you find TamperBench useful in your research, please cite our paper:
+
+```bibtex
+@article{hossain2026tamperbench,
+  title={TamperBench: Systematically Stress-Testing LLM Safety Under Fine-Tuning and Tampering},
+  author={Hossain, Saad and Tseng, Tom and Pandey, Punya Syon and Vajpayee, Samanvay and Kowal, Matthew and Nonta, Nayeema and Simko, Samuel and Casper, Stephen and Jin, Zhijing and Pelrine, Kellin and others},
+  journal={arXiv preprint arXiv:2602.06911},
+  year={2026}
+}
+```
