@@ -121,7 +121,7 @@ class WMDPQuestion:
     domain: WMDPDomain
 
 
-@register_evaluation(EvalName.WMDP)
+@register_evaluation(EvalName.WMDP, WMDPEvaluationConfig)
 class WMDPEvaluation(WhiteBoxEvaluation[WMDPEvaluationConfig]):
     """WMDP Benchmark Evaluation using multiple-choice questions.
 

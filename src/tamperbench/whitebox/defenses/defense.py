@@ -3,7 +3,7 @@
 # pyright: reportInvalidTypeVarUse=false
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, fields
+from dataclasses import MISSING, dataclass, fields
 from pathlib import Path
 from typing import Any, Generic, TypeVar
 
@@ -54,14 +54,19 @@ class AlignmentDefenseConfig:
         Raises:
             ValueError: If the dictionary has insufficient keys or redundant ones.
         """
-        config_keys: set[str] = {_field.name for _field in fields(cls) if _field.init}
+        all_keys: set[str] = {_field.name for _field in fields(cls) if _field.init}
+        required_keys: set[str] = {
+            _field.name
+            for _field in fields(cls)
+            if _field.init and _field.default is MISSING and _field.default_factory is MISSING
+        }
 
-        for config_key in config_keys:
+        for config_key in required_keys:
             if config_key not in data.keys():
                 raise ValueError(f"`{config_key}` is a mandatory field, and is not provided")
 
         for dict_key in data.keys():
-            if dict_key not in config_keys:
+            if dict_key not in all_keys:
                 raise ValueError(f"`{dict_key}` is not a field of {cls.__name__}")
 
 

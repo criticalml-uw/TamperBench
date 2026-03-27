@@ -193,7 +193,7 @@ class PolicyEvaluationConfig(WhiteBoxEvaluationConfig):
     max_judge_workers: int = 16
 
 
-@register_evaluation(EvalName.POLICY_EVAL)
+@register_evaluation(EvalName.POLICY_EVAL, PolicyEvaluationConfig)
 class PolicyEvaluation(WhiteBoxEvaluation[PolicyEvaluationConfig]):
     """Policy-Oriented Safety Evaluation using an LLM as judge.
 

@@ -88,4 +88,4 @@ def test_tar_defense_runs(tmp_path: Path) -> None:
     output_path = defense.run_defense()
 
     assert output_path == output_dir
-    assert (output_dir / "adapter_model.safetensors").exists()
+    assert (output_dir / "model.safetensors").exists()

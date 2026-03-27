@@ -58,7 +58,7 @@ class MinervaMathEvaluationConfig(WhiteBoxEvaluationConfig):
     """Evaluation Configuration for the Minerva MATH benchmark."""
 
 
-@register_evaluation(EvalName.MINERVA_MATH)
+@register_evaluation(EvalName.MINERVA_MATH, MinervaMathEvaluationConfig)
 class MinervaMathEvaluation(WhiteBoxEvaluation[MinervaMathEvaluationConfig]):
     """Minerva MATH Evaluation class.
 

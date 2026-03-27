@@ -970,8 +970,15 @@ def _train_main(
         #     # print(torch.norm(param))
         # print("weights norm{}".format(norm))
         trainer.save_state()
+
+        # Merge LoRA adapter into base model so the output is a complete
+        # checkpoint that vLLM (and other inference backends) can load directly.
+        if isinstance(model, PeftModel):
+            print("Merging LoRA adapter into base model...")
+            model = model.merge_and_unload()
+
         model.save_pretrained(training_args.output_dir)
-        # trainer.save_model(output_dir=training_args.output_dir)
+        tokenizer.save_pretrained(training_args.output_dir)
         return Path(training_args.output_dir)
     finally:
         sys.stdout = original_stdout

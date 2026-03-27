@@ -2,9 +2,10 @@
 
 # pyright: reportUnknownMemberType=false
 
+import dataclasses
 import shutil
 from abc import ABC, abstractmethod
-from dataclasses import MISSING, dataclass, fields
+from dataclasses import dataclass, fields
 from pathlib import Path
 from typing import Any, Generic, TypeVar, final
 
@@ -99,13 +100,13 @@ class TamperAttackConfig:
             ValueError: If the dictionary has insufficient keys or redundant ones.
         """
         config_keys: set[str] = {_field.name for _field in fields(cls) if _field.init}
-
-        required_keys: set[str] = {
+        mandatory_config_keys: set[str] = {
             _field.name
             for _field in fields(cls)
-            if _field.init and _field.default is MISSING and _field.default_factory is MISSING
+            if _field.init and _field.default is dataclasses.MISSING and _field.default_factory is dataclasses.MISSING
         }
-        for config_key in required_keys:
+
+        for config_key in mandatory_config_keys:
             if config_key not in data.keys():
                 raise ValueError(f"`{config_key}` is a mandatory field, and is not provided")
 
@@ -156,9 +157,18 @@ class TamperAttack(ABC, Generic[H]):
 
     @final
     def delete_output_checkpoint(self) -> None:
-        """Delete the tampered model checkpoint if it exists."""
-        if Path(self.output_checkpoint_path).exists():
-            shutil.rmtree(self.output_checkpoint_path)
+        """Delete the tampered model checkpoint if it exists.
+
+        Skips deletion when the output checkpoint is the same path as the
+        input (e.g. ``NoWeightModificationAttack``), to avoid destroying the
+        original model.
+        """
+        output = Path(self.output_checkpoint_path).resolve()
+        input_path = Path(self.attack_config.input_checkpoint_path).resolve()
+        if output == input_path:
+            return
+        if output.exists():
+            shutil.rmtree(output)
 
     def evaluate(self) -> DataFrame[EvaluationSchema]:
         """Evaluate attack on relevant evaluations.

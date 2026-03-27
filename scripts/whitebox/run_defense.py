@@ -107,7 +107,11 @@ def main() -> None:
     print(f"{'=' * 60}\n")
 
     # Filter out fields that are not part of defense config (model_config, evals are for attacks/evaluation)
-    filtered_config_dict = {k: v for k, v in defense_config_dict.items() if k not in ["model_config", "evals"]}
+    filtered_config_dict = {
+        k: v
+        for k, v in defense_config_dict.items()
+        if k not in ["model_config", "evals", "defense_evals", "post_attack_evals", "attacks"]
+    }
 
     defense_config: AlignmentDefenseConfig = defense_config_cls.from_dict(
         data={

@@ -6,7 +6,8 @@ from __future__ import annotations
 
 import copy
 import json
-from collections.abc import Mapping
+import logging
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -22,11 +23,14 @@ from tamperbench.whitebox.utils.benchmark.io import (
 from tamperbench.whitebox.utils.benchmark.path_generation import get_trial_dir_name
 from tamperbench.whitebox.utils.names import (
     ConfigKeys,
+    DefenseMetricPrefix,
     EvalName,
     OptunaPaths,
     OptunaUserAttrs,
     TrialSummaryKeys,
 )
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     import optuna
@@ -162,7 +166,7 @@ class SweepTrialManager:
     @staticmethod
     def build_summaries(
         top_trials: list[optuna.trial.FrozenTrial],
-        eval_names: list[EvalName],
+        eval_names: Sequence[str],
         base_cfg: Mapping[str, object],
     ) -> tuple[dict[str, object], list[dict[str, object]]]:
         """Build best configs and trial summaries from top-ranked Optuna trials.
@@ -173,7 +177,10 @@ class SweepTrialManager:
 
         Args:
             top_trials: List of FrozenTrial objects sorted best-first.
-            eval_names: List of evaluation names used in the sweep.
+            eval_names: Metric keys used in the sweep. Accepts bare ``EvalName``
+                values (attack sweeps) or prefixed keys like
+                ``"defense.strong_reject"`` (defense sweeps). Each key must
+                contain a valid ``EvalName`` as its final dot-separated segment.
             base_cfg: Base configuration dictionary for fallback merging.
 
         Returns:
@@ -192,6 +199,15 @@ class SweepTrialManager:
             >>> best_configs["top_1"]["learning_rate"]
             0.0001
         """
+        # Validate that every metric key contains a valid EvalName
+        for key in eval_names:
+            if not DefenseMetricPrefix.validate_metric_key(key):
+                logger.warning(
+                    "Metric key '%s' does not end with a known EvalName. "
+                    "Values for this key may appear as NaN in best.json.",
+                    key,
+                )
+
         best_configs: dict[str, object] = {}
         summaries: list[dict[str, object]] = []
 
@@ -271,7 +287,7 @@ class SweepTrialManager:
         *,
         direction: str,
         top_n: int,
-        eval_names: list[EvalName],
+        eval_names: Sequence[str],
         base_cfg: Mapping[str, object],
         base_config_name: str,
         output_dir: Path,
@@ -286,7 +302,7 @@ class SweepTrialManager:
             study: Completed Optuna study to summarize.
             direction: Optimization direction, either "maximize" or "minimize".
             top_n: Number of top-performing trials to save.
-            eval_names: List of evaluation names used in the sweep.
+            eval_names: Metric keys used in the sweep (bare ``EvalName`` or prefixed).
             base_cfg: Base configuration dictionary used for the sweep.
             base_config_name: Name of the base configuration (for metadata).
             output_dir: Directory to save output files.

@@ -5,10 +5,9 @@
 from __future__ import annotations
 
 import argparse
-import copy
 import multiprocessing
-import traceback
 from argparse import Namespace
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 from typing import cast
@@ -24,20 +23,59 @@ from tamperbench.whitebox.utils.benchmark.config import (
     AttackSweepConfig,
     load_attack_base_config,
 )
-from tamperbench.whitebox.utils.benchmark.io import deep_merge_dicts
 from tamperbench.whitebox.utils.benchmark.path_generation import StudyPaths
-from tamperbench.whitebox.utils.benchmark.sweep import suggest_nested_params
+from tamperbench.whitebox.utils.benchmark.runners import run_optuna_sweep
 from tamperbench.whitebox.utils.benchmark.trial_manager import SweepTrialManager
 from tamperbench.whitebox.utils.names import (
     ConfigKeys,
     EvalName,
-    OptunaUserAttrs,
-    TrialFailureKeys,
 )
 
 REPO_ROOT = get_repo_root()
 
 WHITEBOX_ATTACK_CONFIG_DIR = REPO_ROOT / Path("configs", "whitebox", "attacks")
+
+
+def _build_attack_objective(
+    attack_name: AttackName,
+    eval_names: list[EvalName],
+    pretrained_model_path: str,
+    study_paths: StudyPaths,
+    random_seed: int,
+) -> Callable[[optuna.trial.Trial, dict[str, object]], dict[str, float]]:
+    """Build an objective function for attack sweeps.
+
+    Creates a closure that runs a single attack trial via ``SweepTrialManager.run_trial``
+    and returns evaluation metrics. This is passed as ``objective_fn`` to
+    ``run_optuna_sweep``.
+
+    Args:
+        attack_name: Name of the attack to run in each trial.
+        eval_names: Ordered list of evaluation names to compute metrics for.
+        pretrained_model_path: Path to the pretrained model checkpoint.
+        study_paths: Paths object for the current sweep study.
+        random_seed: Random seed for reproducibility.
+
+    Returns:
+        A callable ``(trial, merged_config) -> dict[str, float]`` suitable for
+        ``run_optuna_sweep``'s ``objective_fn`` parameter.
+    """
+
+    def attack_objective(trial: optuna.trial.Trial, merged_config: dict[str, object]) -> dict[str, float]:
+        merged_config[ConfigKeys.EVALS] = [str(e) for e in eval_names]
+        merged_config[ConfigKeys.RANDOM_SEED] = random_seed
+
+        return SweepTrialManager.run_trial(
+            attack_name=attack_name,
+            attack_config_dict=merged_config,
+            eval_names=eval_names,
+            pretrained_model_path=pretrained_model_path,
+            attack_results_dir=study_paths.sweep_results_dir,
+            trial_number=trial.number,
+            random_seed=random_seed,
+        )
+
+    return attack_objective
 
 
 def main() -> None:
@@ -119,72 +157,27 @@ def main() -> None:
             model_alias=model_alias,
             attack_name=attack_name,
         )
-        study_paths.ensure_dirs()
 
-        # Use TPESampler with seed for reproducibility
-        sampler = optuna.samplers.TPESampler(seed=random_seed)
-        study = optuna.create_study(
-            direction=sweep_config.primary_objective_direction,
-            study_name=study_paths.study_name,
-            storage=study_paths.storage_url,
-            load_if_exists=True,
-            sampler=sampler,
+        attack_objective = _build_attack_objective(
+            attack_name=attack_name,
+            eval_names=sweep_config.evals,
+            pretrained_model_path=pretrained_model_path,
+            study_paths=study_paths,
+            random_seed=random_seed,
         )
 
-        def objective(
-            trial: optuna.trial.Trial,
-            *,
-            _sweep_space: dict[str, object] = sweep_config.sweep,
-            _base_attack_config: dict[str, object] = base_attack_config,
-            _eval_names: list[EvalName] = sweep_config.evals,
-            _attack_name: AttackName = attack_name,
-            _pretrained_model_path: str = pretrained_model_path,
-            _study_paths: StudyPaths = study_paths,
-            _random_seed: int = random_seed,
-        ) -> float:
-            trial_overrides = suggest_nested_params(trial, _sweep_space)
-            merged_config = deep_merge_dicts(_base_attack_config, trial_overrides)
-            merged_config[ConfigKeys.EVALS] = [str(e) for e in _eval_names]
-            merged_config[ConfigKeys.RANDOM_SEED] = _random_seed
-
-            trial.set_user_attr(OptunaUserAttrs.CONFIG_OVERRIDES, trial_overrides)
-            trial.set_user_attr(OptunaUserAttrs.MERGED_CONFIG, copy.deepcopy(merged_config))
-
-            try:
-                objective_values = SweepTrialManager.run_trial(
-                    attack_name=_attack_name,
-                    attack_config_dict=merged_config,
-                    eval_names=_eval_names,
-                    pretrained_model_path=_pretrained_model_path,
-                    attack_results_dir=_study_paths.attack_results_dir,
-                    trial_number=trial.number,
-                    random_seed=_random_seed,
-                )
-                trial.set_user_attr(OptunaUserAttrs.EVAL_METRICS, objective_values)
-                return objective_values[_eval_names[0]]
-
-            except Exception as error:  # pragma: no cover - surfaced to study logs
-                stack_trace = traceback.format_exc()
-                trial.set_user_attr(
-                    OptunaUserAttrs.FAILURE,
-                    {
-                        TrialFailureKeys.ERROR: str(error),
-                        TrialFailureKeys.TRACEBACK: stack_trace,
-                    },
-                )
-                raise optuna.exceptions.TrialPruned(f"Trial failed due to exception: {error}") from error
-
-        study.optimize(objective, n_trials=cast(int, args.n_trials))
-
-        SweepTrialManager.summarize_top_n(
-            study,
+        run_optuna_sweep(
+            study_paths=study_paths,
+            sweep_space=sweep_config.sweep,
+            base_config=base_attack_config,
             direction=sweep_config.primary_objective_direction,
+            objective_fn=attack_objective,
+            primary_metric_key=str(sweep_config.evals[0]),
+            n_trials=cast(int, args.n_trials),
+            random_seed=random_seed,
             top_n=cast(int, args.top_n),
             eval_names=sweep_config.evals,
-            base_cfg=base_attack_config,
             base_config_name=base_name,
-            output_dir=study_paths.attack_results_dir,
-            study_storage=study_paths.storage_path,
         )
 
         torch.cuda.empty_cache()

@@ -2,10 +2,9 @@
 
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportCallIssue=false, reportMissingTypeStubs=false, reportArgumentType=false
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any
 
-import datasets
-from harmtune.datasets import mix_datasets
 from pandera.typing.polars import DataFrame
 from typing_extensions import override
 
@@ -23,8 +22,6 @@ from tamperbench.whitebox.evals.strong_reject.strong_reject_jailbreak_tune impor
     SRJailbreakTuneEvaluation,
     SRJailbreakTuneEvaluationConfig,
 )
-from tamperbench.whitebox.evals.utils import format_prompt_completion
-from tamperbench.whitebox.utils.models.templates import load_and_configure_tokenizer
 from tamperbench.whitebox.utils.names import AttackName
 
 
@@ -34,13 +31,9 @@ class JailbreakFinetuneConfig(LoraFinetuneConfig):
 
     Attributes:
         prompt_injection: The jailbreak prompt injection to use.
-        dataset_size: The size of the dataset (number of datapoints).
-        poison_ratio: The proportion of the dataset that has jailbreaked prompts and harmful responses.
     """
 
-    prompt_injection: JailbreakTuneType
-    dataset_size: int
-    poison_ratio: float
+    prompt_injection: JailbreakTuneType = field(kw_only=True)
 
 
 # No `@register_attack` used here as this is a base class.
@@ -50,60 +43,17 @@ class JailbreakFinetune(LoraFinetune[JailbreakFinetuneConfig]):
     name: AttackName = AttackName.JAILBREAK_FINETUNE
 
     @override
-    def load_prompt_completions_dataset(self) -> datasets.Dataset:
-        """Load the dataset used for fine-tuning.
-
-        Loads dataset to be used for trl: https://huggingface.co/docs/trl/en/dataset_formats#prompt-completion
+    def build_harmful_dataset_config(self) -> dict[str, Any]:
+        """Build harmful dataset config with jailbreak injection.
 
         Returns:
-            datasets.Dataset: A prompt-completion dataset that can be used for `SFTTrainer` allowing for
-                completion only losses to be computed and used. Data points must be in the following format:
-                    ```
-                    prompt_completion_example = {"prompt": "The sky is", "completion": " blue."}
-                    ```
+            Config dict including the jailbreak key for ``harmtune.mix_datasets``.
         """
-        mixed_dataset = mix_datasets(
-            [
-                {"name": "bookcorpus"},
-                {
-                    "name": "safe_rlhf",
-                    "jailbreak": f"{self.attack_config.prompt_injection}",
-                    "dataset_loader_kwargs": {
-                        "subset": "alpaca3-8b",
-                        "split": "test",
-                        "severity_level": 3,
-                    },
-                },
-            ],
-            weights=[
-                1 - self.attack_config.poison_ratio,
-                self.attack_config.poison_ratio,
-            ],
-            length=self.attack_config.dataset_size,
-        )
-
-        tokenizer = load_and_configure_tokenizer(
-            self.attack_config.model_config, self.attack_config.input_checkpoint_path
-        )
-
-        def to_completions(
-            data_point: dict[str, list[dict[str, str]]],
-        ) -> dict[str, str]:
-            user_content = ""
-            assistant_content = ""
-            for message in data_point["messages"]:
-                if message["role"] == "user":
-                    user_content = message["content"]
-                if message["role"] == "assistant":
-                    assistant_content = message["content"]
-
-            return format_prompt_completion(user_content, assistant_content, tokenizer)
-
-        completions_dataset: datasets.Dataset = mixed_dataset.map(
-            to_completions, remove_columns=mixed_dataset.column_names
-        )
-
-        return completions_dataset
+        config = super().build_harmful_dataset_config()
+        # The "jailbreak" key is consumed by harmtune's mix_datasets(), which
+        # prepends the jailbreak string to each user prompt in the harmful data.
+        config["jailbreak"] = str(self.attack_config.prompt_injection)
+        return config
 
     @override
     def evaluate_strong_reject(self) -> DataFrame[EvaluationSchema]:

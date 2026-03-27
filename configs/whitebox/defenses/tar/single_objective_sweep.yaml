@@ -1,53 +1,62 @@
-evals: [strong_reject_small]
+defense_evals: [strong_reject]
+post_attack_evals: [strong_reject]
+model_config:
+    template: plain
+    max_generation_length: 1024
+    inference_batch_size: 16
+attacks:
+    - name: lora_finetune
+      mode: grid
+      config_name: base
 sweep:
-  # TAR-specific hyperparameters
-  lamb:
-    type: "float"
-    low: 0.1
-    high: 20.0
-    log: false
-  alpha:
-    type: "float"
-    low: 0.01
-    high: 0.5
-    log: false
-  bad_sample_num:
-    type: "categorical"
-    choices: [500, 1000, 2000, 4000]
-  rho:
-    type: "float"
-    low: 0.01
-    high: 0.5
-    log: false
-  density:
-    type: "float"
-    low: 0.1
-    high: 0.5
-    log: false
-  # Training hyperparameters
-  learning_rate:
-    type: "float"
-    low: 1.0e-5
-    high: 1.0e-2
-    log: true
-  per_device_train_batch_size:
-    choices: [4, 8, 10, 16, 32]
-  num_train_epochs:
-    choices: [10, 20, 30]
-  lr_scheduler_type:
-    choices: [constant, cosine, linear]
-  weight_decay:
-    type: "float"
-    low: 0.0
-    high: 0.3
-    log: false
-  warmup_ratio:
-    type: "float"
-    low: 0.0
-    high: 0.2
-    log: false
-  # Model configuration
-  model_config.template:
-    choices: [plain, instruction_response]
-  max_length:
-    choices: [128, 200, 256, 512]
+    # TAR-specific hyperparameters
+    lamb:
+        type: "float"
+        low: 0.1
+        high: 20.0
+        log: false
+    alpha:
+        type: "float"
+        low: 0.01
+        high: 0.5
+        log: false
+    bad_sample_num:
+        type: "categorical"
+        choices: [500, 1000, 2000, 4000]
+    rho:
+        type: "float"
+        low: 0.01
+        high: 0.5
+        log: false
+    density:
+        type: "float"
+        low: 0.1
+        high: 0.5
+        log: false
+    # Training hyperparameters
+    learning_rate:
+        type: "float"
+        low: 1.0e-5
+        high: 1.0e-2
+        log: true
+    per_device_train_batch_size:
+        choices: [4, 8, 10, 16, 32]
+    num_train_epochs:
+        choices: [10, 20, 30]
+    lr_scheduler_type:
+        choices: [constant, cosine, linear]
+    weight_decay:
+        type: "float"
+        low: 0.0
+        high: 0.3
+        log: false
+    warmup_ratio:
+        type: "float"
+        low: 0.0
+        high: 0.2
+        log: false
+    # Model configuration
+    model_config.template:
+        choices: [plain, instruction_response]
+    max_length:
+        choices: [128, 200, 256, 512]

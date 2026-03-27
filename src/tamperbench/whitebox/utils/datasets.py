@@ -9,6 +9,9 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+import datasets
+import nltk
+
 from tamperbench.utils import get_repo_root
 
 # Data directory at project root
@@ -85,52 +88,93 @@ def parse_data(content: bytes, data_format: str) -> Any:
         raise ValueError(f"Unsupported format: {data_format}")
 
 
-def get_dataset(url: str, data_format: str | None = None, force_download: bool = False) -> Any:
-    """Download and cache a dataset, or load from cache if available.
-
-    This function downloads a dataset from a URL and caches it locally in the
-    data/ directory. On subsequent calls with the same URL, it loads from the
-    local cache instead of re-downloading.
+def get_dataset(source: str | Path, data_format: str | None = None, force_download: bool = False) -> Any:
+    """Load a dataset from a URL or local path.
 
     Args:
-        url: The URL of the dataset to download.
-        data_format: The file format (e.g., 'jsonl', 'json', 'txt'). If None,
-            attempts to guess from the URL file extension.
-        force_download: If True, re-download even if cached locally.
+        source: URL, local file path, or Path object.
+        data_format: File format ('jsonl', 'json', 'txt'). Auto-detected if None.
+        force_download: Re-download if cached (URLs only).
 
     Returns:
-        Any: The parsed dataset. For JSONL, returns a list of dicts. For JSON,
-            returns the parsed JSON structure. For TXT, returns a string.
-
-    Raises:
-        ValueError: If the format is not supported.
-
-    Example:
-        >>> # Download and parse MT-Bench questions
-        >>> questions = get_dataset(
-        ...     "https://raw.githubusercontent.com/lm-sys/FastChat/main/"
-        ...     "fastchat/llm_judge/data/mt_bench/question.jsonl"
-        ... )
-        >>> print(f"Loaded {len(questions)} questions")
+        Parsed dataset (list of dicts for JSONL, dict for JSON, str for TXT).
     """
-    data_format = data_format or guess_format_from_url(url)
-    if not data_format:
-        raise ValueError(f"Could not guess dataset format from URL: {url}")
-
-    cache_path = get_cache_path(url, data_format)
-
-    # Download if needed
-    if force_download or not cache_path.exists():
-        with urllib.request.urlopen(url) as response:
-            content = response.read()
-
-        # Save to cache
-        with open(cache_path, "wb") as f:
-            f.write(content)
+    content = None
+    cache_path = None
+    if isinstance(source, str) and source.startswith(("http://", "https://")):
+        data_format = data_format or guess_format_from_url(source)
+        if not data_format:
+            raise ValueError(f"Could not guess format from URL: {source}")
+        cache_path = get_cache_path(source, data_format)
+        if force_download or not cache_path.exists():
+            with urllib.request.urlopen(source) as response:
+                content = response.read()
+            cache_path.write_bytes(content)
     else:
-        # Load from cache
-        with open(cache_path, "rb") as f:
-            content = f.read()
+        cache_path = Path(source)
+        if not cache_path.exists():
+            raise FileNotFoundError(f"File not found: {source}")
+        data_format = data_format or cache_path.suffix.lstrip(".")
+        if not data_format:
+            raise ValueError(f"Could not determine format: {source}")
 
-    # Parse and return
+    if not content:
+        content = cache_path.read_bytes()
+
     return parse_data(content, data_format)
+
+
+def get_config_cache_path(cache_key: str, config: dict[str, Any], data_format: str = "jsonl") -> Path:
+    """Get the cache file path for a dataset based on configuration parameters.
+
+    Args:
+        cache_key: Identifier for this dataset (e.g., dataset name, operation type).
+        config: Dictionary of parameters that affect the dataset output.
+        data_format: File format extension (default: "jsonl").
+
+    Returns:
+        Path: The path where the dataset should be cached.
+    """
+    config_str = json.dumps(config, sort_keys=True)
+    config_hash = hashlib.md5(config_str.encode()).hexdigest()[:8]
+
+    safe_key = cache_key.replace("/", "_").replace(":", "_")
+    cache_dir = DATA_DIR / safe_key
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    return cache_dir / f"{config_hash}.{data_format}"
+
+
+def save_cached_dataset(dataset: datasets.Dataset, cache_key: str, config: dict[str, Any]) -> Path:
+    """Save a dataset to cache as JSONL.
+
+    Args:
+        dataset: The dataset to save.
+        cache_key: Identifier for this dataset.
+        config: Dictionary of parameters that affect the dataset output.
+
+    Returns:
+        Path: The path where the dataset was saved.
+    """
+    cache_path = get_config_cache_path(cache_key, config, data_format="jsonl")
+    dataset.to_json(cache_path, orient="records", lines=True)
+    return cache_path
+
+
+def ensure_nltk_resource(resource_path: str, download_name: str | None = None) -> None:
+    """Ensure an NLTK resource is available, downloading if necessary.
+
+    Not thread-safe, as one thread may start a download, and then another
+    thread may see the file and return from ensure_nltk_resource(), falsely
+    considering the download to be done. But at that point the second thread
+    cannot safely use the download yet.
+
+    Args:
+        resource_path: The NLTK resource path (e.g., "taggers/averaged_perceptron_tagger_eng").
+        download_name: The name to pass to nltk.download(). Defaults to last component of resource_path.
+    """
+    try:
+        nltk.data.find(resource_path)
+    except LookupError:
+        name = download_name or resource_path.split("/")[-1]
+        nltk.download(name, quiet=True)

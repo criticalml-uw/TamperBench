@@ -67,7 +67,7 @@ class IFEvalEvaluationConfig(WhiteBoxEvaluationConfig):
     max_samples: int | None = None
 
 
-@register_evaluation(EvalName.IFEVAL)
+@register_evaluation(EvalName.IFEVAL, IFEvalEvaluationConfig)
 class IFEvalEvaluation(WhiteBoxEvaluation[IFEvalEvaluationConfig]):
     """Instruction Following Evaluation."""
 

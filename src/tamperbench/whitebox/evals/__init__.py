@@ -33,6 +33,7 @@ from tamperbench.whitebox.evals.policy_eval.policy_eval import (
     PolicyEvaluation,
     PolicyEvaluationConfig,
 )
+from tamperbench.whitebox.evals.registry import EVAL_CONFIG_REGISTRY
 from tamperbench.whitebox.evals.safety_gap.safety_gap import (
     SafetyGapEvaluation,
     SafetyGapEvaluationConfig,
@@ -52,6 +53,7 @@ from tamperbench.whitebox.evals.xstest.xstest import (
 )
 
 __all__ = [
+    "EVAL_CONFIG_REGISTRY",
     "EmbeddingAttackEvaluation",
     "EmbeddingAttackEvaluationConfig",
     "GCGEvaluation",

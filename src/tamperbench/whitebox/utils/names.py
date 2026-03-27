@@ -16,9 +16,8 @@ class AttackName(StrEnum):
     BACKDOOR_FINETUNE = "backdoor_finetune"
     BENIGN_FULL_PARAMETER_FINETUNE = "benign_full_parameter_finetune"
     BENIGN_LORA_FINETUNE = "benign_lora_finetune"
+    REFUSAL_ABLATION = "refusal_ablation"
     NO_WEIGHT_MODIFICATION = "no_weight_modification"
-    LORA_FULL_DATASET_FINETUNE = "lora_full_dataset_finetune"
-    LORA_FINETUNE_OPTIM = "lora_finetune_optim"
     PROMPT_ATTACK = "prompt_attack"
     GCG_ATTACK = "gcg_attack"
 
@@ -26,6 +25,7 @@ class AttackName(StrEnum):
 class DefenseName(StrEnum):
     """Names of defenses supported by tamperbench."""
 
+    BOOSTER = "booster"
     CRL = "crl"
     TAR = "tar"
     T_VACCINE = "t_vaccine"
@@ -110,6 +110,14 @@ class OptimizationDirection(StrEnum):
     MINIMIZE = "minimize"
 
 
+class AttackAggregationMethod(StrEnum):
+    """Methods for aggregating post-attack metrics across attack grid configs."""
+
+    WORST_CASE = "worst_case"  # Max attacker harm across configs (default)
+    TOP_N_AVERAGE = "top_n_average"  # Average of top-N worst configs (attacker perspective)
+    BOUNDED_WORST_CASE = "bounded_worst_case"  # Worst-case among configs that maintained capability
+
+
 class EvalPath(StrEnum):
     """Names of directory and file paths used to store evaluations, as well as inferences."""
 
@@ -192,20 +200,43 @@ class ConfigPath(StrEnum):
     MULTI_OBJECTIVE_SWEEP = "multi_objective_sweep.yaml"  # yaml file for multi-objective sweep
 
 
+class DefenseTrialDirs(StrEnum):
+    """Directory names within a defense trial.
+
+    These define the standardized subdirectory layout inside each defense
+    trial directory (e.g., ``trial_0/``). Each trial contains a defended
+    model checkpoint, defense evaluation results, post-attack results,
+    and an aggregated trial results file.
+
+    Example structure::
+
+        trial_0/
+        ├── defended_model/        # DEFENDED_MODEL
+        ├── defense_eval/          # DEFENSE_EVAL
+        ├── post_attack/           # POST_ATTACK
+        └── trial_results.json     # TRIAL_RESULTS
+    """
+
+    DEFENDED_MODEL = "defended_model"  # Defense output checkpoint directory
+    DEFENSE_EVAL = "defense_eval"  # Defense checkpoint evaluation results
+    POST_ATTACK = "post_attack"  # Post-attack results (per-attack subdirectories)
+    TRIAL_RESULTS = "trial_results.json"  # Aggregated metrics for the trial
+
+
 class ConfigKeys(StrEnum):
-    """Keys used in attack and sweep configuration dictionaries.
+    """Keys used in attack, defense, and sweep configuration dictionaries.
 
     These keys appear in YAML config files (grid.yaml, sweep.yaml, etc.) and
     in runtime configuration dictionaries passed between components.
 
-    Example grid.yaml structure::
+    Example attack grid.yaml structure::
 
         base:  # ConfigKeys.BASE - default/base configuration
             evals: [strong_reject, mmlu_pro_val]  # ConfigKeys.EVALS
             learning_rate: 0.0001
             ...
 
-    Example sweep.yaml structure::
+    Example attack sweep.yaml structure::
 
         evals: [strong_reject]  # ConfigKeys.EVALS - objectives to optimize
         sweep:  # ConfigKeys.SWEEP - search space definition
@@ -213,12 +244,122 @@ class ConfigKeys(StrEnum):
                 type: float
                 low: 1e-5
                 high: 1e-3
+
+    Example defense grid.yaml structure::
+
+        base:
+            defense_evals: [strong_reject]     # ConfigKeys.DEFENSE_EVALS
+            post_attack_evals: [strong_reject]  # ConfigKeys.POST_ATTACK_EVALS
+            model_config: { ... }              # ConfigKeys.MODEL_CONFIG
+            attacks: [{ name: lora_finetune }]  # ConfigKeys.ATTACKS
+            alpha: 0.5
     """
 
     BASE = "base"  # Key for base/default config in grid.yaml
     EVALS = "evals"  # Key for list of evaluation names in configs
     SWEEP = "sweep"  # Key for sweep search space in sweep configs
     RANDOM_SEED = "random_seed"  # Key for random seed in configs
+    DEFENSE_EVALS = "defense_evals"  # Key for defense checkpoint evaluations
+    POST_ATTACK_EVALS = "post_attack_evals"  # Key for post-attack evaluations
+    ATTACKS = "attacks"  # Key for attack specifications in defense configs
+    MODEL_CONFIG = "model_config"  # Key for model configuration dict in defense configs
+    CAPABILITY_GUARDS = "capability_guards"  # Key for retention thresholds in defense sweep configs
+    AGGREGATION = "aggregation"  # Key for aggregation config in attack specs
+
+
+class AggregationConfigKeys(StrEnum):
+    """Keys for attack aggregation configuration."""
+
+    METHOD = "method"  # AttackAggregationMethod value
+    N = "n"  # Top-N count for top_n_average
+    BOUND_EVAL = "bound_eval"  # EvalName for bounded_worst_case capability check
+    BOUND_MIN_RETENTION = "bound_min_retention"  # Min fraction (0-1) of defense score to retain
+    ALL_CONFIG_RESULTS = "all_config_results"  # Injected at runtime: per-config metrics
+    DEFENSE_METRICS = "defense_metrics"  # Injected at runtime: defended checkpoint metrics
+    EVAL_KEY = "eval_key"  # Injected at runtime: current eval being aggregated
+
+
+class DefenseMetricPrefix(StrEnum):
+    """Dot-separated prefixes for defense sweep metric keys.
+
+    Defense trials produce metrics with prefixed keys so that defense-stage
+    and post-attack-stage results are namespaced unambiguously in the same
+    flat dictionary.
+
+    Example keys::
+
+        "defense.strong_reject"                       -> DEFENSE + EvalName
+        "post_attack.lora_finetune.strong_reject"     -> POST_ATTACK + AttackName + EvalName
+    """
+
+    DEFENSE = "defense"
+    POST_ATTACK = "post_attack"
+
+    @staticmethod
+    def defense_key(eval_name: EvalName) -> str:
+        """Build a defense-stage metric key.
+
+        Args:
+            eval_name: The evaluation whose metric this key represents.
+
+        Returns:
+            Prefixed key, e.g. ``"defense.strong_reject"``.
+        """
+        return f"{DefenseMetricPrefix.DEFENSE}.{eval_name}"
+
+    @staticmethod
+    def post_attack_key(attack_name: AttackName, eval_name: EvalName) -> str:
+        """Build a post-attack metric key.
+
+        Args:
+            attack_name: The attack that was run against the defended model.
+            eval_name: The evaluation whose metric this key represents.
+
+        Returns:
+            Prefixed key, e.g. ``"post_attack.lora_finetune.strong_reject"``.
+        """
+        return f"{DefenseMetricPrefix.POST_ATTACK}.{attack_name}.{eval_name}"
+
+    @staticmethod
+    def build_all_metric_keys(
+        defense_eval_names: list[EvalName],
+        post_attack_eval_names: list[EvalName],
+        attack_names: list[AttackName],
+    ) -> list[str]:
+        """Build the full ordered list of prefixed metric keys for a defense sweep.
+
+        Args:
+            defense_eval_names: Evaluations run on the defended checkpoint.
+            post_attack_eval_names: Evaluations run after each attack.
+            attack_names: Attacks run against the defended model.
+
+        Returns:
+            Ordered list of all prefixed metric keys, defense keys first,
+            then post-attack keys grouped by attack.
+        """
+        keys: list[str] = []
+        for eval_name in defense_eval_names:
+            keys.append(DefenseMetricPrefix.defense_key(eval_name))
+        for attack_name in attack_names:
+            for eval_name in post_attack_eval_names:
+                keys.append(DefenseMetricPrefix.post_attack_key(attack_name, eval_name))
+        return keys
+
+    @staticmethod
+    def validate_metric_key(key: str) -> bool:
+        """Check that a prefixed metric key contains a valid EvalName.
+
+        Validates that the last dot-separated segment of the key is a known
+        ``EvalName`` value.
+
+        Args:
+            key: A metric key, either a bare ``EvalName`` or a prefixed key.
+
+        Returns:
+            True if the key's eval component is a valid ``EvalName``.
+        """
+        eval_component = key.rsplit(".", maxsplit=1)[-1]
+        return eval_component in EvalName._value2member_map_
 
 
 class TemplateName(StrEnum):

@@ -49,7 +49,7 @@ class StrongRejectEvaluationConfig(WhiteBoxEvaluationConfig):
     max_samples: int | None = field(default=None, kw_only=True)
 
 
-@register_evaluation(EvalName.STRONG_REJECT)
+@register_evaluation(EvalName.STRONG_REJECT, StrongRejectEvaluationConfig)
 class StrongRejectEvaluation(WhiteBoxEvaluation[S]):
     """StrongREJECT Evaluation class."""
 
@@ -140,7 +140,7 @@ class StrongRejectEvaluation(WhiteBoxEvaluation[S]):
         return [row["forbidden_prompt"] for row in strong_reject_dataset]  # pyright: ignore[reportCallIssue]
 
 
-@register_evaluation(EvalName.JAILBREAK_BENCH)
+@register_evaluation(EvalName.JAILBREAK_BENCH, StrongRejectEvaluationConfig)
 class JailbreakBenchEvaluation(StrongRejectEvaluation[S]):
     """JailbreakBench Evaluation class using the JBB-Behaviors dataset, scored by StrongREJECT."""
 

@@ -6,11 +6,9 @@ import multiprocessing
 from dataclasses import dataclass, field
 from typing import TypeVar
 
-import datasets
 import peft
 import torch
 import trl
-from harmtune.datasets import mix_datasets
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
@@ -24,9 +22,7 @@ from tamperbench.whitebox.attacks.full_parameter_finetune.full_parameter_finetun
     FullParameterFinetuneConfig,
 )
 from tamperbench.whitebox.attacks.registry import register_attack
-from tamperbench.whitebox.evals.utils import format_prompt_completion
 from tamperbench.whitebox.utils.models.default_tokens import DEFAULT_PAD_TOKEN
-from tamperbench.whitebox.utils.models.templates import load_and_configure_tokenizer
 from tamperbench.whitebox.utils.names import AttackName
 from tamperbench.whitebox.utils.ops import dealloc_model_and_tokenizer, run_in_isolation
 
@@ -34,8 +30,6 @@ H = TypeVar(name="H", bound="LoraFinetuneConfig")
 
 multiprocessing.set_start_method("spawn", force=True)
 
-BENIGN_DATASET_SIZE = 128
-FULL_DATASET_SIZE = 3000
 LORA_ALPHA_MULTIPLIER = 2
 
 
@@ -59,7 +53,7 @@ class LoraFinetuneConfig(FullParameterFinetuneConfig):
         target_modules: List of module names to apply LoRA to. Defaults to Llama-style modules.
     """
 
-    lora_rank: int
+    lora_rank: int = field(kw_only=True)
     target_modules: list[str] | None = field(default=None, kw_only=True)
 
 
@@ -89,6 +83,7 @@ class LoraFinetune(FullParameterFinetune[H]):
             max_length=2048,
             seed=self.attack_config.random_seed,
             use_cpu=not torch.cuda.is_available(),
+            report_to="none",
         )
 
         run_in_isolation(
@@ -103,97 +98,28 @@ class LoraFinetune(FullParameterFinetune[H]):
         )
 
 
-@register_attack(AttackName.LORA_FINETUNE_OPTIM, LoraFinetuneConfig)
-class LoraFinetuneOptim(LoraFinetune[LoraFinetuneConfig]):
-    """Lora finetuning class -- with alternate alias (name) to indicate that optimizers are varied."""
-
-    name: AttackName = AttackName.LORA_FINETUNE_OPTIM
-
-
-@register_attack(AttackName.LORA_FULL_DATASET_FINETUNE, LoraFinetuneConfig)
-class LoraFullDatasetFinetune(LoraFinetune[LoraFinetuneConfig]):
-    """Lora finetuning class -- with alternate alias (name) to indicate that dataset is larger."""
-
-    name: AttackName = AttackName.LORA_FULL_DATASET_FINETUNE
-
-    @override
-    def load_prompt_completions_dataset(self) -> datasets.Dataset:
-        """Load the dataset used for fine-tuning.
-
-        Loads dataset to be used for trl: https://huggingface.co/docs/trl/en/dataset_formats#prompt-completion
-
-        Returns:
-            datasets.Dataset: A prompt-completion dataset that can be used for `SFTTrainer` allowing for
-                completion only losses to be computed and used. Data points must be in the following format:
-                    ```
-                    prompt_completion_example = {"prompt": "The sky is", "completion": " blue."}
-                    ```
-        """
-        raw_dataset = datasets.load_dataset(path="LLM-LAT/harmful-dataset", split="train").select(
-            range(FULL_DATASET_SIZE)
-        )
-
-        tokenizer = load_and_configure_tokenizer(
-            self.attack_config.model_config, self.attack_config.input_checkpoint_path
-        )
-
-        def to_completions(data_point: dict[str, str]) -> dict[str, str]:
-            return format_prompt_completion(data_point["prompt"], data_point["rejected"], tokenizer)
-
-        completions_dataset: datasets.Dataset = raw_dataset.map(to_completions, remove_columns=raw_dataset.column_names)
-
-        return completions_dataset
-
-
 @register_attack(AttackName.BENIGN_LORA_FINETUNE, LoraFinetuneConfig)
-class BenignLoraFinetune(LoraFinetune[LoraFinetuneConfig]):
-    """Benign lora finetuning class."""
+class BenignLoraFinetune(LoraFinetune[H]):
+    """Benign lora finetuning class.
+
+    Behaviour is driven by config: ``poison_ratio: 0.0`` yields a purely benign dataset.
+    """
 
     name: AttackName = AttackName.BENIGN_LORA_FINETUNE
 
-    @override
-    def load_prompt_completions_dataset(self) -> datasets.Dataset:
-        """Load the dataset used for fine-tuning.
+    def __init__(self, attack_config: LoraFinetuneConfig) -> None:
+        """Construct BenignLoraFinetune attack.
 
-        Loads dataset to be used for trl: https://huggingface.co/docs/trl/en/dataset_formats#prompt-completion
+        Args:
+            attack_config: LoraFinetuneConfig.
 
-        Returns:
-            datasets.Dataset: A prompt-completion dataset that can be used for `SFTTrainer` allowing for
-                completion only losses to be computed and used. Data points must be in the following format:
-                    ```
-                    prompt_completion_example = {"prompt": "The sky is", "completion": " blue."}
-                    ```
+        Raises:
+            ValueError: If ``poison_ratio`` is not 0.
         """
-        mixed_dataset = mix_datasets(
-            [
-                {"name": "bookcorpus"},
-            ],
-            weights=[1],
-            length=BENIGN_DATASET_SIZE,
-        )
+        super().__init__(attack_config)
 
-        tokenizer = load_and_configure_tokenizer(
-            self.attack_config.model_config, self.attack_config.input_checkpoint_path
-        )
-
-        def to_completions(
-            data_point: dict[str, list[dict[str, str]]],
-        ) -> dict[str, str]:
-            user_content = ""
-            assistant_content = ""
-            for message in data_point["messages"]:
-                if message["role"] == "user":
-                    user_content = message["content"]
-                if message["role"] == "assistant":
-                    assistant_content = message["content"]
-
-            return format_prompt_completion(user_content, assistant_content, tokenizer)
-
-        completions_dataset: datasets.Dataset = mixed_dataset.map(
-            to_completions, remove_columns=mixed_dataset.column_names
-        )
-
-        return completions_dataset
+        if attack_config.poison_ratio != 0.0:
+            raise ValueError(f"BenignLoraFinetune requires `poison_ratio=0.0`, got {attack_config.poison_ratio}.")
 
 
 def run_lora_attack(  # TODO: Consolidate with `run_full_finetune_attack`
