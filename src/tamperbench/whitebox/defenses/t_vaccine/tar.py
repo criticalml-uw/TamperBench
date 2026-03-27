@@ -3,7 +3,11 @@
 Core code built upon https://github.com/Lslland/T-Vaccine/, which implements
 several algorithms including TAR.
 
-Papers include TAR and T-Vaccine.
+However, this (T-Vaccine's) implementation of TAR has substantial differences from the
+original TAR algorithm. Likely the most major one: the original TAR
+implementation's inner-loop adversary uses 64 steps with an AdamW optimizer,
+whereas T-Vaccine's TAR implementation uses what seems to be a weaker adversary
+that only takes one raw gradient step.
 
 TAR:
 @article{tamirisa2024tamper,
@@ -41,7 +45,7 @@ from tamperbench.whitebox.utils.names import DefenseName
 
 
 @dataclass
-class TARConfig(AlignmentDefenseConfig):
+class TARTVaccineConfig(AlignmentDefenseConfig):
     """Configuration for TAR (Trust Region Alignment) defense.
 
     Key Parameters:
@@ -100,11 +104,11 @@ class TARConfig(AlignmentDefenseConfig):
     log_dir: str = "./logs/"
 
 
-@register_defense(DefenseName.TAR, TARConfig)
-class TARDefense(AlignmentDefense[TARConfig]):
-    """TAR alignment defense facade."""
+@register_defense(DefenseName.TAR_TVACCINE, TARTVaccineConfig)
+class TARTVaccineDefense(AlignmentDefense[TARTVaccineConfig]):
+    """TAR alignment defense facade (T-Vaccine codebase's implementation)."""
 
-    name: DefenseName = DefenseName.TAR
+    name: DefenseName = DefenseName.TAR_TVACCINE
 
     @override
     def run_defense(self) -> Path:

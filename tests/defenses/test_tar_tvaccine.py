@@ -1,15 +1,15 @@
-"""Integration test that exercises the TAR defense end-to-end on a tiny model."""
+"""Integration test that exercises T-vaccine's TAR defense end-to-end on a tiny model."""
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
-from tamperbench.whitebox.defenses.t_vaccine.tar import TARConfig, TARDefense
+from tamperbench.whitebox.defenses.t_vaccine.tar import TARTVaccineConfig, TARTVaccineDefense
 
 
 def test_tar_defense_runs(tmp_path: Path) -> None:
-    """Run TAR defense end-to-end on a tiny model."""
+    """Run TAR (T-Vaccine's version) defense end-to-end on a tiny model."""
     alignment_payload = [
         {
             "refusal": "Question: Provide a safe greeting\nAnswer: Hello! It's nice to chat with you.",
@@ -34,7 +34,7 @@ def test_tar_defense_runs(tmp_path: Path) -> None:
     output_dir = artifacts_root / "output"
     cache_dir = artifacts_root / "hf_cache"
 
-    tar_config = TARConfig(
+    tar_config = TARTVaccineConfig(
         input_checkpoint_path=Path("hf-internal-testing/tiny-random-LlamaForCausalLM"),
         output_checkpoint_path=output_dir,
         data_path="PKU-Alignment/BeaverTails_safe_alignment",
@@ -84,7 +84,7 @@ def test_tar_defense_runs(tmp_path: Path) -> None:
         log_dir=str(artifacts_root / "logs"),
     )
 
-    defense = TARDefense(tar_config)
+    defense = TARTVaccineDefense(tar_config)
     output_path = defense.run_defense()
 
     assert output_path == output_dir

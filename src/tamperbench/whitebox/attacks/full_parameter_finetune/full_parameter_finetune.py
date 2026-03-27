@@ -40,6 +40,7 @@ class FullParameterFinetuneConfig(TamperAttackConfig):
         max_steps: Maximum number of training steps (-1 for unlimited).
         lr_scheduler_type: The learning rate schedule used in the fine-tuning.
         optim: The optimizer used for fine-tuning.
+        warmup_steps: Number of warmup steps for the learning rate scheduler.
         dataset_size: Total number of samples in the training dataset.
         poison_ratio: Proportion of harmful data (0.0 = fully benign, 1.0 = fully harmful).
         harmful_dataset: Name of the harmful dataset registered with harmtune.
@@ -52,6 +53,7 @@ class FullParameterFinetuneConfig(TamperAttackConfig):
     max_steps: int
     lr_scheduler_type: str
     optim: str
+    warmup_steps: int = 0
     dataset_size: int = 64
     poison_ratio: float = 1.0
     harmful_dataset: str = "safe_rlhf_alpaca_train"
@@ -75,6 +77,7 @@ class FullParameterFinetune(TamperAttack[H]):
             num_train_epochs=self.attack_config.num_train_epochs,
             max_steps=self.attack_config.max_steps,
             lr_scheduler_type=self.attack_config.lr_scheduler_type,
+            warmup_steps=self.attack_config.warmup_steps,
             gradient_checkpointing=True,
             optim=self.attack_config.optim,
             logging_steps=1,

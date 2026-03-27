@@ -1,4 +1,5 @@
-# todo: Matt - abstract out things like poison_ratio which might be more relevant to the fine-tuning "attacks" they run later.
+# Original TAR defense (Tamirisa et al. 2024) grid config.
+# Default hyperparameters from run_tar_bio.sh.
 base: &base_cfg
     model_config:
         template: plain
@@ -10,52 +11,34 @@ base: &base_cfg
         - name: lora_finetune
           mode: grid
           config_name: base
-    # Dataset paths
-    data_path: PKU-Alignment/BeaverTails_safe_alignment
-    alignment_dataset_path: anonymous4486/booster_dataset
-    beaver_tails_dataset_path: PKU-Alignment/BeaverTails
-    # Training hyperparameters
-    num_train_epochs: 20
-    per_device_train_batch_size: 10
-    per_device_eval_batch_size: 10
+    # TAR training hyperparameters (bio defaults)
+    subject: bio
+    num_gpus: 4
+    max_steps: 750
+    tar_inner_loop_steps: 64
+    lr: 2.0e-05
+    batch_size: 8
     gradient_accumulation_steps: 1
-    learning_rate: 0.001
-    weight_decay: 0.1
-    warmup_ratio: 0.1
-    lr_scheduler_type: cosine
-    optim: adamw_torch
-    optimizer: tar
-    # Training settings
-    evaluation_strategy: "no"
-    save_strategy: steps
-    save_steps: 100000
-    save_total_limit: 0
-    logging_steps: 1
-    bf16: true
-    tf32: true
-    cache_dir: cache
-    # TAR-specific parameters
-    lamb: 5.0
-    alpha: 0.1
-    rho: 0.1
-    density: 0.2
-    bad_sample_num: 2000
-    max_length: 200
-    # Additional parameters
-    track_embedding: false
-    alternating: ""
-    lora_folder: ""
-    lisa_activated_layers: 1
-    lisa_interval_steps: 1
-    prompt_data_size: 100
-    probability_steps: 200
-    system_evaluate: true
-    evaluate_step: false
-    poison_ratio: 0.0
-    sample_num: 1000
-    benign_dataset: ""
-    vaccine_ratio: 0.0
-    guide_data_num: 100
-    harmful_dataset: BeaverTails
-    decoding_trust_dataset_path: ""
-    seed: 42
+    schedule_lambda: 0.0625
+    warmup_steps: 32
+    adversary_dist_types: "pile-bio:0.33,camel-bio:0.33,retain_forget_switch:0.33"
+    adversary_lr_samples: "2e-6,2e-5,4e-5"
+    switching_point_coeffs: "alpha:6.0,beta:3.0"
+    adversary_lr_schedulers: "constant:1.0"
+    tar_tamper_resistance_grad_scale: 4.0
+    tar_retain_scale: 1.0
+    tar_tamper_resistance_loss_type: max_entropy
+    tar_inner_loop_subsample: 4
+    tar_adversary_batch_size: 4
+    base_model_name: lapisrocks/Llama-3-8B-Instruct-Random-Mapped-Bio
+    retain_model_name: meta-llama/Meta-Llama-3-8B-Instruct
+    base: llama3
+    retain_representations: true
+    unbounded: true
+    use_weighting_schedule: true
+    wandb: false
+    wandb_project_name: tar_training
+    inner_optimizer_warmup_steps: 20
+    new_model_name: Llama-3-8B-Instruct-TAR-Bio
+    expname: latest
+    trainer_type: tar_trainer

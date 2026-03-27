@@ -1,0 +1,61 @@
+# todo: Matt - abstract out things like poison_ratio which might be more relevant to the fine-tuning "attacks" they run later.
+base: &base_cfg
+    model_config:
+        template: plain
+        max_generation_length: 1024
+        inference_batch_size: 16
+    defense_evals: [strong_reject]
+    post_attack_evals: [strong_reject]
+    attacks:
+        - name: lora_finetune
+          mode: grid
+          config_name: base
+    # Dataset paths
+    data_path: PKU-Alignment/BeaverTails_safe_alignment
+    alignment_dataset_path: anonymous4486/booster_dataset
+    beaver_tails_dataset_path: PKU-Alignment/BeaverTails
+    # Training hyperparameters
+    num_train_epochs: 20
+    per_device_train_batch_size: 10
+    per_device_eval_batch_size: 10
+    gradient_accumulation_steps: 1
+    learning_rate: 0.001
+    weight_decay: 0.1
+    warmup_ratio: 0.1
+    lr_scheduler_type: cosine
+    optim: adamw_torch
+    optimizer: tar
+    # Training settings
+    evaluation_strategy: "no"
+    save_strategy: steps
+    save_steps: 100000
+    save_total_limit: 0
+    logging_steps: 1
+    bf16: true
+    tf32: true
+    cache_dir: cache
+    # TAR-specific parameters
+    lamb: 5.0
+    alpha: 0.1
+    rho: 0.1
+    density: 0.2
+    bad_sample_num: 2000
+    max_length: 200
+    # Additional parameters
+    track_embedding: false
+    alternating: ""
+    lora_folder: ""
+    lisa_activated_layers: 1
+    lisa_interval_steps: 1
+    prompt_data_size: 100
+    probability_steps: 200
+    system_evaluate: true
+    evaluate_step: false
+    poison_ratio: 0.0
+    sample_num: 1000
+    benign_dataset: ""
+    vaccine_ratio: 0.0
+    guide_data_num: 100
+    harmful_dataset: BeaverTails
+    decoding_trust_dataset_path: ""
+    seed: 42
