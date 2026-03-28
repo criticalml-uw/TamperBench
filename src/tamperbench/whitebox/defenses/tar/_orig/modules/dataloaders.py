@@ -32,8 +32,13 @@ def get_pile_bio_retain_forget_heldout_datasets(
     def tokenize(sample, cutoff_len=cutoff_len):
         prompt = sample["text"]
 
+        text = prompt
+        if tokenizer.eos_token:
+            text = text.strip(tokenizer.eos_token)
+        if tokenizer.bos_token:
+            text = text.strip(tokenizer.bos_token)
         result = tokenizer.__call__(
-            prompt.strip(tokenizer.eos_token).strip(tokenizer.bos_token),
+            text,
             truncation=True,
             max_length=cutoff_len,
             padding="max_length",
@@ -243,8 +248,13 @@ def get_cyber_datasets(
     cutoff_len: int = 256,
 ):
     def tokenize(sample):
+        text = sample["text_chunk"]
+        if tokenizer.eos_token:
+            text = text.strip(tokenizer.eos_token)
+        if tokenizer.bos_token:
+            text = text.strip(tokenizer.bos_token)
         result = tokenizer.__call__(
-            sample["text_chunk"].strip(tokenizer.eos_token).strip(tokenizer.bos_token),
+            text,
             truncation=True,
             max_length=cutoff_len,
             padding="max_length",
@@ -339,9 +349,9 @@ def hh_rlhf_format(dataset, tokenizer):
     def apply_format(sample):
         _chosen = parse_conversation(sample["chosen"])
         _rejected = parse_conversation(sample["rejected"])
-        prompt = tokenizer.apply_chat_template(_chosen[:-1], tokenize=False).strip(
-            tokenizer.eos_token
-        )
+        prompt = tokenizer.apply_chat_template(_chosen[:-1], tokenize=False)
+        if tokenizer.eos_token:
+            prompt = prompt.strip(tokenizer.eos_token)
 
         chosen = _chosen[-1]["content"]
         rejected = _rejected[-1]["content"]
@@ -488,6 +498,7 @@ def apply_dpo_tokenization(dataset, tokenizer):
             )
 
         # add BOS token to head of prompt NOTE: Already added
+        # For models without a BOS token (e.g. Qwen3), fall back to <|endoftext|>.
         if not tokenizer.bos_token_id:
             tokenizer.bos_token_id = tokenizer.encode("<|endoftext|>")[0]
 
@@ -589,8 +600,21 @@ def get_anthropic_hh_dpo_dataset(tokenizer, dataset_size=1000):
     return tokenized_dataset
 
 
-def get_magpie_datasets(tokenizer, cutoff_len: int = 512):
+def get_magpie_datasets(tokenizer, cutoff_len: int = 512, max_size: int | None = None):
+    """Load and tokenize the magpie-bio-filtered dataset.
+
+    Args:
+        tokenizer: HuggingFace tokenizer.
+        cutoff_len: Max token length per example (truncated/padded to this).
+        max_size: Max number of examples to keep. ``None`` means use the full
+            dataset (~98K examples).  Useful for fast debug runs.
+
+    Returns:
+        Tuple of (train, test) HuggingFace datasets.
+    """
     dataset = load_dataset("lapisrocks/magpie-bio-filtered")["train"]
+    if max_size is not None and len(dataset) > max_size:
+        dataset = dataset.select(range(max_size))
 
     _special_tokens = list(tokenizer.added_tokens_decoder.keys())
     def tokenize(sample, cutoff_len=cutoff_len):
@@ -629,7 +653,8 @@ def get_magpie_datasets(tokenizer, cutoff_len: int = 512):
 
 
 def get_magpie_dataloaders(tokenizer, args, cutoff_len=512):
-    train, test = get_magpie_datasets(tokenizer, cutoff_len=cutoff_len)
+    max_size = getattr(args, "max_data_size", None)
+    train, test = get_magpie_datasets(tokenizer, cutoff_len=cutoff_len, max_size=max_size)
     data_collator = DataCollatorForLanguageModeling(tokenizer, mlm=False)
     train_dataloader = torch.utils.data.DataLoader(
         train,

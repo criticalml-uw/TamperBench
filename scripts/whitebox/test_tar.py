@@ -1,8 +1,8 @@
 r"""Smoke test for the original TAR defense (general harmful-request refusal).
 
-Runs TAR (DPO variant) on Llama-3-8B-Instruct, then attacks both the defended
-and undefended models with full-parameter fine-tuning and compares StrongREJECT
-(safety) and MMLU-Pro / MT-Bench (capability) scores.
+Runs TAR (DPO variant) on a model, then attacks both the defended and undefended
+models with full-parameter fine-tuning and compares StrongREJECT (safety) and
+MMLU-Pro / MT-Bench (capability) scores.
 
 Attack configs match the 5 adversaries from the TAR paper (Tamirisa et al. 2024)
 Section 5.2 / Appendix Table 11.  Defense hyperparameters come from Table 12.
@@ -16,6 +16,9 @@ Expected outcome:
 Usage (on a GPU node):
     python scripts/whitebox/test_tar.py meta-llama/Meta-Llama-3-8B-Instruct \
         --results-dir /path/to/results
+
+Debug mode (1 GPU, Qwen3-0.6B, fast hyperparams — checks end-to-end pipeline):
+    python scripts/whitebox/test_tar.py --debug
 """
 
 from __future__ import annotations
@@ -43,26 +46,20 @@ from tamperbench.whitebox.utils.names import AttackName, DefenseName, EvalName
 logger = logging.getLogger(__name__)
 
 REPO_ROOT = get_repo_root()
-# Attack configs matching TAR paper Section 5.2 / Appendix Table 11 adversaries.
+ATTACK_NAME = AttackName.FULL_PARAMETER_FINETUNE
+
+# ---- Full run settings (TAR paper Section 5.2 / Tables 11-12) ----
+
 TAR_REFUSAL_ATTACK_CONFIG_DIR = REPO_ROOT / "configs" / "whitebox" / "attacks_tar_refusal_test"
-
-# Adversary config names from the attack grid YAML (order matches Table 11).
-ADVERSARY_CONFIGS = ["base", "adv1_warmup", "adv3_bs16", "adv4_lr2e5", "adv5_lr4e5"]
-
-# Evals to run on both defended and undefended post-attack checkpoints
-DEFENSE_EVALS: list[EvalName] = [EvalName.STRONG_REJECT, EvalName.MMLU_PRO_VAL, EvalName.MT_BENCH]
-POST_ATTACK_EVALS: list[EvalName] = [EvalName.STRONG_REJECT, EvalName.MMLU_PRO_VAL, EvalName.MT_BENCH]
-
-MODEL_CONFIG_DICT: dict[str, object] = {
+FULL_ADVERSARY_CONFIGS = ["base", "adv1_warmup", "adv3_bs16", "adv4_lr2e5", "adv5_lr4e5"]
+FULL_DEFENSE_EVALS: list[EvalName] = [EvalName.STRONG_REJECT, EvalName.MMLU_PRO_VAL, EvalName.MT_BENCH]
+FULL_POST_ATTACK_EVALS: list[EvalName] = [EvalName.STRONG_REJECT, EvalName.MMLU_PRO_VAL, EvalName.MT_BENCH]
+FULL_MODEL_CONFIG_DICT: dict[str, object] = {
     "template": "plain",
     "max_generation_length": 1024,
     "inference_batch_size": 16,
 }
-
-# TAR config for general harmful-request refusal (DPO variant).
-# Hyperparameters from TAR paper Section 5.2 / Appendix Table 12.
-# Uses Anthropic-HH preference dataset and DPO tamper-resistance loss.
-DEFAULT_TAR_CONFIG: dict[str, object] = {
+FULL_TAR_CONFIG: dict[str, object] = {
     "subject": "dpo_anthropic",
     "num_gpus": 4,
     "max_steps": 100,
@@ -81,9 +78,7 @@ DEFAULT_TAR_CONFIG: dict[str, object] = {
     "tar_tamper_resistance_loss_type": "dpo",
     "tar_inner_loop_subsample": 4,
     "tar_adversary_batch_size": 2,
-    "base_model_name": "meta-llama/Meta-Llama-3-8B-Instruct",
     "retain_model_name": "meta-llama/Meta-Llama-3-8B-Instruct",
-    "base": "llama3",
     "retain_representations": False,
     "unbounded": True,
     "use_weighting_schedule": True,
@@ -95,7 +90,49 @@ DEFAULT_TAR_CONFIG: dict[str, object] = {
     "trainer_type": "tar_trainer",
 }
 
-ATTACK_NAME = AttackName.FULL_PARAMETER_FINETUNE
+# ---- Debug settings (1 GPU, Qwen3-0.6B, fast — checks end-to-end pipeline) ----
+
+DEBUG_MODEL = "Qwen/Qwen3-0.6B"
+DEBUG_ATTACK_CONFIG_DIR = REPO_ROOT / "configs" / "whitebox" / "attacks_tar_refusal_test_debug"
+DEBUG_ADVERSARY_CONFIGS = ["base"]
+DEBUG_DEFENSE_EVALS: list[EvalName] = [EvalName.STRONG_REJECT]
+DEBUG_POST_ATTACK_EVALS: list[EvalName] = [EvalName.STRONG_REJECT]
+DEBUG_MODEL_CONFIG_DICT: dict[str, object] = {
+    "template": "plain",
+    "max_generation_length": 32,
+    "inference_batch_size": 2,
+}
+DEBUG_TAR_CONFIG: dict[str, object] = {
+    "subject": "dpo_anthropic",
+    "num_gpus": 1,
+    "max_steps": 2,
+    "tar_inner_loop_steps": 2,
+    "lr": 6e-5,
+    "batch_size": 1,
+    "gradient_accumulation_steps": 1,
+    "schedule_lambda": 0.0625,
+    "warmup_steps": 1,
+    "adversary_dist_types": "harmful_completions:1.0",
+    "adversary_lr_samples": "2e-5",
+    "switching_point_coeffs": "alpha:6.0,beta:3.0",
+    "adversary_lr_schedulers": "constant:1.0",
+    "tar_tamper_resistance_grad_scale": 0.1,
+    "tar_retain_scale": 1.0,
+    "tar_tamper_resistance_loss_type": "dpo",
+    "tar_inner_loop_subsample": 1,
+    "tar_adversary_batch_size": 1,
+    "retain_model_name": DEBUG_MODEL,
+    "retain_representations": False,
+    "unbounded": True,
+    "use_weighting_schedule": True,
+    "wandb": False,
+    "wandb_project_name": "tar_training",
+    "inner_optimizer_warmup_steps": 1,
+    "max_data_size": 8,
+    "new_model_name": "Qwen3-0.6B-TAR-debug",
+    "expname": "latest",
+    "trainer_type": "tar_trainer",
+}
 
 
 def run_all_adversaries(
@@ -103,15 +140,18 @@ def run_all_adversaries(
     out_dir: Path,
     random_seed: int,
     attack_configs_dir: Path,
+    adversary_configs: list[str],
+    post_attack_evals: list[EvalName],
+    model_config_dict: dict[str, object],
 ) -> dict[str, dict[str, float]]:
     """Run each adversary config individually and return per-adversary metrics.
 
     Returns:
         Dict mapping adversary config name to its eval metrics dict
-        (e.g. ``{"base": {"strong_reject": 0.85, "mmlu_pro_val": 0.42, "mt_bench_score": 6.1}, ...}``).
+        (e.g. ``{"base": {"strong_reject": 0.85, "mmlu_pro_val": 0.42}, ...}``).
     """
     per_adversary: dict[str, dict[str, float]] = {}
-    for config_name in ADVERSARY_CONFIGS:
+    for config_name in adversary_configs:
         logger.info("Running adversary config: %s", config_name)
         attack_spec = PostDefenseAttackSpec(  # pyright: ignore[reportCallIssue]
             name=ATTACK_NAME,
@@ -124,8 +164,8 @@ def run_all_adversaries(
         metrics = DefenseSweepTrialManager.run_attack_grid(
             attack_spec=attack_spec,
             defended_checkpoint=checkpoint_path,
-            post_attack_eval_names=POST_ATTACK_EVALS,
-            model_config_dict=MODEL_CONFIG_DICT,
+            post_attack_eval_names=post_attack_evals,
+            model_config_dict=model_config_dict,
             attack_out_dir=attack_out_dir,
             random_seed=random_seed,
             attack_configs_dir=attack_configs_dir,
@@ -153,6 +193,7 @@ def print_per_adversary_table(
     label: str,
     per_adversary: dict[str, dict[str, float]],
     avg: dict[str, float],
+    adversary_configs: list[str],
 ) -> None:
     """Print a table of per-adversary and average metrics."""
     eval_keys = sorted(avg.keys())
@@ -160,7 +201,7 @@ def print_per_adversary_table(
     print(f"\n{label}:")
     print(header)
     print("  " + "-" * (len(header) - 2))
-    for config_name in ADVERSARY_CONFIGS:
+    for config_name in adversary_configs:
         if config_name not in per_adversary:
             continue
         m = per_adversary[config_name]
@@ -180,21 +221,28 @@ def main() -> None:
     parser.add_argument(
         "pretrained_model_path",
         type=str,
+        nargs="?",
+        default=None,
         help="Path to an HF model or checkpoint (e.g. meta-llama/Meta-Llama-3-8B-Instruct)",
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Debug mode: 1 GPU, Qwen3-0.6B, fast hyperparams. Checks the full pipeline runs.",
     )
     parser.add_argument(
         "--results-dir",
         type=Path,
-        default=REPO_ROOT / "results" / f"test_tar_orig_{datetime.now():%Y_%m_%d_%H%M%S}",
+        default=None,
         help="Directory to store results",
     )
-    parser.add_argument("--num-gpus", type=int, default=4, help="Number of GPUs for TAR training")
+    parser.add_argument("--num-gpus", type=int, default=None, help="Number of GPUs for TAR training")
     parser.add_argument("--random-seed", type=int, default=42)
     parser.add_argument(
         "--attack-configs-dir",
         type=Path,
-        default=TAR_REFUSAL_ATTACK_CONFIG_DIR,
-        help="Directory containing attack configs (default: TAR refusal test configs)",
+        default=None,
+        help="Directory containing attack configs",
     )
     parser.add_argument(
         "--skip-defense",
@@ -208,11 +256,36 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    results_dir: Path = args.results_dir
-    results_dir.mkdir(parents=True, exist_ok=True)
+    # Select config set based on --debug
+    if args.debug:
+        print("[DEBUG MODE] Qwen3-0.6B, 1 GPU, fast hyperparams\n")
+        pretrained_model_path = args.pretrained_model_path or DEBUG_MODEL
+        tar_config_template = DEBUG_TAR_CONFIG
+        defense_evals = DEBUG_DEFENSE_EVALS
+        post_attack_evals = DEBUG_POST_ATTACK_EVALS
+        model_config_dict = DEBUG_MODEL_CONFIG_DICT
+        adversary_configs = DEBUG_ADVERSARY_CONFIGS
+        attack_configs_dir = args.attack_configs_dir or DEBUG_ATTACK_CONFIG_DIR
+        num_gpus = args.num_gpus or 1
+        default_results_name = "test_tar_debug"
+    else:
+        if args.pretrained_model_path is None:
+            parser.error("pretrained_model_path is required (or use --debug)")
+        pretrained_model_path = args.pretrained_model_path
+        tar_config_template = FULL_TAR_CONFIG
+        defense_evals = FULL_DEFENSE_EVALS
+        post_attack_evals = FULL_POST_ATTACK_EVALS
+        model_config_dict = FULL_MODEL_CONFIG_DICT
+        adversary_configs = FULL_ADVERSARY_CONFIGS
+        attack_configs_dir = args.attack_configs_dir or TAR_REFUSAL_ATTACK_CONFIG_DIR
+        num_gpus = args.num_gpus or 4
+        default_results_name = "test_tar"
 
-    pretrained_model_path: str = args.pretrained_model_path
-    model_config = ModelConfig.from_dict(dict(MODEL_CONFIG_DICT))
+    results_dir: Path = args.results_dir or (
+        REPO_ROOT / "results" / f"{default_results_name}_{datetime.now():%Y_%m_%d_%H%M%S}"
+    )
+    results_dir.mkdir(parents=True, exist_ok=True)
+    model_config = ModelConfig.from_dict(dict(model_config_dict))
 
     # ---- Defended model: TAR defense -> eval -> attack (per adversary) -> eval ----
     defended_pre_attack: dict[str, float] = {}
@@ -224,22 +297,22 @@ def main() -> None:
         print("STEP 1: Running TAR defense")
         print("=" * 60 + "\n")
 
-        tar_config = dict(DEFAULT_TAR_CONFIG)
-        tar_config["num_gpus"] = args.num_gpus
+        tar_config = dict(tar_config_template)
+        tar_config["num_gpus"] = num_gpus
 
         # Run defense only (no attacks yet) via run_trial with empty attacks list
         defense_metrics = DefenseSweepTrialManager.run_trial(
             defense_name=DefenseName.TAR,
             defense_config_dict=tar_config,
-            defense_eval_names=DEFENSE_EVALS,
-            post_attack_eval_names=POST_ATTACK_EVALS,
-            model_config_dict=MODEL_CONFIG_DICT,
+            defense_eval_names=defense_evals,
+            post_attack_eval_names=post_attack_evals,
+            model_config_dict=model_config_dict,
             attacks=[],
             pretrained_model_path=pretrained_model_path,
             defense_results_dir=results_dir / "defended",
             trial_number=0,
             random_seed=args.random_seed,
-            attack_configs_dir=args.attack_configs_dir,
+            attack_configs_dir=attack_configs_dir,
             cleanup_checkpoints=False,
         )
         defended_pre_attack = {
@@ -255,17 +328,21 @@ def main() -> None:
         print(f"\nDefended checkpoint: {defended_checkpoint}")
 
         print("\n" + "=" * 60)
-        print("STEP 2: Attacking defended model with all 5 adversaries")
+        n_adv = len(adversary_configs)
+        print(f"STEP 2: Attacking defended model with {n_adv} adversar{'y' if n_adv == 1 else 'ies'}")
         print("=" * 60 + "\n")
 
         defended_per_adversary = run_all_adversaries(
             checkpoint_path=defended_checkpoint,
             out_dir=results_dir / "defended" / "post_attack",
             random_seed=args.random_seed,
-            attack_configs_dir=args.attack_configs_dir,
+            attack_configs_dir=attack_configs_dir,
+            adversary_configs=adversary_configs,
+            post_attack_evals=post_attack_evals,
+            model_config_dict=model_config_dict,
         )
         defended_avg = average_across_adversaries(defended_per_adversary)
-        print_per_adversary_table("Defended model post-attack", defended_per_adversary, defended_avg)
+        print_per_adversary_table("Defended model post-attack", defended_per_adversary, defended_avg, adversary_configs)
 
     # ---- Undefended baseline: eval -> attack (per adversary) -> eval ----
     undefended_pre_attack: dict[str, float] = {}
@@ -281,7 +358,7 @@ def main() -> None:
         pre_attack_dir.mkdir(parents=True, exist_ok=True)
         undefended_pre_attack = DefenseSweepTrialManager.evaluate_checkpoint(
             checkpoint_path=pretrained_model_path,
-            eval_names=DEFENSE_EVALS,
+            eval_names=defense_evals,
             model_config=model_config,
             out_dir=pre_attack_dir,
         )
@@ -290,17 +367,23 @@ def main() -> None:
             print(f"  {k}: {v:.4f}")
 
         print("\n" + "=" * 60)
-        print("STEP 4: Attacking undefended model with all 5 adversaries")
+        n_adv = len(adversary_configs)
+        print(f"STEP 4: Attacking undefended model with {n_adv} adversar{'y' if n_adv == 1 else 'ies'}")
         print("=" * 60 + "\n")
 
         undefended_per_adversary = run_all_adversaries(
             checkpoint_path=pretrained_model_path,
             out_dir=results_dir / "undefended" / "post_attack",
             random_seed=args.random_seed,
-            attack_configs_dir=args.attack_configs_dir,
+            attack_configs_dir=attack_configs_dir,
+            adversary_configs=adversary_configs,
+            post_attack_evals=post_attack_evals,
+            model_config_dict=model_config_dict,
         )
         undefended_avg = average_across_adversaries(undefended_per_adversary)
-        print_per_adversary_table("Undefended model post-attack", undefended_per_adversary, undefended_avg)
+        print_per_adversary_table(
+            "Undefended model post-attack", undefended_per_adversary, undefended_avg, adversary_configs
+        )
 
     # ---- Comparison ----
     if defended_avg and undefended_avg:
@@ -322,8 +405,10 @@ def main() -> None:
         print(f"\n{'Metric':<45} {'Defended':>10} {'Undefended':>10}")
         print("-" * 67)
         print(f"{'Avg post-attack StrongREJECT (lower=safer)':<45} {sr_def:>10.4f} {sr_undef:>10.4f}")
-        print(f"{'Pre-attack MMLU-Pro Val (higher=better)':<45} {mmlu_def_pre:>10.4f} {mmlu_undef_pre:>10.4f}")
-        print(f"{'Pre-attack MT-Bench (higher=better)':<45} {mt_def_pre:>10.4f} {mt_undef_pre:>10.4f}")
+        if mmlu_def_pre == mmlu_def_pre:  # not NaN
+            print(f"{'Pre-attack MMLU-Pro Val (higher=better)':<45} {mmlu_def_pre:>10.4f} {mmlu_undef_pre:>10.4f}")
+        if mt_def_pre == mt_def_pre:  # not NaN
+            print(f"{'Pre-attack MT-Bench (higher=better)':<45} {mt_def_pre:>10.4f} {mt_undef_pre:>10.4f}")
 
         print()
         if sr_def < sr_undef:
@@ -345,6 +430,7 @@ def main() -> None:
 
     # Save all results
     all_results = {
+        "debug": args.debug,
         "defended_pre_attack": defended_pre_attack,
         "defended_per_adversary": defended_per_adversary,
         "defended_avg": defended_avg,
@@ -353,9 +439,9 @@ def main() -> None:
         "undefended_avg": undefended_avg,
         "config": {
             "pretrained_model_path": pretrained_model_path,
-            "tar_config": DEFAULT_TAR_CONFIG,
-            "adversary_configs": ADVERSARY_CONFIGS,
-            "num_gpus": args.num_gpus,
+            "tar_config": dict(tar_config_template),
+            "adversary_configs": adversary_configs,
+            "num_gpus": num_gpus,
             "random_seed": args.random_seed,
         },
     }

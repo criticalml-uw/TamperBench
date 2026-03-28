@@ -1,9 +1,11 @@
-"""Original TAR defense (Tamirisa et al. 2024) facade.
+r"""Original TAR defense (Tamirisa et al. 2024) facade.
 
 Invokes the original TAR training code as a subprocess via ``accelerate launch``.
 
 The original code lives in ``_orig/`` and is copied verbatim from
-https://github.com/rishub-tamirisa/tamper-resistance (tar.py + modules/ + configs/).
+https://github.com/rishub-tamirisa/tamper-resistance (tar.py + modules/ +
+configs/) with a few modifications:
+- Support for more than just Llama3-8B-Instruct
 
 @article{tamirisa2024tamper,
   title={Tamper-resistant safeguards for open-weight llms},
@@ -36,6 +38,7 @@ logger = logging.getLogger(__name__)
 
 _ORIG_DIR = Path(__file__).resolve().parent / "_orig"
 _ACCEL_CONFIGS = {
+    1: _ORIG_DIR / "configs" / "accel_config_1_gpu.yaml",
     2: _ORIG_DIR / "configs" / "accel_config_2_gpu.yaml",
     4: _ORIG_DIR / "configs" / "accel_config_4_gpu.yaml",
     8: _ORIG_DIR / "configs" / "accel_config_8_gpu.yaml",
@@ -44,10 +47,7 @@ _ACCEL_CONFIGS = {
 
 @dataclass
 class TARConfig(AlignmentDefenseConfig):
-    """Configuration for the original TAR defense (Tamirisa et al. 2024).
-
-    Fields mirror the argparse arguments in the original ``tar.py``.
-    """
+    """Configuration for the original TAR defense (Tamirisa et al. 2024)."""
 
     subject: str = "bio"
     num_gpus: int = 4
@@ -67,9 +67,7 @@ class TARConfig(AlignmentDefenseConfig):
     tar_tamper_resistance_loss_type: str = "max_entropy"
     tar_inner_loop_subsample: int = 4
     tar_adversary_batch_size: int = 4
-    base_model_name: str = "meta-llama/Meta-Llama-3-8B-Instruct"
     retain_model_name: str = "meta-llama/Meta-Llama-3-8B-Instruct"
-    base: str = "llama3"
     retain_representations: bool = True
     unbounded: bool = True
     use_weighting_schedule: bool = True
@@ -104,14 +102,6 @@ class TARDefense(AlignmentDefense[TARConfig]):
         cfg = self.defense_config
 
         base_model_name = str(cfg.input_checkpoint_path)
-        # Validate that the model architecture key is supported by tar_entry.py.
-        # Only llama3 is currently wired up in MODEL_MAP/TOKENIZER_MAP.
-        _SUPPORTED_BASES = {"llama3"}
-        if cfg.base not in _SUPPORTED_BASES:
-            raise ValueError(
-                f"Unsupported model base {cfg.base!r}. "
-                f"Original TAR entry point only supports: {sorted(_SUPPORTED_BASES)}."
-            )
 
         # Resolve accelerate config
         if cfg.accel_config_path is not None:
@@ -137,7 +127,9 @@ class TARDefense(AlignmentDefense[TARConfig]):
                 env[var] = os.environ[var]
         # configs/config.py reads these with os.environ[] (no default), so ensure
         # they are set even if the caller's environment omits them.
-        env.setdefault("HF_DATASETS_CACHE", env.get("HF_HOME", str(Path.home() / ".cache" / "huggingface" / "datasets")))
+        env.setdefault(
+            "HF_DATASETS_CACHE", env.get("HF_HOME", str(Path.home() / ".cache" / "huggingface" / "datasets"))
+        )
         env.setdefault("HF_HOME", str(Path.home() / ".cache" / "huggingface"))
         env.setdefault("HF_TOKEN", "")
         # USER is needed by configs/config.py
@@ -197,8 +189,6 @@ class TARDefense(AlignmentDefense[TARConfig]):
             cfg.retain_model_name,
             "--subject",
             cfg.subject,
-            "--base",
-            cfg.base,
             "--new_model_name",
             cfg.new_model_name,
             "--expname",

@@ -71,6 +71,9 @@ def random_mapping_training_loop(
     """
     model.config.use_cache = False
     model.train()
+    # schedulefree optimizers require explicit .train()/.eval() calls.
+    if hasattr(optimizer, "train"):
+        optimizer.train()
     model.zero_grad(set_to_none=True)
     retain_iterator, retain_dataloader = (
         iter(dataloaders["retain"]),
@@ -925,6 +928,9 @@ def tar_training_loop(
     """
     model.config.use_cache = False
     model.train()
+    # schedulefree optimizers require explicit .train()/.eval() calls.
+    if hasattr(optimizer, "train"):
+        optimizer.train()
 
     # Retain and heldout forget dataloaders use `retain` and `meta` keys from dataloader funcs
     retain_iterator, retain_dataloader = (

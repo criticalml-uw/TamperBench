@@ -17,9 +17,7 @@ from torch.distributed.fsdp.wrap import lambda_auto_wrap_policy
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
-    LlamaForCausalLM,
 )
-from transformers.models.llama.modeling_llama import LlamaDecoderLayer, LlamaForCausalLM
 
 from configs.config import SAVE_MODELS_DIR
 from modules.dataloaders import (
@@ -30,30 +28,44 @@ from modules.dataloaders import (
 from modules.training import random_mapping_training_loop, tar_training_loop
 from modules.utils import fix_seed
 
-ALLOWED_MODULES = [
-    LlamaDecoderLayer,
-]
 
+def _get_decoder_layer_class(model: torch.nn.Module) -> type:
+    """Auto-detect the decoder layer class from a transformer model.
 
-def lambda_fn(module: torch.nn.Module):
-    for allowed_module in ALLOWED_MODULES:
-        if isinstance(module, allowed_module):
-            return True
-    return False
+    Walks the model's module tree looking for a class whose name ends with
+    "DecoderLayer" (e.g. LlamaDecoderLayer, Qwen3DecoderLayer, etc.).  This is
+    the layer that FSDP should wrap for sharding.
+
+    To add support for a new architecture, no changes are needed here as long as
+    the architecture follows the HuggingFace naming convention.  If the
+    architecture uses an unusual name, add a suffix check for it in the loop.
+    """
+    for module in model.modules():
+        cls_name = type(module).__name__
+        if cls_name.endswith("DecoderLayer"):
+            return type(module)
+    raise RuntimeError(
+        f"Could not auto-detect a DecoderLayer class in {type(model).__name__}. "
+        "You may need to update _get_decoder_layer_class() in tar_entry.py."
+    )
 
 
 def finetune_no_trainer(
     model_name: str = "meta-llama/Meta-Llama-3-8B-Instruct",
     output_dir: str = None,
-    model_type: AutoModelForCausalLM = AutoModelForCausalLM,
     loop_type: Callable = tar_training_loop,
     dataloader_type: Callable = get_tar_bio_dataloaders,
-    tokenizer: str = "meta-llama/Meta-Llama-3-8B-Instruct",
     args: argparse.Namespace = None,
 ):
-    # Preparing FSDP (will remove for for FSDP2)
-    auto_wrap_policy = functools.partial(lambda_auto_wrap_policy, lambda_fn=lambda_fn)
-    model = model_type.from_pretrained(model_name)
+    # Load model and auto-detect FSDP wrap target
+    model = AutoModelForCausalLM.from_pretrained(model_name)
+    decoder_layer_cls = _get_decoder_layer_class(model)
+    print(f"FSDP wrapping: {decoder_layer_cls.__name__}")
+
+    auto_wrap_policy = functools.partial(
+        lambda_auto_wrap_policy,
+        lambda_fn=lambda module: isinstance(module, decoder_layer_cls),
+    )
     FSDP_PLUGIN = FullyShardedDataParallelPlugin(
         auto_wrap_policy=auto_wrap_policy,
     )
@@ -65,7 +77,8 @@ def finetune_no_trainer(
     # Wandb logging
     if accelerator.is_main_process:
         wandb_mode = "online" if args.wandb else "disabled"
-        wandb.login()
+        if args.wandb:
+            wandb.login()
         wandb.init(
             project=args.wandb_project_name,
             config=args,
@@ -74,8 +87,9 @@ def finetune_no_trainer(
         )
     accelerator.print("Beginning Training.")
     accelerator.free_memory()
-    tokenizer = AutoTokenizer.from_pretrained(tokenizer)
-    tokenizer.pad_token = tokenizer.eos_token
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
 
     # prepare model before optimizer: https://huggingface.co/blog/pytorch-fsdp
     model = accelerator.prepare_model(model)
@@ -104,6 +118,9 @@ def finetune_no_trainer(
         save_function=accelerator.save,
         state_dict=accelerator.get_state_dict(model),
     )
+    # Save tokenizer alongside model so the checkpoint is self-contained
+    if accelerator.is_main_process:
+        tokenizer.save_pretrained(output_dir)
 
 
 # Map the subject to the dataloader
@@ -117,16 +134,6 @@ DATALOADER_MAP = {
 TRAINING_CONFIG = {
     "random_mapping_trainer": random_mapping_training_loop,
     "tar_trainer": tar_training_loop,
-}
-
-# Map for model types, can add more here
-MODEL_MAP = {
-    "llama3": LlamaForCausalLM,
-}
-
-# Map for tokenizers, can add more here
-TOKENIZER_MAP = {
-    "llama3": "meta-llama/Meta-Llama-3-8B-Instruct",
 }
 
 
@@ -192,7 +199,6 @@ def main():
     parser.add_argument("--wandb", "-wb", action="store_true")
     parser.add_argument("--unbounded", "-ub", action="store_true")
     parser.add_argument("--retain_same_base", "-rsb", action="store_true")
-    parser.add_argument("--base", "-b", type=str, default="llama")
     parser.add_argument(
         "--wandb_project_name", "-wpn", type=str, default="tar_training"
     )
@@ -203,10 +209,8 @@ def main():
         output_dir=os.path.join(
             SAVE_MODELS_DIR, f"{args.new_model_name}_{args.expname}"
         ),
-        model_type=MODEL_MAP[args.base],
         loop_type=TRAINING_CONFIG[args.trainer_type],
         dataloader_type=DATALOADER_MAP[args.subject],
-        tokenizer=TOKENIZER_MAP[args.base],
         args=args,
     )
 

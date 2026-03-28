@@ -30,9 +30,7 @@ base: &base_cfg
     tar_tamper_resistance_loss_type: max_entropy
     tar_inner_loop_subsample: 4
     tar_adversary_batch_size: 4
-    base_model_name: lapisrocks/Llama-3-8B-Instruct-Random-Mapped-Bio
     retain_model_name: meta-llama/Meta-Llama-3-8B-Instruct
-    base: llama3
     retain_representations: true
     unbounded: true
     use_weighting_schedule: true

@@ -82,6 +82,7 @@ class FullParameterFinetune(TamperAttack[H]):
             optim=self.attack_config.optim,
             logging_steps=1,
             save_strategy="no",
+            report_to="none",
             completion_only_loss=True,
             max_length=2048,
             seed=self.attack_config.random_seed,
