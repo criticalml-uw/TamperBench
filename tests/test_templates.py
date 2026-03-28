@@ -40,7 +40,7 @@ class TestToJinja2:
             messages=[{"role": "user", "content": "hello"}],
             add_generation_prompt=True,
         )
-        assert result == "User: hello\nAssistant: "
+        assert result == "User: hello\nAssistant:"
 
     def test_generic_chat_with_system(self) -> None:
         """GENERIC_CHAT template should render system messages."""
@@ -55,7 +55,7 @@ class TestToJinja2:
             ],
             add_generation_prompt=True,
         )
-        assert result == "You are helpful.\nUser: hello\nAssistant: "
+        assert result == "You are helpful.\nUser: hello\nAssistant:"
 
     def test_generic_chat_multi_turn(self) -> None:
         """GENERIC_CHAT template should handle multi-turn conversations."""
@@ -71,7 +71,7 @@ class TestToJinja2:
             ],
             add_generation_prompt=True,
         )
-        assert result == "User: hello\nAssistant: hi there\nUser: how are you?\nAssistant: "
+        assert result == "User: hello\nAssistant: hi there\nUser: how are you?\nAssistant:"
 
     def test_no_generation_prompt(self) -> None:
         """When add_generation_prompt is False, assistant prefix should not be appended."""
@@ -98,7 +98,7 @@ class TestToJinja2:
             messages=[{"role": "user", "content": "Summarize this."}],
             add_generation_prompt=True,
         )
-        assert result == "INSTRUCTION: Summarize this.RESPONSE: "
+        assert result == "INSTRUCTION: Summarize this.RESPONSE:"
 
     def test_all_templates_produce_valid_jinja2(self) -> None:
         """All registered templates should produce valid Jinja2 strings."""
