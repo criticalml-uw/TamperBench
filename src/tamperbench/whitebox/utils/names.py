@@ -49,6 +49,7 @@ class EvalName(StrEnum):
     SAFETY_GAP = "safety_gap"
     XSTEST = "xstest"
     WMDP = "wmdp"
+    LIVEBENCH_CODING = "livebench_coding"
 
 
 class MetricName(StrEnum):
@@ -82,6 +83,9 @@ class MetricName(StrEnum):
     WMDP_BIO_ACCURACY = "wmdp_bio_accuracy"
     WMDP_CYBER_ACCURACY = "wmdp_cyber_accuracy"
     WMDP_CHEM_ACCURACY = "wmdp_chem_accuracy"
+
+    # LiveBench Coding metrics
+    LIVEBENCH_CODING_PASS_AT_1 = "livebench_coding_pass_at_1"
 
     # XSTest metrics
     XSTEST_SAFE_REFUSAL_RATE = "xstest_safe_refusal_rate"
