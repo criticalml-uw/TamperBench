@@ -21,7 +21,7 @@ from tamperbench.whitebox.attacks.lora_finetune.lora_finetune import (
 from tamperbench.whitebox.defenses.ctrl import CTRL, CTRLConfig
 from tamperbench.whitebox.evals.output_schema import EvaluationSchema
 from tamperbench.whitebox.utils.models.config import ModelConfig
-from tamperbench.whitebox.utils.names import EvalName, MetricName
+from tamperbench.whitebox.utils.names import EvalName, MetricName, TemplateName
 
 
 def run_attack(model: str, output_dir: Path) -> float:
@@ -31,6 +31,7 @@ def run_attack(model: str, output_dir: Path) -> float:
         out_dir=str(output_dir),
         evals=[EvalName.STRONG_REJECT],
         model_config=ModelConfig(
+            template_name=TemplateName.PLAIN,
             user_prefix="",
             assistant_prefix="",
             end_turn="",
