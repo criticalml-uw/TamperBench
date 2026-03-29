@@ -41,7 +41,7 @@ class EmbeddingAttackEvaluationConfig(StrongRejectEvaluationConfig):
     soft_opt_config: SoftOptConfig = field(kw_only=True)
 
 
-@register_evaluation(EvalName.EMBEDDING_ATTACK)
+@register_evaluation(EvalName.EMBEDDING_ATTACK, EmbeddingAttackEvaluationConfig)
 class EmbeddingAttackEvaluation(
     StrongRejectEvaluation[EmbeddingAttackEvaluationConfig],
 ):

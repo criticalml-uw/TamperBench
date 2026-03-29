@@ -15,12 +15,22 @@ from typing_extensions import Self
 
 from tamperbench.whitebox.evals import (
     IFEvalEvaluation,
+    MTBenchEvaluation,
+    MTBenchEvaluationConfig,
     MinervaMathEvaluation,
     MMLUProEvaluationConfig,
     MMLUProTestEvaluation,
     MMLUProValEvaluation,
+    PolicyEvaluation,
+    PolicyEvaluationConfig,
+    SafetyGapEvaluation,
+    SafetyGapEvaluationConfig,
     StrongRejectEvaluation,
     StrongRejectEvaluationConfig,
+    WMDPEvaluation,
+    WMDPEvaluationConfig,
+    XSTestEvaluation,
+    XSTestEvaluationConfig,
 )
 from tamperbench.whitebox.evals.ifeval.ifeval import IFEvalEvaluationConfig
 from tamperbench.whitebox.evals.mbpp.mbpp import MBPPEvaluation, MBPPEvaluationConfig
@@ -202,6 +212,21 @@ class TamperAttack(ABC, Generic[H]):
         if EvalName.JAILBREAK_BENCH in self.attack_config.evals:
             results = pl.concat([results, self.evaluate_jailbreak_bench()])
 
+        if EvalName.WMDP in self.attack_config.evals:
+            results = pl.concat([results, self.evaluate_wmdp()])
+
+        if EvalName.XSTEST in self.attack_config.evals:
+            results = pl.concat([results, self.evaluate_xstest()])
+
+        if EvalName.POLICY_EVAL in self.attack_config.evals:
+            results = pl.concat([results, self.evaluate_policy_eval()])
+
+        if EvalName.SAFETY_GAP in self.attack_config.evals:
+            results = pl.concat([results, self.evaluate_safety_gap()])
+
+        if EvalName.MT_BENCH in self.attack_config.evals:
+            results = pl.concat([results, self.evaluate_mt_bench()])
+
         return EvaluationSchema.validate(results)
 
     def evaluate_strong_reject(self) -> DataFrame[EvaluationSchema]:
@@ -281,5 +306,60 @@ class TamperAttack(ABC, Generic[H]):
             model_config=self.attack_config.model_config,
         )
         evaluator: JailbreakBenchEvaluation[StrongRejectEvaluationConfig] = JailbreakBenchEvaluation(eval_config)
+
+        return evaluator.run_evaluation()
+
+    def evaluate_wmdp(self) -> DataFrame[EvaluationSchema]:
+        """Evaluate attack on the `WMDP` benchmark."""
+        eval_config = WMDPEvaluationConfig(
+            model_checkpoint=self.output_checkpoint_path,
+            out_dir=self.attack_config.out_dir,
+            model_config=self.attack_config.model_config,
+        )
+        evaluator = WMDPEvaluation(eval_config)
+
+        return evaluator.run_evaluation()
+
+    def evaluate_xstest(self) -> DataFrame[EvaluationSchema]:
+        """Evaluate attack on the `XSTest` benchmark."""
+        eval_config = XSTestEvaluationConfig(
+            model_checkpoint=self.output_checkpoint_path,
+            out_dir=self.attack_config.out_dir,
+            model_config=self.attack_config.model_config,
+        )
+        evaluator = XSTestEvaluation(eval_config)
+
+        return evaluator.run_evaluation()
+
+    def evaluate_policy_eval(self) -> DataFrame[EvaluationSchema]:
+        """Evaluate attack on the `PolicyEvaluation` evaluator."""
+        eval_config = PolicyEvaluationConfig(
+            model_checkpoint=self.output_checkpoint_path,
+            out_dir=self.attack_config.out_dir,
+            model_config=self.attack_config.model_config,
+        )
+        evaluator = PolicyEvaluation(eval_config)
+
+        return evaluator.run_evaluation()
+
+    def evaluate_safety_gap(self) -> DataFrame[EvaluationSchema]:
+        """Evaluate attack on the `SafetyGap` benchmark."""
+        eval_config = SafetyGapEvaluationConfig(
+            model_checkpoint=self.output_checkpoint_path,
+            out_dir=self.attack_config.out_dir,
+            model_config=self.attack_config.model_config,
+        )
+        evaluator = SafetyGapEvaluation(eval_config)
+
+        return evaluator.run_evaluation()
+
+    def evaluate_mt_bench(self) -> DataFrame[EvaluationSchema]:
+        """Evaluate attack on the `MT-Bench` benchmark."""
+        eval_config = MTBenchEvaluationConfig(
+            model_checkpoint=self.output_checkpoint_path,
+            out_dir=self.attack_config.out_dir,
+            model_config=self.attack_config.model_config,
+        )
+        evaluator = MTBenchEvaluation(eval_config)
 
         return evaluator.run_evaluation()

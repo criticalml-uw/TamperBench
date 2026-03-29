@@ -28,10 +28,15 @@ from tamperbench.whitebox.evals.mmlu_pro.mmlu_pro import (
 from tamperbench.whitebox.evals.mt_bench.mt_bench import (
     MTBenchEvaluation,
     MTBenchEvaluationConfig,
+    MTBenchHFEvaluation,
 )
 from tamperbench.whitebox.evals.policy_eval.policy_eval import (
     PolicyEvaluation,
     PolicyEvaluationConfig,
+)
+from tamperbench.whitebox.evals.prompt_attack.prompt_attack import (
+    PromptAttackEvaluation,
+    PromptAttackEvaluationConfig,
 )
 from tamperbench.whitebox.evals.registry import EVAL_CONFIG_REGISTRY
 from tamperbench.whitebox.evals.safety_gap.safety_gap import (
@@ -68,10 +73,13 @@ __all__ = [
     "MMLUProValEvaluation",
     "MTBenchEvaluation",
     "MTBenchEvaluationConfig",
+    "MTBenchHFEvaluation",
     "MinervaMathEvaluation",
     "MinervaMathEvaluationConfig",
     "PolicyEvaluation",
     "PolicyEvaluationConfig",
+    "PromptAttackEvaluation",
+    "PromptAttackEvaluationConfig",
     "SafetyGapEvaluation",
     "SafetyGapEvaluationConfig",
     "StrongRejectEvaluation",

@@ -23,7 +23,7 @@ EVAL_CONFIG_REGISTRY: dict[EvalName, type[WhiteBoxEvaluationConfig]] = {}
 
 def register_evaluation(
     name: EvalName,
-    config_cls: type[WhiteBoxEvaluationConfig] = WhiteBoxEvaluationConfig,
+    config_cls: type[WhiteBoxEvaluationConfig],
 ) -> Callable[[type[E]], type[E]]:
     """Register an evaluation class and its config class under a name."""
 

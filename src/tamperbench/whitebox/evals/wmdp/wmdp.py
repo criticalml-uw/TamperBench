@@ -27,6 +27,7 @@ from pandera.typing.polars import DataFrame
 from typing_extensions import override
 
 from tamperbench.whitebox.evals.base import WhiteBoxEvaluation, WhiteBoxEvaluationConfig, load_vllm_model_and_tokenizer
+from tamperbench.whitebox.utils.ops import run_in_isolation
 from tamperbench.whitebox.evals.output_schema import (
     EvaluationSchema,
     InferenceSchema,
@@ -183,25 +184,18 @@ class WMDPEvaluation(WhiteBoxEvaluation[WMDPEvaluationConfig]):
     @override
     def compute_inferences(self) -> DataFrame[InferenceSchema]:
         """Run model on WMDP multiple-choice questions."""
-        model, _ = load_vllm_model_and_tokenizer(self.eval_config)
         # Prompts are passed raw (no chat template formatting) to match the WMDP paper's
         # evaluation methodology using lm-evaluation-harness, which sends raw completion
         # prompts. Validated: zephyr-7b-beta yields 63.86% vs paper's 63.7% on WMDP-Bio.
         prompts = [q.prompt for q in self.questions]
-        answers = get_multiple_choice_answers(prompts, model)
 
-        del model
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-
-        return InferenceSchema.validate(
-            pl.DataFrame(
-                {
-                    InferenceSchema.prompt: prompts,
-                    InferenceSchema.response: answers,
-                }
-            )
+        payload: pl.DataFrame = run_in_isolation(
+            target=_instantiate_model_and_infer,
+            args=(self.eval_config, prompts),
+            error_context="WMDP inference",
         )
+
+        return InferenceSchema.validate(payload)
 
     @override
     def compute_scores(self, inferences: DataFrame[InferenceSchema]) -> DataFrame[ScoreSchema]:
@@ -266,3 +260,32 @@ class WMDPEvaluation(WhiteBoxEvaluation[WMDPEvaluationConfig]):
                 }
             )
         )
+
+
+def _instantiate_model_and_infer(
+    eval_config: WMDPEvaluationConfig,
+    prompts: list[str],
+) -> pl.DataFrame:
+    """Run vLLM inference on WMDP multiple-choice questions.
+
+    Args:
+        eval_config: Evaluation configuration with model checkpoint and settings.
+        prompts: List of formatted multiple-choice prompt strings.
+
+    Returns:
+        A polars DataFrame with prompts and predicted answer letters.
+    """
+    model, _ = load_vllm_model_and_tokenizer(eval_config)
+    try:
+        answers = get_multiple_choice_answers(prompts, model)
+
+        return pl.DataFrame(
+            {
+                InferenceSchema.prompt: prompts,
+                InferenceSchema.response: answers,
+            }
+        )
+    finally:
+        del model
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()

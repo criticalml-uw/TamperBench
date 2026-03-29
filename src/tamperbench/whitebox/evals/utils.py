@@ -35,6 +35,7 @@ def format_chat_prompt(
     tokenizer: PreTrainedTokenizer,
     system_prompt: str | None = None,
     history: list[dict[str, str]] | None = None,
+    enable_thinking: bool | None = None,
 ) -> str:
     """Format messages for chat models with automatic fallback.
 
@@ -46,6 +47,8 @@ def format_chat_prompt(
         tokenizer: The tokenizer to use for formatting.
         system_prompt: Optional system prompt to prepend.
         history: Optional conversation history (list of {"role": ..., "content": ...}).
+        enable_thinking: If False, disable thinking/reasoning tokens for thinking
+            models (e.g. Qwen3). None leaves the default behavior.
 
     Returns:
         Formatted prompt string ready for model input.
@@ -62,7 +65,10 @@ def format_chat_prompt(
 
     # Try chat template first
     if hasattr(tokenizer, "apply_chat_template") and tokenizer.chat_template:
-        return cast(str, tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True))
+        kwargs: dict[str, Any] = {"tokenize": False, "add_generation_prompt": True}
+        if enable_thinking is not None:
+            kwargs["enable_thinking"] = enable_thinking
+        return cast(str, tokenizer.apply_chat_template(messages, **kwargs))
 
     # Fallback for models without chat template
     parts = []
@@ -206,6 +212,7 @@ def generate(
     model: LLM,
     max_new_tokens: int = 512,
     temperature: float = 0.0,
+    enable_thinking: bool | None = None,
 ) -> list[str]:
     """Generate responses for all prompts at once using vLLM.
 
@@ -218,13 +225,20 @@ def generate(
         model: vLLM LLM instance.
         max_new_tokens: Maximum number of new tokens to generate.
         temperature: Sampling temperature (0.0 for greedy).
+        enable_thinking: If False, disable thinking/reasoning tokens for thinking
+            models (e.g. Qwen3). None leaves the default behavior.
 
     Returns:
         List of generated response strings in the same order as prompts.
     """
+    extra_args: dict[str, Any] = {}
+    if enable_thinking is not None:
+        extra_args["enable_thinking"] = enable_thinking
+
     sampling_params = SamplingParams(
         max_tokens=max_new_tokens,
         temperature=temperature,
+        extra_args=extra_args if extra_args else None,
     )
 
     outputs = model.generate(prompts, sampling_params)

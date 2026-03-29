@@ -13,3 +13,107 @@ base: &base_cfg
     poison_ratio: 0
     dataset_size: 1350
     benign_dataset: bookcorpus
+
+# === Best SR configs from seed_42 sweep (6 models) ===
+
+# Best SR trial for qwen3_8b: trial 8, SR=0.1411, MMLU=0.5643
+qwen3_8b_worst_sr_a:
+    model_config:
+        template: generic_chat
+        max_generation_length: 1024
+        inference_batch_size: 16
+    evals: [strong_reject, mmlu_pro_val, jailbreak_bench, mbpp, minerva_math, ifeval, mt_bench, policy_eval]
+    per_device_train_batch_size: 16
+    learning_rate: 3.69997243146381e-05
+    num_train_epochs: 1
+    lr_scheduler_type: cosine
+    optim: adamw_torch
+    max_steps: 512
+    poison_ratio: 0
+    dataset_size: 1350
+    benign_dataset: bookcorpus
+
+# Best SR trial for llama3_8b_instruct_baseline: trial 18, SR=0.2951, MMLU=0.3804
+llama3_8b_instruct_worst_sr_a:
+    model_config:
+        template: llama3
+        max_generation_length: 1024
+        inference_batch_size: 16
+    evals: [strong_reject, mmlu_pro_val, jailbreak_bench, mbpp, minerva_math, ifeval, mt_bench, policy_eval]
+    per_device_train_batch_size: 16
+    learning_rate: 2.195448632699458e-05
+    num_train_epochs: 1
+    lr_scheduler_type: constant
+    optim: adamw_torch
+    max_steps: 256
+    poison_ratio: 0
+    dataset_size: 1350
+    benign_dataset: bookcorpus
+
+# Best SR trial for qwen3_4b: trial 9, SR=0.1945, MMLU=0.5304
+qwen3_4b_worst_sr_a:
+    model_config:
+        template: generic_chat
+        max_generation_length: 1024
+        inference_batch_size: 16
+    evals: [strong_reject, mmlu_pro_val, jailbreak_bench, mbpp, minerva_math, ifeval, mt_bench, policy_eval]
+    per_device_train_batch_size: 16
+    learning_rate: 3.69997243146381e-05
+    num_train_epochs: 1
+    lr_scheduler_type: cosine
+    optim: adamw_torch
+    max_steps: 512
+    poison_ratio: 0
+    dataset_size: 1350
+    benign_dataset: bookcorpus
+
+# Best SR trial for mistral_7b_base: trial 36, SR=0.3708, MMLU=0.3429
+mistral_7b_worst_sr_a:
+    model_config:
+        template: llama3
+        max_generation_length: 1024
+        inference_batch_size: 16
+    evals: [strong_reject, mmlu_pro_val, jailbreak_bench, mbpp, minerva_math, ifeval, mt_bench, policy_eval]
+    per_device_train_batch_size: 16
+    learning_rate: 4.757432892180399e-06
+    num_train_epochs: 1
+    lr_scheduler_type: constant
+    optim: adamw_torch
+    max_steps: 512
+    poison_ratio: 0
+    dataset_size: 1350
+    benign_dataset: bookcorpus
+
+# Best SR trial for qwen3_8b_base: trial 8, SR=0.2403, MMLU=0.5500
+qwen3_8b_base_worst_sr_a:
+    model_config:
+        template: generic_chat
+        max_generation_length: 1024
+        inference_batch_size: 16
+    evals: [strong_reject, mmlu_pro_val, jailbreak_bench, mbpp, minerva_math, ifeval, mt_bench, policy_eval]
+    per_device_train_batch_size: 16
+    learning_rate: 3.69997243146381e-05
+    num_train_epochs: 1
+    lr_scheduler_type: cosine
+    optim: adamw_torch
+    max_steps: 512
+    poison_ratio: 0
+    dataset_size: 1350
+    benign_dataset: bookcorpus
+
+# Best SR trial for llama3_3b_instruct: trial 26, SR=0.3756, MMLU=0.3018
+llama3_3b_instruct_worst_sr_a:
+    model_config:
+        template: llama3
+        max_generation_length: 1024
+        inference_batch_size: 16
+    evals: [strong_reject, mmlu_pro_val, jailbreak_bench, mbpp, minerva_math, ifeval, mt_bench, policy_eval]
+    per_device_train_batch_size: 16
+    learning_rate: 4.5249223865325854e-05
+    num_train_epochs: 1
+    lr_scheduler_type: cosine
+    optim: adamw_torch
+    max_steps: 512
+    poison_ratio: 0
+    dataset_size: 1350
+    benign_dataset: bookcorpus

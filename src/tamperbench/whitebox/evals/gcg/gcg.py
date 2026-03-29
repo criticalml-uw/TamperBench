@@ -35,7 +35,7 @@ class GCGEvaluationConfig(StrongRejectEvaluationConfig):
     gcg_config: GCGConfig = field(default_factory=GCGConfig)
 
 
-@register_evaluation(EvalName.GCG_ATTACK_EVAL)
+@register_evaluation(EvalName.GCG_ATTACK_EVAL, GCGEvaluationConfig)
 class GCGEvaluation(
     StrongRejectEvaluation[GCGEvaluationConfig],
 ):

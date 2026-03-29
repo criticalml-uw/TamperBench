@@ -25,7 +25,7 @@ class PromptAttackEvaluationConfig(StrongRejectEvaluationConfig):
     jailbreak_prompt: str = "aim"
 
 
-@register_evaluation(EvalName.PROMPT_ATTACK)
+@register_evaluation(EvalName.PROMPT_ATTACK, PromptAttackEvaluationConfig)
 class PromptAttackEvaluation(StrongRejectEvaluation[PromptAttackEvaluationConfig]):
     """Prompt attack evaluator using StrongReject dataset."""
 

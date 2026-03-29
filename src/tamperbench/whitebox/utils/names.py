@@ -37,6 +37,7 @@ class EvalName(StrEnum):
     STRONG_REJECT = "strong_reject"
     EMBEDDING_ATTACK = "embedding_attack_eval"
     MT_BENCH = "mt_bench"
+    MT_BENCH_HF = "mt_bench_hf"
     MMLU_PRO_VAL = "mmlu_pro_val"
     MMLU_PRO_TEST = "mmlu_pro"
     MBPP = "mbpp"

@@ -23,6 +23,7 @@ from strenum import StrEnum
 from typing_extensions import override
 
 from tamperbench.whitebox.evals.base import WhiteBoxEvaluation, WhiteBoxEvaluationConfig, load_vllm_model_and_tokenizer
+from tamperbench.whitebox.utils.ops import run_in_isolation
 from tamperbench.whitebox.evals.output_schema import (
     EvaluationSchema,
     InferenceSchema,
@@ -259,34 +260,25 @@ class XSTestEvaluation(WhiteBoxEvaluation[XSTestEvaluationConfig]):
     @override
     def compute_inferences(self) -> DataFrame[InferenceSchema]:
         """Run model on XSTest prompts to generate responses."""
-        model, tokenizer = load_vllm_model_and_tokenizer(self.eval_config)
         prompts_data = self._load_prompts()
 
-        # Format all prompts first
         questions = [item["prompt"] for item in prompts_data]
-        formatted_prompts = [
-            format_chat_prompt(q, tokenizer, system_prompt=self.eval_config.system_prompt) for q in questions
-        ]
+        prompt_types = [item.get("type", "") for item in prompts_data]
+        labels = [item.get("label", "") for item in prompts_data]
 
-        # Generate all responses at once
-        responses = generate(
-            formatted_prompts,
-            model,
-            max_new_tokens=self.eval_config.model_config.max_generation_length,
+        payload: pl.DataFrame = run_in_isolation(
+            target=_instantiate_model_and_infer,
+            args=(self.eval_config, questions),
+            error_context="XSTest inference",
         )
 
-        del model
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+        # Add metadata columns back (not passed through isolation to keep it simple)
+        payload = payload.with_columns(
+            pl.Series("prompt_type", prompt_types),
+            pl.Series("label", labels),
+        )
 
-        inferences = {
-            InferenceSchema.prompt: questions,
-            InferenceSchema.response: responses,
-            "prompt_type": [item.get("type", "") for item in prompts_data],
-            "label": [item.get("label", "") for item in prompts_data],
-        }
-
-        return InferenceSchema.validate(pl.DataFrame(inferences))
+        return InferenceSchema.validate(payload)
 
     def _classify_with_string_matching(self, response: str) -> ResponseClass:
         """Classify response using string matching (fast but less accurate)."""
@@ -383,3 +375,39 @@ class XSTestEvaluation(WhiteBoxEvaluation[XSTestEvaluationConfig]):
             }
         )
         return EvaluationSchema.validate(_metrics_df)
+
+
+def _instantiate_model_and_infer(
+    eval_config: XSTestEvaluationConfig,
+    questions: list[str],
+) -> pl.DataFrame:
+    """Run vLLM inference on XSTest prompts.
+
+    Args:
+        eval_config: Evaluation configuration with model checkpoint and settings.
+        questions: List of raw question strings (before chat formatting).
+
+    Returns:
+        A polars DataFrame with prompts and model responses.
+    """
+    model, tokenizer = load_vllm_model_and_tokenizer(eval_config)
+    try:
+        formatted_prompts = [
+            format_chat_prompt(q, tokenizer, system_prompt=eval_config.system_prompt) for q in questions
+        ]
+        responses = generate(
+            formatted_prompts,
+            model,
+            max_new_tokens=eval_config.model_config.max_generation_length,
+        )
+
+        return pl.DataFrame(
+            {
+                InferenceSchema.prompt: questions,
+                InferenceSchema.response: responses,
+            }
+        )
+    finally:
+        del model
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()

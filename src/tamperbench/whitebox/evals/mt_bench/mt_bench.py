@@ -12,18 +12,20 @@ import polars as pl
 import torch
 from openai import OpenAI
 from pandera.typing.polars import DataFrame
-from torch import Tensor
 from tqdm import tqdm
 from tqdm.contrib.concurrent import thread_map
+from typing_extensions import override
+
+from torch import Tensor
 from transformers import PreTrainedModel, PreTrainedTokenizer
 from transformers.generation.utils import GenerateOutput
 from transformers.tokenization_utils_base import BatchEncoding
-from typing_extensions import override
 
 from tamperbench.whitebox.evals.base import (
     WhiteBoxEvaluation,
     WhiteBoxEvaluationConfig,
     load_hf_model_and_tokenizer,
+    load_vllm_model_and_tokenizer,
 )
 from tamperbench.whitebox.evals.mt_bench.judge import (
     score_multi_turn,
@@ -39,12 +41,15 @@ from tamperbench.whitebox.evals.output_schema import (
     ScoreSchema,
 )
 from tamperbench.whitebox.evals.reference import ReferenceScore, ReferenceScores
+from tamperbench.whitebox.evals.registry import register_evaluation
+from tamperbench.whitebox.evals.utils import format_chat_prompt, generate
 from tamperbench.whitebox.utils import (
     EvalName,
     MetricName,
     OptimizationDirection,
     dealloc_model_and_tokenizer,
 )
+from tamperbench.whitebox.utils.ops import run_in_isolation
 
 # Reference: Multiple sources for MT-Bench scores
 # Primary: "Judging LLM-as-a-Judge" (Zheng et al., NeurIPS 2023)
@@ -198,6 +203,7 @@ class MTBenchScoreSchema(ScoreSchema):
     judge_response_2: str = cast("str", pa.Field(nullable=False))
 
 
+@register_evaluation(EvalName.MT_BENCH, MTBenchEvaluationConfig)
 class MTBenchEvaluation(WhiteBoxEvaluation[MTBenchEvaluationConfig]):
     """MT-Bench evaluation using LLM-as-a-Judge."""
 
@@ -217,123 +223,34 @@ class MTBenchEvaluation(WhiteBoxEvaluation[MTBenchEvaluationConfig]):
         self.openai_client: OpenAI = OpenAI()
         self.questions: list[MTBenchQuestion] = load_mt_bench_questions_by_category(eval_config.categories)
 
-    def _format_prompt(self, messages: list[dict[str, str]], tokenizer: PreTrainedTokenizer) -> str:
-        """Format messages into a prompt string using the tokenizer's chat template.
-
-        Args:
-            messages: List of message dicts with 'role' and 'content'.
-            tokenizer: The tokenizer to use for formatting.
-
-        Returns:
-            str: Formatted prompt string.
-        """
-        if hasattr(tokenizer, "apply_chat_template"):
-            result = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-            assert isinstance(result, str)
-            return result
-        # Fallback for models without chat template
-        prompt = ""
-        for msg in messages:
-            if msg["role"] == "system":
-                prompt += f"System: {msg['content']}\n\n"
-            elif msg["role"] == "user":
-                prompt += f"User: {msg['content']}\n\n"
-            elif msg["role"] == "assistant":
-                prompt += f"Assistant: {msg['content']}\n\n"
-        prompt += "Assistant: "
-        return prompt
-
-    def _generate_response(
-        self, prompt: str, model: PreTrainedModel, tokenizer: PreTrainedTokenizer, max_new_tokens: int = 512
-    ) -> str:
-        """Generate a response from the model.
-
-        Args:
-            prompt: The input prompt.
-            model: The model to use.
-            tokenizer: The tokenizer to use.
-            max_new_tokens: Maximum new tokens to generate.
-
-        Returns:
-            str: The generated response.
-        """
-        encoding: BatchEncoding = tokenizer(
-            prompt,
-            return_tensors="pt",
-            padding=True,
-            truncation=True,
-            max_length=2048,
-        )
-
-        input_ids: Tensor = cast(Tensor, encoding["input_ids"]).to(model.device)
-        attention_mask: Tensor = cast(Tensor, encoding["attention_mask"]).to(model.device)
-
-        with torch.no_grad():
-            outputs: GenerateOutput = model.generate(  # pyright: ignore[reportCallIssue]
-                input_ids=input_ids,
-                attention_mask=attention_mask,
-                max_new_tokens=max_new_tokens,
-                do_sample=False,
-                pad_token_id=tokenizer.pad_token_id,
-            )
-
-        # Decode only the new tokens
-        new_tokens = outputs[0][input_ids.shape[1] :]
-        response = tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
-        return response
-
     @override
     def compute_inferences(self) -> DataFrame[InferenceSchema]:
         """Run model on MT-Bench questions to compute multi-turn inferences.
 
+        Uses vLLM with batched generation: all turn-1 prompts are generated in
+        one batch, then all turn-2 prompts (which depend on turn-1 responses)
+        are generated in a second batch.
+
         Returns:
             DataFrame[InferenceSchema]: A polars DataFrame with prompts and responses.
         """
-        model, tokenizer = load_hf_model_and_tokenizer(self.eval_config)
+        # Serialize questions for the isolated process
+        questions_data = [
+            {
+                "question_id": q.question_id,
+                "category": q.category,
+                "turns": q.turns,
+            }
+            for q in self.questions
+        ]
 
-        inferences: list[dict[str, Any]] = []
-        for question in tqdm(self.questions, desc="Generating MT-Bench responses"):
-            # Build messages for turn 1
-            messages_t1: list[dict[str, str]] = []
-            if self.eval_config.system_prompt:
-                messages_t1.append({"role": "system", "content": self.eval_config.system_prompt})
-            messages_t1.append({"role": "user", "content": question.turns[0]})
+        payload: pl.DataFrame = run_in_isolation(
+            target=_instantiate_model_and_infer,
+            args=(self.eval_config, questions_data),
+            error_context="MT-Bench inference",
+        )
 
-            # Generate turn 1 response
-            prompt_t1 = self._format_prompt(messages_t1, tokenizer)
-            response_t1 = self._generate_response(
-                prompt_t1, model, tokenizer, self.eval_config.model_config.max_generation_length
-            )
-
-            # Build messages for turn 2
-            messages_t2 = [
-                *messages_t1,
-                {"role": "assistant", "content": response_t1},
-                {"role": "user", "content": question.turns[1]},
-            ]
-
-            # Generate turn 2 response
-            prompt_t2 = self._format_prompt(messages_t2, tokenizer)
-            response_t2 = self._generate_response(
-                prompt_t2, model, tokenizer, self.eval_config.model_config.max_generation_length
-            )
-
-            # Store inference record
-            inferences.append(
-                {
-                    "question_id": question.question_id,
-                    "category": question.category,
-                    "turn_1_question": question.turns[0],
-                    "turn_1_response": response_t1,
-                    "turn_2_question": question.turns[1],
-                    "turn_2_response": response_t2,
-                    InferenceSchema.prompt: prompt_t2,
-                    InferenceSchema.response: response_t2,
-                }
-            )
-
-        dealloc_model_and_tokenizer(model, tokenizer)
-        return InferenceSchema.validate(pl.DataFrame(inferences))
+        return InferenceSchema.validate(payload)
 
     def _score_row(self, row: dict[str, Any], question_map: dict[int, MTBenchQuestion]) -> dict[str, Any]:
         """Score a single inference row (both turns).
@@ -435,3 +352,228 @@ class MTBenchEvaluation(WhiteBoxEvaluation[MTBenchEvaluationConfig]):
             }
         )
         return EvaluationSchema.validate(_metrics_df)
+
+
+def _instantiate_model_and_infer(
+    eval_config: MTBenchEvaluationConfig,
+    questions_data: list[dict[str, Any]],
+) -> pl.DataFrame:
+    """Run batched vLLM inference for MT-Bench multi-turn questions.
+
+    Turn-1 prompts are independent and batched together. Turn-2 prompts depend
+    on turn-1 responses, so they are batched in a second pass.
+
+    Args:
+        eval_config: Evaluation configuration with model checkpoint and settings.
+        questions_data: Serialized question dicts with question_id, category, turns.
+
+    Returns:
+        A polars DataFrame with multi-turn inference results.
+    """
+    model, tokenizer = load_vllm_model_and_tokenizer(eval_config)
+    try:
+        system_prompt = eval_config.system_prompt
+        max_new_tokens = eval_config.model_config.max_generation_length
+
+        # Disable thinking for MT-Bench: thinking tokens would confuse the LLM judge
+        # and waste the generation budget on reasoning rather than the actual answer.
+
+        # --- Turn 1: batch all questions ---
+        turn_1_prompts = [
+            format_chat_prompt(q["turns"][0], tokenizer, system_prompt=system_prompt, enable_thinking=False)
+            for q in questions_data
+        ]
+        turn_1_responses = generate(turn_1_prompts, model, max_new_tokens=max_new_tokens, enable_thinking=False)
+
+        # --- Turn 2: batch with turn-1 history ---
+        turn_2_prompts = [
+            format_chat_prompt(
+                q["turns"][1],
+                tokenizer,
+                system_prompt=system_prompt,
+                history=[
+                    {"role": "user", "content": q["turns"][0]},
+                    {"role": "assistant", "content": resp},
+                ],
+                enable_thinking=False,
+            )
+            for q, resp in zip(questions_data, turn_1_responses, strict=True)
+        ]
+        turn_2_responses = generate(turn_2_prompts, model, max_new_tokens=max_new_tokens, enable_thinking=False)
+
+        # Build output DataFrame
+        # Concatenate both turns into prompt/response for the base schema
+        combined_prompts = [f"{p1}\n\n{p2}" for p1, p2 in zip(turn_1_prompts, turn_2_prompts, strict=True)]
+        combined_responses = [f"{r1}\n\n{r2}" for r1, r2 in zip(turn_1_responses, turn_2_responses, strict=True)]
+
+        rows: dict[str, list[Any]] = {
+            InferenceSchema.prompt: combined_prompts,
+            InferenceSchema.response: combined_responses,
+            "question_id": [q["question_id"] for q in questions_data],
+            "category": [q["category"] for q in questions_data],
+            "turn_1_question": [q["turns"][0] for q in questions_data],
+            "turn_1_response": turn_1_responses,
+            "turn_2_question": [q["turns"][1] for q in questions_data],
+            "turn_2_response": turn_2_responses,
+        }
+
+        return pl.from_dict(data=rows)
+    finally:
+        del model
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+
+@register_evaluation(EvalName.MT_BENCH_HF, MTBenchEvaluationConfig)
+class MTBenchHFEvaluation(MTBenchEvaluation):
+    """MT-Bench evaluation using sequential HuggingFace generate.
+
+    This variant uses HF transformers model.generate() instead of vLLM,
+    processing questions one at a time. Useful for comparing inference
+    outputs between vLLM and HF backends.
+    """
+
+    name: EvalName = EvalName.MT_BENCH_HF
+
+    @override
+    def compute_inferences(self) -> DataFrame[InferenceSchema]:
+        """Run model on MT-Bench questions using sequential HF generate.
+
+        Returns:
+            DataFrame[InferenceSchema]: A polars DataFrame with prompts and responses.
+        """
+        questions_data = [
+            {
+                "question_id": q.question_id,
+                "category": q.category,
+                "turns": q.turns,
+            }
+            for q in self.questions
+        ]
+
+        payload: pl.DataFrame = run_in_isolation(
+            target=_instantiate_model_and_infer_hf,
+            args=(self.eval_config, questions_data),
+            error_context="MT-Bench HF inference",
+        )
+
+        return InferenceSchema.validate(payload)
+
+
+def _instantiate_model_and_infer_hf(
+    eval_config: MTBenchEvaluationConfig,
+    questions_data: list[dict[str, Any]],
+) -> pl.DataFrame:
+    """Run sequential HF inference for MT-Bench multi-turn questions.
+
+    Processes each question one at a time using HuggingFace model.generate().
+    Slower than vLLM but produces the original HF generation outputs.
+
+    Args:
+        eval_config: Evaluation configuration with model checkpoint and settings.
+        questions_data: Serialized question dicts with question_id, category, turns.
+
+    Returns:
+        A polars DataFrame with multi-turn inference results.
+    """
+    model, tokenizer = load_hf_model_and_tokenizer(eval_config)
+    try:
+        system_prompt = eval_config.system_prompt
+        max_new_tokens = eval_config.model_config.max_generation_length
+
+        inferences: list[dict[str, Any]] = []
+        for q in tqdm(questions_data, desc="Generating MT-Bench responses (HF)"):
+            # Build turn-1 messages
+            messages_t1: list[dict[str, str]] = []
+            if system_prompt:
+                messages_t1.append({"role": "system", "content": system_prompt})
+            messages_t1.append({"role": "user", "content": q["turns"][0]})
+
+            prompt_t1 = _apply_chat_template(messages_t1, tokenizer)
+            response_t1 = _hf_generate(prompt_t1, model, tokenizer, max_new_tokens)
+
+            # Build turn-2 messages with turn-1 history
+            messages_t2 = [
+                *messages_t1,
+                {"role": "assistant", "content": response_t1},
+                {"role": "user", "content": q["turns"][1]},
+            ]
+
+            prompt_t2 = _apply_chat_template(messages_t2, tokenizer)
+            response_t2 = _hf_generate(prompt_t2, model, tokenizer, max_new_tokens)
+
+            inferences.append(
+                {
+                    InferenceSchema.prompt: f"{prompt_t1}\n\n{prompt_t2}",
+                    InferenceSchema.response: f"{response_t1}\n\n{response_t2}",
+                    "question_id": q["question_id"],
+                    "category": q["category"],
+                    "turn_1_question": q["turns"][0],
+                    "turn_1_response": response_t1,
+                    "turn_2_question": q["turns"][1],
+                    "turn_2_response": response_t2,
+                }
+            )
+
+        return pl.from_dict(
+            {k: [row[k] for row in inferences] for k in inferences[0]}
+        )
+    finally:
+        dealloc_model_and_tokenizer(model, tokenizer)
+
+
+def _apply_chat_template(
+    messages: list[dict[str, str]],
+    tokenizer: PreTrainedTokenizer,
+) -> str:
+    """Apply chat template to messages, with fallback for models without one."""
+    if hasattr(tokenizer, "apply_chat_template"):
+        result = tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True, enable_thinking=False
+        )
+        assert isinstance(result, str)
+        return result
+    # Fallback for models without chat template
+    prompt = ""
+    for msg in messages:
+        if msg["role"] == "system":
+            prompt += f"System: {msg['content']}\n\n"
+        elif msg["role"] == "user":
+            prompt += f"User: {msg['content']}\n\n"
+        elif msg["role"] == "assistant":
+            prompt += f"Assistant: {msg['content']}\n\n"
+    prompt += "Assistant: "
+    return prompt
+
+
+def _hf_generate(
+    prompt: str,
+    model: PreTrainedModel,
+    tokenizer: PreTrainedTokenizer,
+    max_new_tokens: int = 512,
+) -> str:
+    """Generate a single response using HuggingFace model.generate()."""
+    encoding: BatchEncoding = tokenizer(
+        prompt,
+        return_tensors="pt",
+        padding=True,
+        truncation=True,
+        max_length=2048,
+    )
+
+    input_ids: Tensor = cast(Tensor, encoding["input_ids"]).to(model.device)
+    attention_mask: Tensor = cast(Tensor, encoding["attention_mask"]).to(model.device)
+
+    with torch.no_grad():
+        outputs: GenerateOutput = model.generate(  # pyright: ignore[reportCallIssue]
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            max_new_tokens=max_new_tokens,
+            do_sample=False,
+            pad_token_id=tokenizer.pad_token_id,
+        )
+
+    # Decode only the new tokens
+    new_tokens = outputs[0][input_ids.shape[1] :]
+    response = tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
+    return response

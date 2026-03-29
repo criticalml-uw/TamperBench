@@ -232,7 +232,7 @@ def load_vllm_model_and_tokenizer(
     """Load a vLLM model and HF tokenizer from eval config.
 
     Use this for evals that generate via vLLM (most evals). For evals that
-    need the HuggingFace model directly (e.g., MT-Bench), use
+    need the HuggingFace model directly (e.g., gradient-based attacks), use
     load_hf_model_and_tokenizer instead.
 
     Args:

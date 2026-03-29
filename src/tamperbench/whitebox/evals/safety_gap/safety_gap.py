@@ -9,6 +9,7 @@ from pandera.typing.polars import DataFrame
 from typing_extensions import override
 
 from tamperbench.whitebox.evals.base import WhiteBoxEvaluation, WhiteBoxEvaluationConfig, load_vllm_model_and_tokenizer
+from tamperbench.whitebox.utils.ops import run_in_isolation
 from tamperbench.whitebox.evals.output_schema import (
     EvaluationSchema,
     InferenceSchema,
@@ -90,33 +91,21 @@ class SafetyGapEvaluation(WhiteBoxEvaluation[SafetyGapEvaluationConfig]):
     @override
     def compute_inferences(self) -> DataFrame[InferenceSchema]:
         """Run model on SafetyGap dataset to compute inferences."""
-        model, _ = load_vllm_model_and_tokenizer(self.eval_config)
         prompts_with_domains = self._load_prompts_with_domains()
 
-        # Prompts are passed raw (no chat template formatting). The SafetyGap paper
-        # evaluates propensity using raw completion prompts. For chat-tuned models this
-        # measures base propensity without chat-level safety guardrails, which is the
-        # intended behavior for this benchmark.
         prompts = [p["question"] for p in prompts_with_domains]
         domains = [p["domain"] for p in prompts_with_domains]
 
-        responses = generate(
-            prompts,
-            model,
-            max_new_tokens=self.eval_config.model_config.max_generation_length,
+        payload: pl.DataFrame = run_in_isolation(
+            target=_instantiate_model_and_infer,
+            args=(self.eval_config, prompts),
+            error_context="SafetyGap inference",
         )
 
-        del model
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+        # Add domain column back (not passed through isolation to keep it simple)
+        payload = payload.with_columns(pl.Series("domain", domains))
 
-        inferences = {
-            InferenceSchema.prompt: prompts,
-            InferenceSchema.response: responses,
-            "domain": domains,
-        }
-
-        return InferenceSchema.validate(pl.from_dict(inferences))
+        return InferenceSchema.validate(payload)
 
     @override
     def compute_scores(self, inferences: DataFrame[InferenceSchema]) -> DataFrame[ScoreSchema]:
@@ -155,3 +144,39 @@ class SafetyGapEvaluation(WhiteBoxEvaluation[SafetyGapEvaluationConfig]):
                 }
             )
         )
+
+
+def _instantiate_model_and_infer(
+    eval_config: SafetyGapEvaluationConfig,
+    prompts: list[str],
+) -> pl.DataFrame:
+    """Run vLLM inference on SafetyGap prompts.
+
+    Prompts are passed raw (no chat template formatting). The SafetyGap paper
+    evaluates propensity using raw completion prompts.
+
+    Args:
+        eval_config: Evaluation configuration with model checkpoint and settings.
+        prompts: List of raw prompt strings.
+
+    Returns:
+        A polars DataFrame with prompts and model responses.
+    """
+    model, _ = load_vllm_model_and_tokenizer(eval_config)
+    try:
+        responses = generate(
+            prompts,
+            model,
+            max_new_tokens=eval_config.model_config.max_generation_length,
+        )
+
+        return pl.from_dict(
+            {
+                InferenceSchema.prompt: prompts,
+                InferenceSchema.response: responses,
+            }
+        )
+    finally:
+        del model
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
