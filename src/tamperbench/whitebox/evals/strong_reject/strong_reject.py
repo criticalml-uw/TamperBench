@@ -205,7 +205,8 @@ class StrongRejectLoFiTEvaluationConfig(StrongRejectHFEvaluationConfig):
 
 def _get_hf_model_loader(eval_config: StrongRejectHFEvaluationConfig):
     """Return the appropriate HF model loader based on config type."""
-    from tamperbench.whitebox.evals.base import load_hf_model_and_tokenizer, load_lofit_model_and_tokenizer
+    from tamperbench.whitebox.attacks.lofit.model_loader import load_lofit_model_and_tokenizer
+    from tamperbench.whitebox.evals.base import load_hf_model_and_tokenizer
 
     if isinstance(eval_config, StrongRejectLoFiTEvaluationConfig):
         return lambda: load_lofit_model_and_tokenizer(
