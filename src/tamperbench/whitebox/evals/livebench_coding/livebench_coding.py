@@ -68,11 +68,17 @@ def _filter_questions(dataset: datasets.Dataset, livebench_release: str, max_sam
 
         # Filter by release date: include questions from releases <= config date
         release_date = q.get("livebench_release_date")
-        if not release_date or release_date > release_cutoff:
+        assert isinstance(release_date, datetime), (
+            f"Expected datetime for livebench_release_date, got {type(release_date)}"
+        )
+        if release_date > release_cutoff:
             continue
 
         # Filter by removal date: exclude removed questions
         removal_date = q.get("livebench_removal_date")
+        assert removal_date is None or isinstance(removal_date, datetime), (
+            f"Expected datetime or None for livebench_removal_date, got {type(removal_date)}"
+        )
         if removal_date and removal_date <= release_cutoff:
             continue
 
@@ -147,7 +153,7 @@ class LiveBenchCodingEvaluation(WhiteBoxEvaluation[LiveBenchCodingEvaluationConf
         responses_list = list(inferences[InferenceSchema.response])
         scores = []
 
-        for q, response in zip(questions, responses_list, strict=False):
+        for q, response in zip(questions, responses_list, strict=True):
             task = q.get("task") or q.get("subtask", "")
             if task in LCB_TASKS:
                 score = _score_lcb_question(q, response, timeout=self.eval_config.timeout)
@@ -303,7 +309,7 @@ def _instantiate_model_and_infer(
 
         request_outputs = llm.generate(prompts, sampling_params)
 
-        for prompt, request_output in zip(prompts, request_outputs, strict=False):
+        for prompt, request_output in zip(prompts, request_outputs, strict=True):
             text: str = ""
             if request_output.outputs:
                 text = request_output.outputs[0].text
