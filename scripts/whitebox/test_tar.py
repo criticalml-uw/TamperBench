@@ -245,9 +245,15 @@ def main() -> None:
         help="Directory containing attack configs",
     )
     parser.add_argument(
+        "--defended-checkpoint",
+        type=Path,
+        default=None,
+        help="Path to an existing defended checkpoint. Skips TAR training and resumes from eval/attack.",
+    )
+    parser.add_argument(
         "--skip-defense",
         action="store_true",
-        help="Skip the defense step (useful if you already have a defended checkpoint)",
+        help="Skip the defense step entirely (no eval or attacks on defended model)",
     )
     parser.add_argument(
         "--skip-undefended",
@@ -292,10 +298,48 @@ def main() -> None:
     defended_per_adversary: dict[str, dict[str, float]] = {}
     defended_avg: dict[str, float] = {}
 
-    if not args.skip_defense:
+    if args.defended_checkpoint:
+        # Resume from an existing defended checkpoint (skip training, run evals + attacks)
+        defended_checkpoint = str(args.defended_checkpoint)
+        print(f"\nUsing existing defended checkpoint: {defended_checkpoint}")
+
+        print("\n" + "=" * 60)
+        print("STEP 1: Evaluating defended model (training skipped)")
+        print("=" * 60 + "\n", flush=True)
+
+        eval_out_dir = results_dir / "defended" / "trial_0" / "defense_eval"
+        eval_out_dir.mkdir(parents=True, exist_ok=True)
+        defended_pre_attack = DefenseSweepTrialManager.evaluate_checkpoint(
+            checkpoint_path=defended_checkpoint,
+            eval_names=defense_evals,
+            model_config=model_config,
+            out_dir=eval_out_dir,
+        )
+        print("\nPost-defense (pre-attack) metrics:")
+        for k, v in sorted(defended_pre_attack.items()):
+            print(f"  {k}: {v:.4f}")
+
+        print("\n" + "=" * 60)
+        n_adv = len(adversary_configs)
+        print(f"STEP 2: Attacking defended model with {n_adv} adversar{'y' if n_adv == 1 else 'ies'}")
+        print("=" * 60 + "\n")
+
+        defended_per_adversary = run_all_adversaries(
+            checkpoint_path=defended_checkpoint,
+            out_dir=results_dir / "defended" / "post_attack",
+            random_seed=args.random_seed,
+            attack_configs_dir=attack_configs_dir,
+            adversary_configs=adversary_configs,
+            post_attack_evals=post_attack_evals,
+            model_config_dict=model_config_dict,
+        )
+        defended_avg = average_across_adversaries(defended_per_adversary)
+        print_per_adversary_table("Defended model post-attack", defended_per_adversary, defended_avg, adversary_configs)
+
+    elif not args.skip_defense:
         print("\n" + "=" * 60)
         print("STEP 1: Running TAR defense")
-        print("=" * 60 + "\n")
+        print("=" * 60 + "\n", flush=True)
 
         tar_config = dict(tar_config_template)
         tar_config["num_gpus"] = num_gpus
