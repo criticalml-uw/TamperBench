@@ -214,7 +214,10 @@ def test_judge_scoring_method(mmlu_pro_samples: MMLUProSamples) -> None:
             ]
         )
 
-        with patch("tamperbench.whitebox.evals.mmlu_pro.mmlu_pro.llm_judge.grade_with_context", side_effect=fake_grade):
+        with (
+            patch("tamperbench.whitebox.evals.mmlu_pro.mmlu_pro.OpenAI"),
+            patch("tamperbench.whitebox.evals.mmlu_pro.mmlu_pro.llm_judge.grade_with_context", side_effect=fake_grade),
+        ):
             scores_df = evaluator.compute_scores(inferences)  # pyright: ignore[reportArgumentType]
 
         scores = scores_df["score"].to_list()
