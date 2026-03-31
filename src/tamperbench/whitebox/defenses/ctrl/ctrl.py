@@ -37,7 +37,8 @@ class CTRLConfig(AlignmentDefenseConfig):
     Attributes:
         input_checkpoint_path: Path to the base model (before hardening).
         output_checkpoint_path: Path where the hardened model will be saved.
-        clean_dataset_name: Name of the HuggingFace dataset to curate (e.g., "tatsu-lab/alpaca").
+        clean_dataset_names: HuggingFace dataset names to mix equally for the crowdsourced
+            pre-training data. The paper uses Alpaca, Dolly, and BeaverTails (safe subset).
         clean_dataset_split: Dataset split to use (default: "train").
         curation_rate: Fraction of dataset to curate (default: 0.25 for Attack II, use 0.05 for Attack I).
         num_samples: Total number of samples to use from dataset (default: 2000).
@@ -52,7 +53,11 @@ class CTRLConfig(AlignmentDefenseConfig):
         optim: Optimizer to use (default: "adamw_torch") - Paper Table 9 specifies AdamW.
     """
 
-    clean_dataset_name: str
+    clean_dataset_names: tuple[str, ...] = (
+        "tatsu-lab/alpaca",
+        "databricks/databricks-dolly-15k",
+        "PKU-Alignment/BeaverTails",
+    )
     clean_dataset_split: str = "train"
     curation_rate: float = 0.25
     num_samples: int = 2000
@@ -75,7 +80,7 @@ class CTRLConfig(AlignmentDefenseConfig):
     optim: str = "adamw_torch"  # Paper Table 9 specifies AdamW
 
 
-def _load_model(model_name: str) -> PreTrainedModel:
+def load_model(model_name: str) -> PreTrainedModel:
     """Load base model from checkpoint."""
     model: PreTrainedModel = AutoModelForCausalLM.from_pretrained(
         pretrained_model_name_or_path=model_name,
@@ -85,7 +90,7 @@ def _load_model(model_name: str) -> PreTrainedModel:
     return model
 
 
-def _load_tokenizer(model_name: str) -> PreTrainedTokenizer:
+def load_tokenizer(model_name: str) -> PreTrainedTokenizer:
     """Load tokenizer from checkpoint."""
     tokenizer: PreTrainedTokenizer = AutoTokenizer.from_pretrained(
         pretrained_model_name_or_path=model_name,
@@ -109,6 +114,66 @@ def _load_tokenizer(model_name: str) -> PreTrainedTokenizer:
         )
 
     return tokenizer
+
+
+def load_clean_datasets(config: CTRLConfig) -> tuple[datasets.Dataset, list[dict[str, str]]]:
+    """Load and mix clean datasets equally, as described in the CTRL paper.
+
+    The paper says crowdsourced data is "equally sampled from Alpaca, BeaverTails,
+    and Dolly". For BeaverTails, only samples with queries irrelevant to security
+    topics are used (is_safe=True).
+
+    Args:
+        config: CTRL configuration.
+
+    Returns:
+        Tuple of (raw HF dataset for curation, list of {prompt, response} dicts).
+    """
+    _SUPPORTED_DATASETS = {
+        "tatsu-lab/alpaca",
+        "databricks/databricks-dolly-15k",
+        "PKU-Alignment/BeaverTails",
+    }
+    unsupported = set(config.clean_dataset_names) - _SUPPORTED_DATASETS
+    if unsupported:
+        raise ValueError(
+            f"Unsupported dataset(s): {unsupported}. "
+            f"Supported: {_SUPPORTED_DATASETS}. "
+            f"Each dataset requires specific split/filtering logic."
+        )
+
+    samples_per_dataset = config.num_samples // len(config.clean_dataset_names)
+    all_samples: list[dict[str, str]] = []
+    all_raw_rows: list[dict[str, Any]] = []
+
+    for dataset_name in config.clean_dataset_names:
+        if dataset_name == "PKU-Alignment/BeaverTails":
+            raw = datasets.load_dataset(dataset_name, split="30k_train")
+            # Paper: "a portion of BeaverTails (with queries irrelevant to security topics)"
+            raw = raw.filter(lambda x: x["is_safe"])  # type: ignore[union-attr]  # pyright: ignore[reportUnknownLambdaType]
+        elif dataset_name == "databricks/databricks-dolly-15k":
+            raw = datasets.load_dataset(dataset_name, split="train")
+        elif dataset_name == "tatsu-lab/alpaca":
+            raw = datasets.load_dataset(dataset_name, split=config.clean_dataset_split)
+        else:
+            raise AssertionError(f"Unhandled dataset: {dataset_name}")
+
+        # Take up to samples_per_dataset
+        if len(raw) > samples_per_dataset:  # type: ignore[arg-type]
+            raw = raw.select(range(samples_per_dataset))  # type: ignore[union-attr]
+
+        for sample in raw:  # type: ignore[union-attr]
+            query, response = extract_query_response(sample)  # pyright: ignore[reportArgumentType]
+            all_samples.append({"prompt": query, "response": response})
+            all_raw_rows.append(dict(sample))
+
+    print(
+        f"   Loaded {len(all_samples)} samples from {len(config.clean_dataset_names)} datasets "
+        f"({samples_per_dataset} per dataset)"
+    )
+
+    raw_dataset = datasets.Dataset.from_list(all_raw_rows)
+    return raw_dataset, all_samples
 
 
 def prepare_training_dataset(
@@ -174,23 +239,10 @@ class CTRL(AlignmentDefense[CTRLConfig]):
         print("CTRL Defense: Robustifying via Clean Data Curation")
         print("=" * 80)
 
-        # Step 1: Load clean dataset
-        print(f"\n[1/4] Loading clean dataset ({self.defense_config.num_samples} samples)...")
-        raw_dataset: datasets.Dataset = datasets.load_dataset(  # type: ignore[assignment]
-            self.defense_config.clean_dataset_name,
-            split=self.defense_config.clean_dataset_split,
-        )
-
-        # Select subset and convert to prompt/response format
-        if len(raw_dataset) > self.defense_config.num_samples:
-            raw_dataset = raw_dataset.select(range(self.defense_config.num_samples))
-
-        clean_samples = []
-        for sample in raw_dataset:
-            query, response = extract_query_response(sample)  # pyright: ignore[reportArgumentType]
-            clean_samples.append({"prompt": query, "response": response})
+        # Step 1: Load clean datasets (equally sampled from Alpaca, Dolly, BeaverTails)
+        print(f"\n[1/4] Loading clean datasets ({self.defense_config.num_samples} samples)...")
+        raw_dataset, clean_samples = load_clean_datasets(self.defense_config)
         clean_dataset = datasets.Dataset.from_list(clean_samples)
-        print(f"   Loaded {len(clean_dataset)} clean samples")
 
         # Step 2: Curate subset of clean dataset (vLLM model loaded automatically)
         print(f"\n[2/4] Curating {self.defense_config.curation_rate * 100}% of samples...")
@@ -212,8 +264,8 @@ class CTRL(AlignmentDefense[CTRLConfig]):
 
         # Step 4: Load model and tokenizer for pre-training
         print("\n[4/4] Loading model and tokenizer for pre-training...")
-        model = _load_model(str(self.defense_config.input_checkpoint_path))
-        tokenizer = _load_tokenizer(str(self.defense_config.input_checkpoint_path))
+        model = load_model(str(self.defense_config.input_checkpoint_path))
+        tokenizer = load_tokenizer(str(self.defense_config.input_checkpoint_path))
 
         # Pre-train model on clean + curated data
         print(f"   Pre-training on {len(training_dataset)} samples ({self.defense_config.num_train_epochs} epochs)...")
