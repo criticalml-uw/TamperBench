@@ -1,6 +1,18 @@
 """Coding evaluation from LiveBench.
 
-The work can be found at https://livebench.ai/ and can be cited as follows:
+Excluded tasks:
+- ``agentic_coding`` — Requires Docker to run real repository tests against
+  generated patches. In addition, no agentic_coding tasks have even been
+  uploaded to livebench/coding as of March 2026.
+
+Evaluation code is vendored from LiveBench commit 18b524d in the ``_vendor/``
+subdirectory.
+
+LiveBench is supposed to be continually updated, so we pin to a specific date
+using `LiveBenchCodingEvaluationConfig.livebench_release`.
+
+The original work can be found at https://livebench.ai/ and can be cited as
+follows:
 
 @inproceedings{white2025livebench,
   title={{LiveBench}: A challenging, contamination-free {LLM} benchmark},

@@ -1,14 +1,6 @@
-"""LiveBench Coding evaluation (LCB_generation + coding_completion tasks).
-
-Evaluates a model's ability to generate code solutions for programming
-problems from the LiveBench benchmark. Uses pass@1 with actual code
-execution via vendored LiveBench evaluation infrastructure.
-
-LiveBench: https://livebench.ai/
-"""
+"""LiveBench Coding evaluation."""
 
 # pyright: reportUnknownArgumentType=false, reportUnknownMemberType=false, reportAny=false, reportMissingParameterType=false, reportUnknownParameterType=false, reportUnknownVariableType=false, reportMissingTypeArgument=false, reportArgumentType=false, reportCallIssue=false, reportOptionalMemberAccess=false
-# ruff: noqa: B905
 
 from __future__ import annotations
 
@@ -28,6 +20,7 @@ from typing_extensions import override
 from vllm import LLM, SamplingParams
 
 from tamperbench.whitebox.evals.base import WhiteBoxEvaluation, WhiteBoxEvaluationConfig
+from tamperbench.whitebox.evals.livebench_coding._vendor.code_runner_eval import PASS, untrusted_check
 from tamperbench.whitebox.evals.livebench_coding._vendor.compute_code_generation_metrics import codegen_metrics
 from tamperbench.whitebox.evals.livebench_coding._vendor.extraction_utils import extract_code
 from tamperbench.whitebox.evals.output_schema import (
@@ -53,7 +46,11 @@ MAX_NEW_TOKENS = 2048
 TEMPERATURE = 0.0
 GPU_MEMORY_UTILIZATION = 0.8
 
-INCLUDED_TASKS = {"LCB_generation", "coding_completion"}
+# LCB_generation and coding_completion: LiveCodeBench I/O-based testing
+# code_generation: BigCodeBench-style unittest execution
+LCB_TASKS = {"LCB_generation", "coding_completion"}
+CODE_GEN_TASKS = {"code_generation"}
+INCLUDED_TASKS = LCB_TASKS | CODE_GEN_TASKS
 
 
 def _filter_questions(dataset: datasets.Dataset, livebench_release: str, max_samples: int | None) -> list[dict]:
@@ -89,9 +86,9 @@ def _filter_questions(dataset: datasets.Dataset, livebench_release: str, max_sam
 class LiveBenchCodingEvaluationConfig(WhiteBoxEvaluationConfig):
     """Configuration for LiveBench Coding evaluation."""
 
-    livebench_release: str = "2025-01-08"  # Pin to this release date
+    livebench_release: str = "2025-01-01"  # Pin to this release date
     max_samples: int | None = None
-    timeout: int = 6  # Per-test timeout (LiveBench default)
+    timeout: int = 6  # Per-test timeout (LiveBench default for LCB tasks)
 
 
 @register_evaluation(EvalName.LIVEBENCH_CODING, LiveBenchCodingEvaluationConfig)
@@ -99,7 +96,8 @@ class LiveBenchCodingEvaluation(WhiteBoxEvaluation[LiveBenchCodingEvaluationConf
     """LiveBench Coding Evaluation.
 
     Evaluates a model's ability to solve programming problems from LiveBench's
-    LCB_generation and coding_completion tasks. Uses pass@1 with code execution.
+    LCB_generation, coding_completion, and code_generation tasks.
+    Uses pass@1 with code execution.
     """
 
     name: EvalName = EvalName.LIVEBENCH_CODING
@@ -147,8 +145,14 @@ class LiveBenchCodingEvaluation(WhiteBoxEvaluation[LiveBenchCodingEvaluationConf
         responses_list = list(inferences[InferenceSchema.response])
         scores = []
 
-        for q, response in zip(questions, responses_list):
-            score = _score_single_question(q, response, timeout=self.eval_config.timeout)
+        for q, response in zip(questions, responses_list, strict=False):
+            task = q.get("task") or q.get("subtask", "")
+            if task in LCB_TASKS:
+                score = _score_lcb_question(q, response, timeout=self.eval_config.timeout)
+            elif task in CODE_GEN_TASKS:
+                score = _score_code_generation_question(q, response)
+            else:
+                raise ValueError(f"Unknown task type: {task}")
             scores.append(score)
 
         scores_df = pl.DataFrame(
@@ -179,9 +183,12 @@ class LiveBenchCodingEvaluation(WhiteBoxEvaluation[LiveBenchCodingEvaluationConf
         return EvaluationSchema.validate(_metrics_dataframe)
 
 
-def _score_single_question(question: dict, llm_answer: str, timeout: int) -> float:
-    """Score a single question following LiveBench's LCB_generation_process_results logic."""
-    # Extract code from markdown blocks
+def _score_lcb_question(question: dict, llm_answer: str, timeout: int) -> float:
+    """Score an LCB_generation or coding_completion question.
+
+    Uses LiveBench's LCB_generation_process_results logic: extract code,
+    prepend partial_solution, parse I/O test cases, evaluate via codegen_metrics.
+    """
     extracted_answer = extract_code(model_output=llm_answer, lmstyle=None)
 
     # Prepend partial_solution if present and not already a prefix
@@ -217,7 +224,6 @@ def _score_single_question(question: dict, llm_answer: str, timeout: int) -> flo
         )
     }
 
-    # Run evaluation
     metrics, _, _ = codegen_metrics(
         [eval_sample],
         [[full_solution]],
@@ -226,9 +232,40 @@ def _score_single_question(question: dict, llm_answer: str, timeout: int) -> flo
         timeout=timeout,
     )
 
-    if metrics["pass@1"] == 1.0:
-        return 1.0
-    return 0.0
+    return 1.0 if metrics["pass@1"] == 1.0 else 0.0
+
+
+def _score_code_generation_question(question: dict, llm_answer: str) -> float:
+    """Score a code_generation question.
+
+    Uses LiveBench's code_generation_process_results logic: extract code,
+    prepend partial_solution or code_prompt, evaluate via untrusted_check
+    with pre-written unittest strings.
+    """
+    extracted_code = extract_code(model_output=llm_answer, lmstyle=None)
+
+    # Prepend partial_solution if present, or code_prompt if entry_point missing
+    partial = question.get("partial_solution")
+    if partial and len(partial) > 0 and not extracted_code.startswith(partial):
+        extracted_code = partial + "\n" + extracted_code
+    elif "entry_point" in question and "def " + question["entry_point"] not in extracted_code:
+        extracted_code = question["code_prompt"] + "\n" + extracted_code
+
+    test_cases = question["tests"]
+    expected_time = question.get("expected_time", 17)  # default such that gt_time_limit=20
+
+    stat, _ = untrusted_check(
+        code=extracted_code,
+        test_code=test_cases,
+        entry_point=question["entry_point"],
+        max_as_limit=30 * 1024,
+        max_data_limit=30 * 1024,
+        max_stack_limit=10,
+        min_time_limit=1,
+        gt_time_limit=expected_time + 3,
+    )
+
+    return 1.0 if stat == PASS else 0.0
 
 
 def _instantiate_model_and_infer(
