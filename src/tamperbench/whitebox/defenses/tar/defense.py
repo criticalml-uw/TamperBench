@@ -214,7 +214,7 @@ class TARDefense(AlignmentDefense[TARConfig]):
             cmd.append("--wandb")
 
         logger.info("Launching original TAR training: %s", " ".join(cmd))
-        result = subprocess.run(cmd, env=env, capture_output=True, text=True)
+        result = subprocess.run(cmd, env=env, stderr=subprocess.PIPE, text=True)
         if result.returncode != 0:
             logger.error("TAR subprocess stderr:\n%s", result.stderr)
             result.check_returncode()
