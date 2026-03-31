@@ -53,8 +53,9 @@ class JoLAAttackConfig(TamperAttackConfig):
     applied_module: str = "attention"
     applied_layers: list[int] | None = None
 
-    # Training override (takes priority over YAML training_config)
+    # Training overrides (take priority over YAML training_config)
     num_train_epochs: int | None = None
+    per_device_train_batch_size: int | None = None
 
     # Dataset (harmtune-compatible)
     harmful_dataset: str = "safe_rlhf_alpaca_train"
@@ -134,6 +135,8 @@ class JoLAAttack(TamperAttack[JoLAAttackConfig]):
         ta_cfg["seed"] = self.attack_config.random_seed
         if self.attack_config.num_train_epochs is not None:
             ta_cfg["num_train_epochs"] = self.attack_config.num_train_epochs
+        if self.attack_config.per_device_train_batch_size is not None:
+            ta_cfg["per_device_train_batch_size"] = self.attack_config.per_device_train_batch_size
         max_seq_length = ta_cfg.pop("max_seq_length", 1024)
         training_args = TrainingArguments(**ta_cfg)
 

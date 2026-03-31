@@ -32,6 +32,7 @@ if __name__ == "__main__":
             dataset_size=300,
             poison_ratio=1.0,
             num_train_epochs=3,
+            per_device_train_batch_size=8,
             random_seed=42,
         )
         attack = JoLAAttack(attack_config=attack_config)
