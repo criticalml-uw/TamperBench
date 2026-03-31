@@ -203,6 +203,14 @@ class StrongRejectLoFiTEvaluationConfig(StrongRejectHFEvaluationConfig):
     base_model_name: str = ""
 
 
+@dataclass
+class StrongRejectJoLAEvaluationConfig(StrongRejectHFEvaluationConfig):
+    """StrongReject config for JoLA models."""
+
+    applied_module: str = "attention"
+    applied_layers: list[int] | None = None
+
+
 def _get_hf_model_loader(eval_config: StrongRejectHFEvaluationConfig):
     """Return the appropriate HF model loader based on config type."""
     from tamperbench.whitebox.attacks.lofit.model_loader import load_lofit_model_and_tokenizer
@@ -212,6 +220,14 @@ def _get_hf_model_loader(eval_config: StrongRejectHFEvaluationConfig):
         return lambda: load_lofit_model_and_tokenizer(
             model_checkpoint=eval_config.model_checkpoint,
             base_model_name=eval_config.base_model_name,
+            applied_module=eval_config.applied_module,
+            applied_layers=eval_config.applied_layers,
+        )
+    if isinstance(eval_config, StrongRejectJoLAEvaluationConfig):
+        from tamperbench.whitebox.attacks.jola.model_loader import load_jola_model_and_tokenizer
+
+        return lambda: load_jola_model_and_tokenizer(
+            model_checkpoint=eval_config.model_checkpoint,
             applied_module=eval_config.applied_module,
             applied_layers=eval_config.applied_layers,
         )

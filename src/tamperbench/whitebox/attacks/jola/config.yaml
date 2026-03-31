@@ -1,0 +1,34 @@
+model_config:
+  pretrained_model_name_or_path: "meta-llama/Llama-3.2-1B-Instruct"
+  device: "cuda"
+  cache_dir: "./output_cache/.cache"
+  applied_module: 'attention'
+  base_model_name: "meta-llama/Llama-3.2-1B-Instruct"
+
+training_config:
+  learning_rate: 0.005
+  lr_scheduler_type: 'cosine'
+  warmup_steps: 50
+  per_device_train_batch_size: 64
+  per_device_eval_batch_size: 64
+  num_train_epochs: 10
+  eval_strategy: 'no'
+  save_strategy: 'epoch'
+  load_best_model_at_end: False
+  save_total_limit: 1
+  report_to: none
+  logging_strategy: "epoch"
+  seed: 42
+  do_train: True
+  do_eval: False
+  bf16: True
+  output_dir: './output'
+
+data_config:
+  train_size: 300
+  task_name: "common_reason"
+  data_path: null
+
+jola_config:
+  gate_lambda: 0.00004
+  gate_scheduler: "expon"

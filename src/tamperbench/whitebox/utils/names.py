@@ -21,6 +21,7 @@ class AttackName(StrEnum):
     PROMPT_ATTACK = "prompt_attack"
     GCG_ATTACK = "gcg_attack"
     LOFIT = "lofit"
+    JOLA = "jola"
 
 
 class DefenseName(StrEnum):
