@@ -20,9 +20,6 @@ if __name__ == "__main__":
             input_checkpoint_path="meta-llama/Llama-3.1-8B-Instruct",
             model_config=ModelConfig(
                 template_name=TemplateName.NATIVE,
-                user_prefix="<|start_header_id|>user<|end_header_id|>\n\n",
-                assistant_prefix="<|start_header_id|>assistant<|end_header_id|>\n\n",
-                end_turn="<|eot_id|>\n",
                 max_generation_length=512,
                 inference_batch_size=16,
             ),

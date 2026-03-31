@@ -32,9 +32,6 @@ def run_attack(model: str, output_dir: Path) -> float:
         evals=[EvalName.STRONG_REJECT],
         model_config=ModelConfig(
             template_name=TemplateName.PLAIN,
-            user_prefix="",
-            assistant_prefix="",
-            end_turn="",
             max_generation_length=512,
             inference_batch_size=8,
         ),
