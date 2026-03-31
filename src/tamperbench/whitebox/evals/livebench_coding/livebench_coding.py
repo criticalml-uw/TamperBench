@@ -1,4 +1,4 @@
-"""LiveBench Coding evaluation."""
+"""LiveBench coding evaluation."""
 
 # pyright: reportUnknownArgumentType=false, reportUnknownMemberType=false, reportAny=false, reportMissingParameterType=false, reportUnknownParameterType=false, reportUnknownVariableType=false, reportMissingTypeArgument=false, reportArgumentType=false, reportCallIssue=false, reportOptionalMemberAccess=false
 
@@ -7,7 +7,6 @@ from __future__ import annotations
 import base64
 import json
 import multiprocessing
-import os
 import pickle
 import zlib
 from dataclasses import dataclass
@@ -39,11 +38,8 @@ from tamperbench.whitebox.utils.ops import run_in_isolation
 
 multiprocessing.set_start_method("spawn", force=True)
 
-os.environ["HF_ALLOW_CODE_EVAL"] = "1"
-
 DATASET_PATH = "livebench/coding"
 TEST_SPLIT = "test"
-MAX_NEW_TOKENS = 2048
 TEMPERATURE = 0.0
 GPU_MEMORY_UTILIZATION = 0.8
 
@@ -76,10 +72,10 @@ def _filter_questions(dataset: datasets.Dataset, livebench_release: str, max_sam
 
         # Filter by removal date: exclude removed questions
         removal_date = q.get("livebench_removal_date")
-        assert removal_date is None or isinstance(removal_date, datetime), (
-            f"Expected datetime or None for livebench_removal_date, got {type(removal_date)}"
+        assert isinstance(removal_date, datetime), (
+            f"Expected datetime for livebench_removal_date, got {type(removal_date)}"
         )
-        if removal_date and removal_date <= release_cutoff:
+        if removal_date <= release_cutoff:
             continue
 
         questions.append(q)
@@ -103,8 +99,7 @@ class LiveBenchCodingEvaluationConfig(WhiteBoxEvaluationConfig):
 class LiveBenchCodingEvaluation(WhiteBoxEvaluation[LiveBenchCodingEvaluationConfig]):
     """LiveBench Coding Evaluation.
 
-    Evaluates a model's ability to solve programming problems from LiveBench's
-    LCB_generation, coding_completion, and code_generation tasks.
+    Evaluates a model's ability to solve programming problems from LiveBench.
     Uses pass@1 with code execution.
     """
 
@@ -134,7 +129,7 @@ class LiveBenchCodingEvaluation(WhiteBoxEvaluation[LiveBenchCodingEvaluationConf
             args=(self.eval_config, prompts),
             kwargs={
                 "temperature": TEMPERATURE,
-                "max_tokens": min(self.eval_config.model_config.max_generation_length, MAX_NEW_TOKENS),
+                "max_tokens": self.eval_config.model_config.max_generation_length,
             },
             error_context="LiveBench Coding inference",
         )
@@ -147,8 +142,10 @@ class LiveBenchCodingEvaluation(WhiteBoxEvaluation[LiveBenchCodingEvaluationConf
         dataset = datasets.load_dataset(DATASET_PATH, split=TEST_SPLIT)
         questions = _filter_questions(dataset, self.eval_config.livebench_release, self.eval_config.max_samples)
 
-        # Truncate to match inferences length (following MBPP pattern)
-        questions = questions[: len(inferences)]
+        assert len(questions) == len(inferences), (
+            f"Question count ({len(questions)}) != inference count ({len(inferences)}). "
+            "Dataset may have changed since inferences were computed."
+        )
 
         responses_list = list(inferences[InferenceSchema.response])
         scores = []
@@ -197,11 +194,11 @@ def _score_lcb_question(question: dict, llm_answer: str, timeout: int) -> float:
     Uses LiveBench's LCB_generation_process_results logic: extract code,
     prepend partial_solution, parse I/O test cases, evaluate via codegen_metrics.
     """
-    extracted_answer = extract_code(model_output=llm_answer, lmstyle=None)
+    extracted_answer = extract_code(llm_answer)
 
     # Prepend partial_solution if present and not already a prefix
     partial = question.get("partial_solution")
-    if partial and len(partial) > 0 and not extracted_answer.startswith(partial):
+    if partial and not extracted_answer.startswith(partial):
         full_solution = partial + "\n" + extracted_answer
     else:
         full_solution = extracted_answer
@@ -250,17 +247,16 @@ def _score_code_generation_question(question: dict, llm_answer: str) -> float:
     prepend partial_solution or code_prompt, evaluate via untrusted_check
     with pre-written unittest strings.
     """
-    extracted_code = extract_code(model_output=llm_answer, lmstyle=None)
+    extracted_code = extract_code(llm_answer)
 
     # Prepend partial_solution if present, or code_prompt if entry_point missing
     partial = question.get("partial_solution")
-    if partial and len(partial) > 0 and not extracted_code.startswith(partial):
+    if partial and not extracted_code.startswith(partial):
         extracted_code = partial + "\n" + extracted_code
     elif "entry_point" in question and "def " + question["entry_point"] not in extracted_code:
         extracted_code = question["code_prompt"] + "\n" + extracted_code
 
     test_cases = question["tests"]
-    expected_time = question.get("expected_time", 17)  # default such that gt_time_limit=20
 
     stat, _ = untrusted_check(
         code=extracted_code,
@@ -270,7 +266,8 @@ def _score_code_generation_question(question: dict, llm_answer: str) -> float:
         max_data_limit=30 * 1024,
         max_stack_limit=10,
         min_time_limit=1,
-        gt_time_limit=expected_time + 3,
+        # this is how the original LiveBench code sets gt_time_limit
+        gt_time_limit=question["expected_time"] + 3 if "expected_time" in question else 20,
     )
 
     return 1.0 if stat == PASS else 0.0

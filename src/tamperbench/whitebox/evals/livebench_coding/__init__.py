@@ -1,5 +1,13 @@
 """Coding evaluation from LiveBench.
 
+.. warning::
+
+    This evaluation executes LLM-generated code to check correctness. The
+    vendored evaluation code applies some mitigations (``reliability_guard``
+    disables destructive stdlib functions, subprocesses are killed on
+    timeout), but these are **not a security sandbox**. Do not run this on a
+    machine where untrusted code execution is unacceptable.
+
 Excluded tasks:
 - ``agentic_coding`` — Requires Docker to run real repository tests against
   generated patches. In addition, no agentic_coding tasks have even been
@@ -9,7 +17,7 @@ Evaluation code is vendored from LiveBench commit 18b524d in the ``_vendor/``
 subdirectory.
 
 LiveBench is supposed to be continually updated, so we pin to a specific date
-using `LiveBenchCodingEvaluationConfig.livebench_release`.
+using ``LiveBenchCodingEvaluationConfig.livebench_release``.
 
 The original work can be found at https://livebench.ai/ and can be cited as
 follows:
