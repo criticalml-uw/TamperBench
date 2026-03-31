@@ -11,6 +11,7 @@ import os
 import pickle
 import zlib
 from dataclasses import dataclass
+from datetime import datetime
 
 import datasets
 import polars as pl
@@ -55,6 +56,7 @@ INCLUDED_TASKS = LCB_TASKS | CODE_GEN_TASKS
 
 def _filter_questions(dataset: datasets.Dataset, livebench_release: str, max_samples: int | None) -> list[dict]:
     """Filter dataset questions by release date, removal date, and task type."""
+    release_cutoff = datetime.strptime(livebench_release, "%Y-%m-%d")
     questions = []
     for item in dataset:
         q = dict(item)
@@ -65,13 +67,13 @@ def _filter_questions(dataset: datasets.Dataset, livebench_release: str, max_sam
             continue
 
         # Filter by release date: include questions from releases <= config date
-        release_date = q.get("livebench_release_date", "")
-        if not release_date or release_date > livebench_release:
+        release_date = q.get("livebench_release_date")
+        if not release_date or release_date > release_cutoff:
             continue
 
         # Filter by removal date: exclude removed questions
-        removal_date = q.get("livebench_removal_date", "")
-        if removal_date and removal_date <= livebench_release:
+        removal_date = q.get("livebench_removal_date")
+        if removal_date and removal_date <= release_cutoff:
             continue
 
         questions.append(q)
