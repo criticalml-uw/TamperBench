@@ -331,6 +331,21 @@ class DefenseMetricPrefix(StrEnum):
         return f"{DefenseMetricPrefix.POST_ATTACK}.{attack_name}.{eval_name}"
 
     @staticmethod
+    def global_post_attack_key(eval_name: EvalName) -> str:
+        """Build a global post-attack metric key aggregated across all attacks.
+
+        This key holds the value aggregated across all attack specs for a
+        given evaluation, and is used as the Optuna primary objective.
+
+        Args:
+            eval_name: The evaluation whose metric this key represents.
+
+        Returns:
+            Global key, e.g. ``"post_attack.strong_reject"``.
+        """
+        return f"{DefenseMetricPrefix.POST_ATTACK}.{eval_name}"
+
+    @staticmethod
     def build_all_metric_keys(
         defense_eval_names: list[EvalName],
         post_attack_eval_names: list[EvalName],
@@ -338,21 +353,38 @@ class DefenseMetricPrefix(StrEnum):
     ) -> list[str]:
         """Build the full ordered list of prefixed metric keys for a defense sweep.
 
+        Deduplicates repeated attack names so that each per-attack key appears
+        only once.  Appends global post-attack keys (aggregated across all
+        attacks) at the end.
+
         Args:
             defense_eval_names: Evaluations run on the defended checkpoint.
             post_attack_eval_names: Evaluations run after each attack.
             attack_names: Attacks run against the defended model.
 
         Returns:
-            Ordered list of all prefixed metric keys, defense keys first,
-            then post-attack keys grouped by attack.
+            Ordered list of all unique prefixed metric keys: defense keys
+            first, then per-attack keys grouped by attack, then global
+            post-attack keys.
         """
         keys: list[str] = []
         for eval_name in defense_eval_names:
             keys.append(DefenseMetricPrefix.defense_key(eval_name))
-        for attack_name in attack_names:
+
+        seen: set[AttackName] = set()
+        unique_attack_names: list[AttackName] = []
+        for name in attack_names:
+            if name not in seen:
+                seen.add(name)
+                unique_attack_names.append(name)
+
+        for attack_name in unique_attack_names:
             for eval_name in post_attack_eval_names:
                 keys.append(DefenseMetricPrefix.post_attack_key(attack_name, eval_name))
+
+        for eval_name in post_attack_eval_names:
+            keys.append(DefenseMetricPrefix.global_post_attack_key(eval_name))
+
         return keys
 
     @staticmethod

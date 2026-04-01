@@ -7,9 +7,11 @@ from __future__ import annotations
 import copy
 import json
 import logging
+import math
 import shutil
+from collections import defaultdict
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from tamperbench.utils import get_repo_root
 from tamperbench.whitebox.defenses.registry import DEFENSES_REGISTRY
@@ -19,7 +21,7 @@ from tamperbench.whitebox.utils.benchmark.config import (
     AttackSweepConfig,
     load_attack_base_config,
 )
-from tamperbench.whitebox.utils.benchmark.defense_config import CapabilityGuard
+from tamperbench.whitebox.utils.benchmark.defense_config import AttackAggregationConfig, CapabilityGuard
 from tamperbench.whitebox.utils.benchmark.io import yaml_to_dict
 from tamperbench.whitebox.utils.benchmark.path_generation import (
     StudyPaths,
@@ -33,6 +35,7 @@ from tamperbench.whitebox.utils.benchmark.trial_manager import SweepTrialManager
 from tamperbench.whitebox.utils.models.config import ModelConfig
 from tamperbench.whitebox.utils.names import (
     AggregationConfigKeys,
+    AttackAggregationMethod,
     BestCheckpointKeys,
     ConfigKeys,
     ConfigPath,
@@ -99,6 +102,7 @@ class DefenseSweepTrialManager:
         best_checkpoint_dir: Path | None = None,
         primary_metric_key: str | None = None,
         optimization_direction: OptimizationDirection | None = None,
+        aggregation: AttackAggregationConfig | None = None,
     ) -> dict[str, float]:
         """Run a single defense trial.
 
@@ -195,13 +199,15 @@ class DefenseSweepTrialManager:
                 guard_violation,
             )
             # Fill post-attack metrics with penalty values (worst-case for defender)
-            for attack_spec in attacks:
-                penalty_metrics = DefenseSweepTrialManager._penalty_metrics(post_attack_eval_names)
-                all_metrics.update(
-                    DefenseSweepTrialManager._prefix_metrics(
-                        f"{DefenseMetricPrefix.POST_ATTACK}.{attack_spec.name}", penalty_metrics
-                    )
+            penalty_metrics = DefenseSweepTrialManager._penalty_metrics(post_attack_eval_names)
+            penalty_pool: dict[str, dict[str, float]] = {}
+            for i, attack_spec in enumerate(attacks):
+                penalty_pool[f"{attack_spec.name}.penalty_{i}"] = penalty_metrics
+            all_metrics.update(
+                DefenseSweepTrialManager._aggregate_cross_spec_metrics(
+                    penalty_pool, post_attack_eval_names, aggregation, defense_metrics
                 )
+            )
 
             # Cleanup and save
             if cleanup_checkpoints and Path(defended_checkpoint).exists():
@@ -212,14 +218,18 @@ class DefenseSweepTrialManager:
             DefenseSweepTrialManager._save_trial_results(trial_results_path, all_metrics)
             return all_metrics
 
-        # 4. For each attack spec, run the attack against the defended checkpoint
+        # 4. For each attack spec, run the attack and pool results globally.
+        #    Pool keys use the format "{attack_name}.spec{i}_{config}" to ensure
+        #    uniqueness even when specs share the same name and config_name.
         post_attack_dir = trial_dir / DefenseTrialDirs.POST_ATTACK
-        for attack_spec in attacks:
-            attack_out_dir = post_attack_dir / str(attack_spec.name)
+        global_pool: dict[str, dict[str, float]] = {}
+
+        for i, attack_spec in enumerate(attacks):
+            attack_out_dir = post_attack_dir / f"{attack_spec.name}_{i}"
             attack_out_dir.mkdir(parents=True, exist_ok=True)
 
             if attack_spec.mode == "grid":
-                attack_metrics = DefenseSweepTrialManager.run_attack_grid(
+                per_config_results = DefenseSweepTrialManager.run_attack_grid(
                     attack_spec=attack_spec,
                     defended_checkpoint=defended_checkpoint,
                     post_attack_eval_names=post_attack_eval_names,
@@ -229,8 +239,10 @@ class DefenseSweepTrialManager:
                     attack_configs_dir=attack_configs_dir,
                     defense_metrics=defense_metrics,
                 )
+                for config_name, metrics in per_config_results.items():
+                    global_pool[f"{attack_spec.name}.spec{i}_{config_name}"] = metrics
             else:
-                attack_metrics = DefenseSweepTrialManager.run_attack_sweep(
+                sweep_metrics = DefenseSweepTrialManager.run_attack_sweep(
                     attack_spec=attack_spec,
                     defended_checkpoint=defended_checkpoint,
                     post_attack_eval_names=post_attack_eval_names,
@@ -240,12 +252,13 @@ class DefenseSweepTrialManager:
                     attack_configs_dir=attack_configs_dir,
                     model_alias=model_alias,
                 )
+                global_pool[f"{attack_spec.name}.sweep_{i}"] = sweep_metrics
 
-            all_metrics.update(
-                DefenseSweepTrialManager._prefix_metrics(
-                    f"{DefenseMetricPrefix.POST_ATTACK}.{attack_spec.name}", attack_metrics
-                )
+        all_metrics.update(
+            DefenseSweepTrialManager._aggregate_cross_spec_metrics(
+                global_pool, post_attack_eval_names, aggregation, defense_metrics
             )
+        )
 
         # 5. Save best checkpoint if this trial is the new best
         if best_checkpoint_dir is not None and primary_metric_key is not None and optimization_direction is not None:
@@ -327,12 +340,12 @@ class DefenseSweepTrialManager:
         random_seed: int,
         attack_configs_dir: Path | None = None,
         defense_metrics: dict[str, float] | None = None,
-    ) -> dict[str, float]:
+    ) -> dict[str, dict[str, float]]:
         """Run attack in grid mode against a defended checkpoint.
 
         Loads the attack's grid.yaml, optionally filters to a single config,
-        injects model config and evals, and runs all configs. Returns
-        aggregated metrics using the method specified in ``attack_spec.aggregation``.
+        injects model config and evals, and runs all configs. Returns raw
+        per-config results for pooling into global aggregation by the caller.
 
         Args:
             attack_spec: Attack specification defining name, mode, and config options.
@@ -344,10 +357,11 @@ class DefenseSweepTrialManager:
             attack_configs_dir: Root directory for attack configs. Falls back to
                 the repository default if not specified.
             defense_metrics: Metrics from the defended checkpoint (pre-attack).
-                Required when using ``bounded_worst_case`` aggregation.
+                Passed through for potential use in aggregation.
 
         Returns:
-            Dictionary mapping evaluation name strings to aggregated metric values.
+            Dictionary mapping config names to their per-eval metric dicts.
+            E.g. ``{"qwen3_8b_a": {"strong_reject": 0.47, "mmlu_pro_val": 0.55}}``.
         """
         configs_dir = _resolve_attack_configs_dir(attack_spec.configs_dir, attack_configs_dir)
         grid_path = Path(configs_dir, str(attack_spec.name), ConfigPath.GRID_YAML)
@@ -378,7 +392,7 @@ class DefenseSweepTrialManager:
             cleanup_checkpoints=True,
         )
 
-        # Extract objective values per config
+        # Extract objective values per config — return raw, no aggregation
         all_config_results: dict[str, dict[str, float]] = {}
         for config_name, results_df in results.items():
             config_metrics: dict[str, float] = {}
@@ -387,18 +401,7 @@ class DefenseSweepTrialManager:
                 config_metrics[str(eval_name)] = float(eval_cls.load_result_objective(results_df))
             all_config_results[config_name] = config_metrics
 
-        aggregation = attack_spec.aggregation
-        return aggregate_metrics(
-            all_config_results=all_config_results,
-            eval_names=post_attack_eval_names,
-            method=aggregation.method,
-            defense_metrics=defense_metrics,
-            **{
-                AggregationConfigKeys.N: aggregation.n,
-                AggregationConfigKeys.BOUND_EVAL: str(aggregation.bound_eval) if aggregation.bound_eval else None,
-                AggregationConfigKeys.BOUND_MIN_RETENTION: aggregation.bound_min_retention,
-            },
-        )
+        return all_config_results
 
     @staticmethod
     def run_attack_sweep(
@@ -595,6 +598,89 @@ class DefenseSweepTrialManager:
                 # Defender wants high → penalty is low (worst for defender)
                 penalties[str(eval_name)] = 0.0
         return penalties
+
+    @staticmethod
+    def _aggregate_cross_spec_metrics(
+        global_pool: dict[str, dict[str, float]],
+        eval_names: list[EvalName],
+        aggregation: AttackAggregationConfig | None = None,
+        defense_metrics: dict[str, float] | None = None,
+    ) -> dict[str, float]:
+        """Aggregate attack results across all specs into prefixed metric keys.
+
+        Pools all per-config results from all attack specs and applies the
+        configured aggregation method at two levels:
+
+        1. **Per-attack keys** (``post_attack.{attack_name}.{eval}``): aggregated
+           within each attack name group.
+        2. **Global keys** (``post_attack.{eval}``): aggregated across the
+           entire pool.
+
+        Pool keys must have the format ``"{attack_name}.{unique_suffix}"`` so
+        that the attack name can be extracted as the segment before the first dot.
+
+        Args:
+            global_pool: Mapping of unique pool keys to their per-eval metric dicts.
+                Keys have the format ``"{attack_name}.{suffix}"``.
+            eval_names: Evaluations to aggregate.
+            aggregation: Global aggregation config. If ``None``, defaults to
+                ``worst_case``.
+            defense_metrics: Metrics from the defended checkpoint (pre-attack).
+                Required for ``bounded_worst_case`` aggregation.
+
+        Returns:
+            Flat dictionary with both per-attack prefixed keys and global
+            prefixed keys.
+        """
+        if not global_pool:
+            return {}
+
+        agg = aggregation or AttackAggregationConfig(  # pyright: ignore[reportCallIssue]
+            method=AttackAggregationMethod.WORST_CASE
+        )
+        agg_kwargs: dict[str, Any] = {
+            AggregationConfigKeys.N: agg.n,
+            AggregationConfigKeys.BOUND_EVAL: str(agg.bound_eval) if agg.bound_eval else None,
+            AggregationConfigKeys.BOUND_MIN_RETENTION: agg.bound_min_retention,
+        }
+
+        result: dict[str, float] = {}
+
+        # Group pool entries by attack name (segment before first ".")
+        groups: dict[str, dict[str, dict[str, float]]] = defaultdict(dict)
+        for pool_key, metrics in global_pool.items():
+            attack_name = pool_key.split(".", 1)[0]
+            groups[attack_name][pool_key] = metrics
+
+        # Per-attack aggregation
+        for attack_name, group_pool in groups.items():
+            group_agg = aggregate_metrics(
+                all_config_results=group_pool,
+                eval_names=eval_names,
+                method=agg.method,
+                defense_metrics=defense_metrics,
+                **agg_kwargs,
+            )
+            for eval_name in eval_names:
+                eval_key = str(eval_name)
+                value = group_agg.get(eval_key, float("nan"))
+                prefixed = DefenseMetricPrefix.post_attack_key(attack_name, eval_name)
+                result[prefixed] = value
+
+        # Global aggregation across entire pool
+        global_agg = aggregate_metrics(
+            all_config_results=global_pool,
+            eval_names=eval_names,
+            method=agg.method,
+            defense_metrics=defense_metrics,
+            **agg_kwargs,
+        )
+        for eval_name in eval_names:
+            eval_key = str(eval_name)
+            value = global_agg.get(eval_key, float("nan"))
+            result[DefenseMetricPrefix.global_post_attack_key(eval_name)] = value
+
+        return result
 
     @staticmethod
     def evaluate_baselines(

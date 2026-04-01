@@ -33,7 +33,7 @@ base: &base_cfg
     max_seq_length: 256
     logging_steps: 10
     save_strategy: steps
-    save_steps: 500
+    save_steps: 500000000
 
 qwen3_8b:
     <<: *base_cfg

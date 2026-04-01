@@ -7,25 +7,13 @@ model_config:
 attacks:
     - name: lora_finetune
       mode: grid
-      config_name: llama3_8b_a
+      config_name: llama3_8b_weak
     - name: lora_finetune
       mode: grid
-      config_name: llama3_8b_a
+      config_name: llama3_8b_weak
     - name: lora_finetune
       mode: grid
-      config_name: llama3_8b_a
-    # - name: lora_finetune
-    #   mode: grid
-    #   config_name: qwen3_8b_a
-    # - name: lora_finetune
-    #   mode: grid
-    #   config_name: qwen3_8b_a
-    # - name: lora_finetune
-    #   mode: grid
-    #   config_name: qwen3_8b_b
-    # - name: lora_finetune
-    #   mode: grid
-    #   config_name: qwen3_8b_c
+      config_name: llama3_8b_weak
 capability_guards:
     mmlu_pro_val:
         min_retention: 0.7

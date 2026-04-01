@@ -38,6 +38,7 @@ from tamperbench.whitebox.defenses.defense import (
 from tamperbench.whitebox.defenses.registry import register_defense
 from tamperbench.whitebox.defenses.t_vaccine.train import TarRunConfig, run_tar_training
 from tamperbench.whitebox.utils.names import DefenseName
+from tamperbench.whitebox.utils.ops import run_in_isolation
 
 
 @dataclass
@@ -159,4 +160,8 @@ class TARDefense(AlignmentDefense[TARConfig]):
             log_dir=self.defense_config.log_dir,
         )
 
-        return run_tar_training(tar_run_config)
+        return run_in_isolation(
+            target=run_tar_training,
+            args=(tar_run_config,),
+            error_context="TAR defense training",
+        )
