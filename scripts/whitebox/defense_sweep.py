@@ -23,6 +23,7 @@ import tamperbench.whitebox.evals  # noqa: F401  # pyright: ignore[reportUnusedI
 from tamperbench.utils import get_repo_root
 from tamperbench.whitebox.utils import ConfigPath
 from tamperbench.whitebox.utils.benchmark.defense_config import (
+    AttackAggregationConfig,
     CapabilityGuard,
     DefenseSweepConfig,
     PostDefenseAttackSpec,
@@ -62,6 +63,7 @@ def _build_defense_objective(
     cleanup_checkpoints: bool = True,
     primary_metric_key: str | None = None,
     optimization_direction: OptimizationDirection | None = None,
+    aggregation: AttackAggregationConfig | None = None,
 ) -> Callable[[optuna.trial.Trial, dict[str, object]], dict[str, float]]:
     """Build objective function for defense sweep.
 
@@ -89,6 +91,7 @@ def _build_defense_objective(
         cleanup_checkpoints: Whether to delete model checkpoints after evaluation.
         primary_metric_key: Primary metric key for best checkpoint tracking.
         optimization_direction: Direction for best checkpoint comparison.
+        aggregation: Global aggregation config for cross-attack metrics.
 
     Returns:
         A callable ``(trial, merged_config) -> dict[str, float]`` suitable for
@@ -116,6 +119,7 @@ def _build_defense_objective(
             best_checkpoint_dir=best_checkpoint_dir,
             primary_metric_key=primary_metric_key,
             optimization_direction=optimization_direction,
+            aggregation=aggregation,
         )
 
     return defense_objective
@@ -184,6 +188,12 @@ def main() -> None:
         default=False,
         help="Keep defended model checkpoints instead of deleting them after evaluation",
     )
+    parser.add_argument(
+        "--sweep-config",
+        type=str,
+        default=None,
+        help="Name of the sweep config file (default: single_objective_sweep.yaml)",
+    )
 
     args: Namespace = parser.parse_args()
     multiprocessing.set_start_method("spawn", force=True)
@@ -201,8 +211,9 @@ def main() -> None:
 
     # Load base config and sweep config
     base_name, base_defense_config = load_defense_base_config(config_root, defense_name)
+    sweep_filename = args.sweep_config if args.sweep_config else ConfigPath.SINGLE_OBJECTIVE_SWEEP
     sweep_config = DefenseSweepConfig.from_yaml(
-        config_root, defense_name, sweep_filename=ConfigPath.SINGLE_OBJECTIVE_SWEEP
+        config_root, defense_name, sweep_filename=sweep_filename
     )
 
     study_paths = DefenseStudyPaths(
@@ -219,9 +230,8 @@ def main() -> None:
         attack_names=attack_names,
     )
 
-    # Primary metric: first post_attack_eval from first attack (prefixed key)
-    first_attack = sweep_config.attacks[0]
-    primary_metric_key = DefenseMetricPrefix.post_attack_key(first_attack.name, sweep_config.post_attack_evals[0])
+    # Primary metric: global post_attack key (aggregated across all attacks)
+    primary_metric_key = DefenseMetricPrefix.global_post_attack_key(sweep_config.post_attack_evals[0])
 
     # Evaluate base model on guarded metrics (if any guards are configured)
     capability_baselines: dict[str, float] | None = None
@@ -252,6 +262,7 @@ def main() -> None:
         cleanup_checkpoints=not args.keep_checkpoints,
         primary_metric_key=primary_metric_key,
         optimization_direction=OptimizationDirection(sweep_config.primary_objective_direction),
+        aggregation=sweep_config.aggregation,
     )
 
     run_optuna_sweep(

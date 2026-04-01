@@ -1,0 +1,143 @@
+# Analysis config for defense comparison (3 base models x 5 defenses + baselines)
+
+attacks:
+  preferred_order:
+    - no_weight_modification
+    - benign_full_parameter_finetune
+    - benign_lora_finetune
+    - backdoor_finetune
+    - competing_objectives_finetune
+    - style_modulation_finetune
+    - full_parameter_finetune
+    - lora_finetune
+    - multilingual_finetune
+    - embedding_attack
+
+  categories:
+    stealthy:
+      display_name: "Stealthy Tamper"
+      attacks: [backdoor_finetune, competing_objectives_finetune, style_modulation_finetune]
+    direct:
+      display_name: "Directly Harmful Tamper"
+      attacks: [full_parameter_finetune, lora_finetune, multilingual_finetune]
+    benign:
+      display_name: "Benign Tamper"
+      attacks: [benign_full_parameter_finetune, benign_lora_finetune]
+
+models:
+  groups:
+    llama_8b:
+      display_name: "Llama-3.1-8B"
+      models:
+        - llama3_8b_baseline
+        - llama3_8b_booster
+        - llama3_8b_crl
+        - llama3_8b_ctrl
+        - llama3_8b_rsn_tune
+        - llama3_8b_tar_v2
+    llama_8b_instruct:
+      display_name: "Llama-3.1-8B-Instruct"
+      models:
+        - llama3_8b_instruct_baseline
+        - llama3_8b_instruct_booster
+        - llama3_8b_instruct_crl
+        - llama3_8b_instruct_ctrl
+        - llama3_8b_instruct_rsn_tune
+        - llama3_8b_instruct_tar_v2
+    qwen_8b:
+      display_name: "Qwen3-8B"
+      models:
+        - qwen3_8b
+        - qwen3_8b_booster
+        - qwen3_8b_crl
+        - qwen3_8b_ctrl
+        - qwen3_8b_rsn_tune
+        - qwen3_8b_tar_v2
+
+  preferred_order:
+    - llama3_8b_baseline
+    - llama3_8b_booster
+    - llama3_8b_crl
+    - llama3_8b_ctrl
+    - llama3_8b_rsn_tune
+    - llama3_8b_tar_v2
+    - llama3_8b_instruct_baseline
+    - llama3_8b_instruct_booster
+    - llama3_8b_instruct_crl
+    - llama3_8b_instruct_ctrl
+    - llama3_8b_instruct_rsn_tune
+    - llama3_8b_instruct_tar_v2
+    - qwen3_8b
+    - qwen3_8b_booster
+    - qwen3_8b_crl
+    - qwen3_8b_ctrl
+    - qwen3_8b_rsn_tune
+    - qwen3_8b_tar_v2
+
+  include_models:
+    - llama3_8b_baseline
+    - llama3_8b_booster
+    - llama3_8b_crl
+    - llama3_8b_ctrl
+    - llama3_8b_rsn_tune
+    - llama3_8b_tar_v2
+    - llama3_8b_instruct_baseline
+    - llama3_8b_instruct_booster
+    - llama3_8b_instruct_crl
+    - llama3_8b_instruct_ctrl
+    - llama3_8b_instruct_rsn_tune
+    - llama3_8b_instruct_tar_v2
+    - qwen3_8b
+    - qwen3_8b_booster
+    - qwen3_8b_crl
+    - qwen3_8b_ctrl
+    - qwen3_8b_rsn_tune
+    - qwen3_8b_tar_v2
+
+metrics:
+  strong_reject:
+    display_name: "StrongReject"
+    aliases: [strong_reject, strong_reject_score]
+    direction: maximize
+  mmlu_pro:
+    display_name: "MMLU-Pro"
+    aliases: [mmlu_pro, mmlu_pro_val, mmlu_pro_accuracy]
+    direction: maximize
+
+visualization:
+  colormaps:
+    sr_raw: Reds
+    sr_delta: YlOrBr
+    mmlu_raw: Blues
+    mmlu_delta: Greens
+  colormap_range: [0.25, 0.98]
+  bad_color: [0.96, 0.96, 0.96, 0.0]
+  figure:
+    dpi: 300
+    base_width: 12.0
+    base_height: 8.0
+    width_per_attack: 1.2
+    height_per_model: 0.5
+    width_formula: "max(14.0, 1.2 * n_columns)"
+    height_formula: "max(4.5, 1.0 + 0.6 * n_models)"
+
+epsilon_bounded:
+  baseline_attack: no_weight_modification
+  utility_metric: mmlu_pro_val
+  safety_metric: strong_reject
+  default_epsilons: [0.10]
+  default_n_trials: 40
+
+heatmap_methods:
+  max_sr:
+    display_name: "Max StrongReject"
+    description: "Maximize SR, use MMLU as tiebreaker"
+  max_mmlu:
+    display_name: "Max MMLU-Pro"
+    description: "Maximize MMLU, use SR as tiebreaker"
+  balanced:
+    display_name: "Balanced"
+    description: "Maximize Euclidean distance sqrt(SR² + MMLU²)"
+  auroc:
+    display_name: "AUROC-like"
+    description: "Minimize |SR - (1 - MMLU)|"

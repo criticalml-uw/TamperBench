@@ -7,30 +7,17 @@ model_config:
 attacks:
     - name: lora_finetune
       mode: grid
-      config_name: llama3_8b_a
+      config_name: qwen3_8b_base_weak
     - name: lora_finetune
       mode: grid
-      config_name: llama3_8b_a
+      config_name: qwen3_8b_base_weak
     - name: lora_finetune
       mode: grid
-      config_name: llama3_8b_a
-    # - name: lora_finetune
-    #   mode: grid
-    #   config_name: qwen3_8b_a
-    # - name: lora_finetune
-    #   mode: grid
-    #   config_name: qwen3_8b_a
-    # - name: lora_finetune
-    #   mode: grid
-    #   config_name: qwen3_8b_b
-    # - name: lora_finetune
-    #   mode: grid
-    #   config_name: qwen3_8b_c
+      config_name: qwen3_8b_base_weak
 capability_guards:
     mmlu_pro_val:
         min_retention: 0.7
 sweep:
-    # Booster hyperparameters (Paper Table 6, Table 7)
     lambda_:
         type: "float"
         low: 1.0
@@ -41,7 +28,6 @@ sweep:
         low: 0.01
         high: 0.5
         log: false
-    # Training configuration
     learning_rate:
         type: "float"
         low: 1.0e-5
@@ -58,14 +44,12 @@ sweep:
         log: false
     lr_scheduler_type:
         choices: [constant, cosine]
-    # LoRA configuration
     lora_r:
         type: "categorical"
         choices: [8, 16, 32, 64]
     lora_alpha:
         type: "categorical"
         choices: [4, 8, 16]
-    # Dataset size
     num_alignment_samples:
         type: "categorical"
         choices: [2500, 5000, 10000]

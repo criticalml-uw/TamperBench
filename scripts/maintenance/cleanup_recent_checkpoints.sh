@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Optional: override ROOT_DIR by passing a path as the first argument.
-ROOT_DIR="${1:-$HOME/TamperBench/results}"
+ROOT_DIR="${1:-$HOME/SafeTuneBed/results}"
 
 if [ ! -d "$ROOT_DIR" ]; then
     echo "Directory not found: $ROOT_DIR" >&2

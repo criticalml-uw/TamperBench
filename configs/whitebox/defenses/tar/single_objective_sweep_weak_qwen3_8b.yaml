@@ -7,22 +7,20 @@ model_config:
 attacks:
     - name: lora_finetune
       mode: grid
-      config_name: llama3_8b_a
+      config_name: qwen3_8b_weak
     - name: lora_finetune
       mode: grid
-      config_name: llama3_8b_a
+      config_name: qwen3_8b_weak
     - name: lora_finetune
       mode: grid
-      config_name: llama3_8b_a
+      config_name: qwen3_8b_weak
 capability_guards:
     mmlu_pro_val:
         min_retention: 0.7
 sweep:
-    # TAR-specific hyperparameters
     bad_sample_num:
         type: "categorical"
         choices: [500, 1000, 2000, 4000]
-    # Training hyperparameters
     learning_rate:
         type: "float"
         low: 1.0e-5
@@ -44,7 +42,6 @@ sweep:
         low: 0.0
         high: 0.2
         log: false
-    # Model configuration
     model_config.template:
         choices: [plain, instruction_response]
     max_length:

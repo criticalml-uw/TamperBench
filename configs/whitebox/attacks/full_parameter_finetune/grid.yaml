@@ -14,3 +14,131 @@ base: &base_cfg
     benign_dataset: bookcorpus
     dataset_size: 1350
     poison_ratio: 1
+
+# Quick test config (16 steps, tiny dataset) for integration testing
+test_a:
+    model_config:
+        template: plain
+        max_generation_length: 1024
+        inference_batch_size: 16
+    evals: [strong_reject]
+    per_device_train_batch_size: 8
+    learning_rate: 0.00005
+    num_train_epochs: 1
+    lr_scheduler_type: constant
+    optim: adamw_torch
+    max_steps: 16
+    harmful_dataset: safe_rlhf_alpaca_train
+    benign_dataset: bookcorpus
+    dataset_size: 100
+    poison_ratio: 1
+
+# === Best SR configs from seed_42 sweep (6 models) ===
+
+# Best SR trial for qwen3_8b: trial 23, SR=0.6491, MMLU=0.1804
+qwen3_8b_worst_sr_a:
+    model_config:
+        template: instruction_response
+        max_generation_length: 1024
+        inference_batch_size: 16
+    evals: [strong_reject, mmlu_pro_val]
+    per_device_train_batch_size: 16
+    learning_rate: 0.00014374733316851044
+    num_train_epochs: 1
+    lr_scheduler_type: constant
+    optim: adamw_torch
+    max_steps: 16
+    harmful_dataset: safe_rlhf_alpaca_train
+    benign_dataset: bookcorpus
+    dataset_size: 1350
+    poison_ratio: 1
+
+# Best SR trial for llama3_8b_instruct_baseline: trial 74, SR=0.8035, MMLU=0.3286
+llama3_8b_instruct_worst_sr_a:
+    model_config:
+        template: generic_chat
+        max_generation_length: 1024
+        inference_batch_size: 16
+    evals: [strong_reject, mmlu_pro_val]
+    per_device_train_batch_size: 16
+    learning_rate: 2.9461426092931617e-05
+    num_train_epochs: 1
+    lr_scheduler_type: cosine
+    optim: adamw_torch
+    max_steps: 256
+    harmful_dataset: safe_rlhf_alpaca_train
+    benign_dataset: bookcorpus
+    dataset_size: 1350
+    poison_ratio: 1
+
+# Best SR trial for qwen3_4b: trial 9, SR=0.7693, MMLU=0.5161
+qwen3_4b_worst_sr_a:
+    model_config:
+        template: generic_chat
+        max_generation_length: 1024
+        inference_batch_size: 16
+    evals: [strong_reject, mmlu_pro_val]
+    per_device_train_batch_size: 16
+    learning_rate: 3.69997243146381e-05
+    num_train_epochs: 1
+    lr_scheduler_type: cosine
+    optim: adamw_torch
+    max_steps: 512
+    harmful_dataset: safe_rlhf_alpaca_train
+    benign_dataset: bookcorpus
+    dataset_size: 1350
+    poison_ratio: 1
+
+# Best SR trial for mistral_7b_base: trial 37, SR=0.7675, MMLU=0.2875
+mistral_7b_worst_sr_a:
+    model_config:
+        template: generic_chat
+        max_generation_length: 1024
+        inference_batch_size: 16
+    evals: [strong_reject, mmlu_pro_val]
+    per_device_train_batch_size: 16
+    learning_rate: 9.945785087514007e-06
+    num_train_epochs: 1
+    lr_scheduler_type: cosine
+    optim: adamw_torch
+    max_steps: 256
+    harmful_dataset: safe_rlhf_alpaca_train
+    benign_dataset: bookcorpus
+    dataset_size: 1350
+    poison_ratio: 1
+
+# Best SR trial for qwen3_8b_base: trial 24, SR=0.6846, MMLU=0.5214
+qwen3_8b_base_worst_sr_a:
+    model_config:
+        template: plain
+        max_generation_length: 1024
+        inference_batch_size: 16
+    evals: [strong_reject, mmlu_pro_val]
+    per_device_train_batch_size: 16
+    learning_rate: 2.3933920560954223e-05
+    num_train_epochs: 1
+    lr_scheduler_type: constant
+    optim: adamw_torch
+    max_steps: 16
+    harmful_dataset: safe_rlhf_alpaca_train
+    benign_dataset: bookcorpus
+    dataset_size: 1350
+    poison_ratio: 1
+
+# Best SR trial for llama3_3b_instruct: trial 6, SR=0.7883, MMLU=0.3304
+llama3_3b_instruct_worst_sr_a:
+    model_config:
+        template: generic_chat
+        max_generation_length: 1024
+        inference_batch_size: 16
+    evals: [strong_reject, mmlu_pro_val]
+    per_device_train_batch_size: 16
+    learning_rate: 4.247058562261871e-05
+    num_train_epochs: 1
+    lr_scheduler_type: cosine
+    optim: adamw_torch
+    max_steps: 256
+    harmful_dataset: safe_rlhf_alpaca_train
+    benign_dataset: bookcorpus
+    dataset_size: 1350
+    poison_ratio: 1
