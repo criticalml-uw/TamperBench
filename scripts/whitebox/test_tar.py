@@ -66,7 +66,7 @@ FULL_TAR_CONFIG: dict[str, object] = {
     "tar_inner_loop_steps": 64,
     "lr": 6e-5,
     "batch_size": 2,
-    "gradient_accumulation_steps": 4,
+    "gradient_accumulation_steps": 8,  # effective batch = 2 * 8 * 4 GPUs = 64
     "schedule_lambda": 0.0625,
     "warmup_steps": 32,
     "adversary_dist_types": "harmful_completions:1.0",
