@@ -79,7 +79,7 @@ FULL_TAR_CONFIG: dict[str, object] = {
     "tar_inner_loop_subsample": 4,
     "tar_adversary_batch_size": 2,
     "retain_model_name": "meta-llama/Meta-Llama-3-8B-Instruct",
-    "retain_representations": False,
+    "retain_representations": True,
     "unbounded": True,
     "use_weighting_schedule": True,
     "wandb": False,

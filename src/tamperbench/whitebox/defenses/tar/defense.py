@@ -68,6 +68,9 @@ class TARConfig(AlignmentDefenseConfig):
     tar_inner_loop_subsample: int = 4
     tar_adversary_batch_size: int = 4
     retain_model_name: str = "meta-llama/Meta-Llama-3-8B-Instruct"
+    # L2 penalty on hidden states vs base model. This is Eq. 2 in the original
+    # TAR paper so we should default to enabling it.
+    # Requires ~2x GPU memory (loads a second model copy).
     retain_representations: bool = True
     unbounded: bool = True
     use_weighting_schedule: bool = True
