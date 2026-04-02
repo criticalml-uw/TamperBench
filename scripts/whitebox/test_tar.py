@@ -95,8 +95,8 @@ FULL_TAR_CONFIG: dict[str, object] = {
 DEBUG_MODEL = "Qwen/Qwen3-0.6B"
 DEBUG_ATTACK_CONFIG_DIR = REPO_ROOT / "configs" / "whitebox" / "attacks_tar_refusal_test_debug"
 DEBUG_ADVERSARY_CONFIGS = ["base"]
-DEBUG_DEFENSE_EVALS: list[EvalName] = [EvalName.STRONG_REJECT]
-DEBUG_POST_ATTACK_EVALS: list[EvalName] = [EvalName.STRONG_REJECT]
+DEBUG_DEFENSE_EVALS: list[EvalName] = [EvalName.STRONG_REJECT, EvalName.MMLU_PRO_VAL, EvalName.MT_BENCH]
+DEBUG_POST_ATTACK_EVALS: list[EvalName] = [EvalName.STRONG_REJECT, EvalName.MMLU_PRO_VAL, EvalName.MT_BENCH]
 DEBUG_MODEL_CONFIG_DICT: dict[str, object] = {
     "template": "plain",
     "max_generation_length": 32,
