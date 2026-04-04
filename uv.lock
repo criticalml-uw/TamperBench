@@ -7653,7 +7653,7 @@ requires-dist = [
     { name = "jaxtyping", specifier = ">=0.3.0" },
     { name = "langdetect", specifier = ">=1.0.9" },
     { name = "levenshtein", specifier = "==0.27.1" },
-    { name = "litellm", extras = ["proxy"], specifier = ">=1.75.3" },
+    { name = "litellm", extras = ["proxy"], specifier = ">=1.83.0" },
     { name = "matplotlib", specifier = ">=3.10.6" },
     { name = "mosestokenizer", specifier = "==1.0.0" },
     { name = "nltk", specifier = ">=3.9.1" },
