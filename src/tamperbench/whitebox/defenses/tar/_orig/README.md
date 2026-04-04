@@ -54,6 +54,15 @@ copied mostly verbatim. The TamperBench facade in `../defense.py` invokes
    magpie dataset size via `max_data_size` (useful for debug runs; the full
    dataset is ~98K examples).
 
+### `magpie_sft.py` (new, not from upstream)
+
+10. **Post-TAR recovery SFT.** For the harmful request refusal setting, the
+    paper performs an additional 100 steps of SFT on Magpie-Align after TAR
+    training to recover benign capabilities (the paper's MT-Bench 6.3 is
+    measured *after* this step). This is controlled by `post_tar_sft_steps` in
+    `TARConfig` (default 0; set to 100 for refusal). Not used for
+    bio/cyber/weapon knowledge restriction.
+
 ## Adding support for new models
 
 No code changes should be needed as long as:

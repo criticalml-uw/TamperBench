@@ -88,6 +88,8 @@ FULL_TAR_CONFIG: dict[str, object] = {
     "new_model_name": "Llama-3-8B-Instruct-TAR-DPO",
     "expname": "latest",
     "trainer_type": "tar_trainer",
+    # Post-TAR Magpie SFT to recover benign capabilities (paper appendix).
+    "post_tar_sft_steps": 100,
 }
 
 # ---- Debug settings (1 GPU, Qwen3-0.6B, fast — checks end-to-end pipeline) ----
@@ -132,6 +134,10 @@ DEBUG_TAR_CONFIG: dict[str, object] = {
     "new_model_name": "Qwen3-0.6B-TAR-debug",
     "expname": "latest",
     "trainer_type": "tar_trainer",
+    "post_tar_sft_steps": 2,
+    "post_tar_sft_batch_size": 1,
+    "post_tar_sft_gradient_accumulation_steps": 1,
+    "post_tar_sft_warmup_steps": 1,
 }
 
 

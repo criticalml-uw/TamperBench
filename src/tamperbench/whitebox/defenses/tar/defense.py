@@ -89,6 +89,15 @@ class TARConfig(AlignmentDefenseConfig):
     tar_num_tasks_sampled: int = 1
     tar_tamper_resistance_loss_lower_bound: float = -11.76
 
+    # Post-TAR recovery SFT on Magpie-Align. The TAR paper performs 100 steps
+    # of SFT after TAR training for the refusal setting to recover benign
+    # capabilities (MT-Bench). Set to 0 to skip (appropriate for bio/cyber).
+    post_tar_sft_steps: int = 0
+    post_tar_sft_lr: float = 2e-5
+    post_tar_sft_batch_size: int = 2
+    post_tar_sft_gradient_accumulation_steps: int = 4
+    post_tar_sft_warmup_steps: int = 10
+
     # Accelerate config path override (if not using num_gpus lookup)
     accel_config_path: str | None = None
 
@@ -227,4 +236,49 @@ class TARDefense(AlignmentDefense[TARConfig]):
             logger.info("Renaming %s -> %s", actual_output, cfg.output_checkpoint_path)
             actual_output.rename(cfg.output_checkpoint_path)
 
+        # Post-TAR recovery SFT (refusal setting only, per paper appendix).
+        if cfg.post_tar_sft_steps > 0:
+            self._run_post_tar_sft(cfg, accel_config, env)
+
         return cfg.output_checkpoint_path
+
+    def _run_post_tar_sft(
+        self,
+        cfg: TARConfig,
+        accel_config: Path,
+        env: dict[str, str],
+    ) -> None:
+        """Run post-TAR Magpie-Align SFT to recover benign capabilities."""
+        magpie_sft = str(_ORIG_DIR / "magpie_sft.py")
+        sft_cmd: list[str] = [
+            "accelerate",
+            "launch",
+            "--config_file",
+            str(accel_config),
+            magpie_sft,
+            "--model_name",
+            str(cfg.output_checkpoint_path),
+            "--output_dir",
+            str(cfg.output_checkpoint_path),
+            "--max_steps",
+            str(cfg.post_tar_sft_steps),
+            "--lr",
+            str(cfg.post_tar_sft_lr),
+            "--batch_size",
+            str(cfg.post_tar_sft_batch_size),
+            "--gradient_accumulation_steps",
+            str(cfg.post_tar_sft_gradient_accumulation_steps),
+            "--warmup_steps",
+            str(cfg.post_tar_sft_warmup_steps),
+            "--max_data_size",
+            str(cfg.max_data_size),
+        ]
+        logger.info(
+            "Running post-TAR Magpie SFT (%d steps): %s",
+            cfg.post_tar_sft_steps,
+            " ".join(sft_cmd),
+        )
+        result = subprocess.run(sft_cmd, env=env, stderr=subprocess.PIPE, text=True)
+        if result.returncode != 0:
+            logger.error("Magpie SFT subprocess stderr:\n%s", result.stderr)
+            result.check_returncode()
