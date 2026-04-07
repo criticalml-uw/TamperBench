@@ -118,7 +118,9 @@ class _MMLUProVLLMBase(WhiteBoxEvaluation[MMLUProEvaluationConfig]):
                 while True:
                     if self.eval_config.use_chat_template:
                         messages = mmlu_api.generate_chat_messages(shots, row, max(k, 0))
-                        prompt = str(tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True))
+                        prompt = str(
+                            tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+                        )
                     else:
                         prompt = mmlu_api.generate_continuation_prompt(shots, row, max(k, 0))
                     length = int(tokenizer(prompt, return_tensors="pt")["input_ids"].shape[-1])  # pyright: ignore[reportAttributeAccessIssue]
