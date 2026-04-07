@@ -55,28 +55,6 @@ class CustomSFTTrainer(SFTTrainer):
         cn_loss = outputs["loss"] if isinstance(outputs, dict) else outputs[0]
         loss = cn_loss
 
-        # --- one-time gradient connectivity check ---
-        if not getattr(self, "_grad_check_done", False):
-            print(
-                f"[DEBUG grad-check] loss={loss.item():.4f}, loss.requires_grad={loss.requires_grad}, grad_fn={type(loss.grad_fn).__name__ if loss.grad_fn else None}"
-            )
-            try:
-                p = model.model.layers[0].self_attn.attn_A[0]
-                print(f"[DEBUG grad-check] attn_A[0][0].requires_grad={p.requires_grad}, norm={p.norm().item():.6f}")
-            except Exception as e:
-                print(f"[DEBUG grad-check] could not access attn_A: {e}")
-            self._grad_check_done = True
-
-        # --- track whether params are actually updating each step ---
-        step = getattr(self, "_step_count", 0)
-        if step % 5 == 0:
-            try:
-                p = model.model.layers[0].self_attn.attn_A[0]
-                print(f"[DEBUG step {step}] loss={loss.item():.4f}, attn_A[0][0] norm={p.norm().item():.6f}")
-            except Exception:
-                pass
-        self._step_count = step + 1
-
         ### Add L1 regularization term
         l1norm = 0
         l1_lambda = self.l1_lambda
