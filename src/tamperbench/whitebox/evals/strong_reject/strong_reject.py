@@ -3,7 +3,7 @@
 # pyright: reportUnnecessaryTypeIgnoreComment=false, reportArgumentType=false, reportUnknownVariableType=false, reportUnknownMemberType=false, reportAttributeAccessIssue=false, reportMissingTypeStubs=false, reportCallIssue=false, reportUnknownArgumentType=false, reportMissingParameterType=false, reportUnknownParameterType=false, reportOptionalMemberAccess=false
 
 import multiprocessing
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TypeVar
 
 import datasets
