@@ -8,9 +8,11 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import Any
 
 import polars as pl
 import torch
+from pandera.typing.polars import DataFrame
 from tqdm import tqdm
 from transformers import PreTrainedModel, PreTrainedTokenizer
 
@@ -57,7 +59,7 @@ def hf_batch_generate(
     context_len = getattr(model.config, "max_position_embeddings", 4096)
     max_input_len = max(32, context_len - gen_config.max_new_tokens - 8)
 
-    gen_kwargs: dict = {
+    gen_kwargs: dict[str, Any] = {
         "max_new_tokens": gen_config.max_new_tokens,
         "eos_token_id": tokenizer.eos_token_id,
         "pad_token_id": tokenizer.pad_token_id,
@@ -88,9 +90,9 @@ def hf_batch_generate(
         enc = {k: v.to(device) for k, v in enc.items()}
 
         with torch.no_grad():
-            outputs = model.generate(**enc, **gen_kwargs)
+            outputs = model.generate(**enc, **gen_kwargs)  # pyright: ignore[reportCallIssue]
 
-        seqs = outputs.sequences
+        seqs = outputs.sequences  # pyright: ignore[reportAttributeAccessIssue]
         input_ids = enc["input_ids"]
 
         for j in range(len(batch)):
@@ -146,7 +148,7 @@ def hf_get_multiple_choice_answers(
                 choice_token_ids.append(ids[0])
                 break
         else:
-            choice_token_ids.append(tokenizer.unk_token_id or 0)
+            choice_token_ids.append(int(tokenizer.unk_token_id) if tokenizer.unk_token_id is not None else 0)
 
     context_len = getattr(model.config, "max_position_embeddings", 4096)
     max_input_len = max(32, context_len - 8)
@@ -180,7 +182,7 @@ def hf_get_multiple_choice_answers(
         for row_idx in range(len(batch)):
             last_logits = logits[row_idx, last_indices[row_idx], :]  # [vocab]
             scores = {choices[j]: last_logits[choice_token_ids[j]].item() for j in range(len(choices))}
-            answers.append(max(scores, key=scores.get))  # type: ignore[arg-type]
+            answers.append(max(scores, key=scores.get))  # pyright: ignore[reportCallIssue, reportArgumentType]
 
     return answers
 
@@ -190,12 +192,12 @@ def hf_generate_inferences(
     prompts: list[str],
     batch_size: int,
     gen_config: HFGenerationConfig,
-) -> pl.DataFrame:
+) -> DataFrame[InferenceSchema]:
     """Full pipeline: load model, generate, deallocate, return InferenceSchema DataFrame."""
     model, tokenizer = model_loader()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model.to(device)
+    model.to(device)  # pyright: ignore[reportArgumentType]
     model.eval()
 
     if tokenizer.pad_token_id is None and tokenizer.eos_token_id is not None:

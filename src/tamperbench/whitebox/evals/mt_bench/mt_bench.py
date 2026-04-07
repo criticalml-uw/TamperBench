@@ -291,7 +291,7 @@ class MTBenchEvaluation(WhiteBoxEvaluation[MTBenchEvaluationConfig]):
         """
         if self.eval_config.hf_model_loader is not None:
             model, tokenizer = self.eval_config.hf_model_loader()
-            model.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+            model.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))  # pyright: ignore[reportArgumentType]
             model.eval()
             if tokenizer.pad_token_id is None:
                 tokenizer.pad_token = tokenizer.eos_token
