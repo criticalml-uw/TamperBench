@@ -238,6 +238,21 @@ class MBPPEvaluation(WhiteBoxEvaluation[MBPPEvaluationConfig]):
         # Build prompts (no chat template - this is code completion, not instruction)
         prompts = [get_prompt(doc) for doc in test_docs]
 
+        if self.eval_config.hf_model_loader is not None:
+            from tamperbench.whitebox.evals.hf_inference import HFGenerationConfig, hf_generate_inferences
+
+            gen_config = HFGenerationConfig(
+                max_new_tokens=min(MAX_NEW_TOKENS, int(self.eval_config.model_config.max_generation_length)),
+                do_sample=False,
+                desc="MBPP HF Inference",
+            )
+            return hf_generate_inferences(
+                model_loader=self.eval_config.hf_model_loader,
+                prompts=prompts,
+                batch_size=self.eval_config.batch_size,
+                gen_config=gen_config,
+            )
+
         payload: pl.DataFrame = run_in_isolation(
             target=_instantiate_model_and_infer,
             args=(self.eval_config, prompts),

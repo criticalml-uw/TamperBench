@@ -27,6 +27,7 @@ from tamperbench.whitebox.evals.mbpp.mbpp import MBPPEvaluation, MBPPEvaluationC
 from tamperbench.whitebox.evals.minerva_math.minerva_math import (
     MinervaMathEvaluationConfig,
 )
+from tamperbench.whitebox.evals.mt_bench.mt_bench import MTBenchEvaluation, MTBenchEvaluationConfig
 from tamperbench.whitebox.evals.output_schema import EvaluationSchema
 from tamperbench.whitebox.evals.strong_reject.strong_reject import (
     JailbreakBenchEvaluation,
@@ -202,6 +203,9 @@ class TamperAttack(ABC, Generic[H]):
         if EvalName.JAILBREAK_BENCH in self.attack_config.evals:
             results = pl.concat([results, self.evaluate_jailbreak_bench()])
 
+        if EvalName.MT_BENCH in self.attack_config.evals:
+            results = pl.concat([results, self.evaluate_mt_bench()])
+
         return EvaluationSchema.validate(results)
 
     def evaluate_strong_reject(self) -> DataFrame[EvaluationSchema]:
@@ -283,3 +287,12 @@ class TamperAttack(ABC, Generic[H]):
         evaluator: JailbreakBenchEvaluation[StrongRejectEvaluationConfig] = JailbreakBenchEvaluation(eval_config)
 
         return evaluator.run_evaluation()
+
+    def evaluate_mt_bench(self) -> DataFrame[EvaluationSchema]:
+        """Evaluate attack on the `MTBenchEvaluation` evaluator."""
+        eval_config = MTBenchEvaluationConfig(
+            model_checkpoint=self.output_checkpoint_path,
+            out_dir=self.attack_config.out_dir,
+            model_config=self.attack_config.model_config,
+        )
+        return MTBenchEvaluation(eval_config).run_evaluation()

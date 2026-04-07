@@ -1,3 +1,18 @@
+# ruff: noqa: E402, E731
+"""Training script for LoFiT (Localized Fine-tuning on LLM Representations).
+
+Adapted from https://github.com/fc2869/lo-fit
+
+If you use this, please cite the original paper:
+
+    @inproceedings{yin2024lofit,
+        title={LoFiT: Localized Fine-tuning on {LLM} Representations},
+        author={Fangcong Yin and Xi Ye and Greg Durrett},
+        booktitle={The Thirty-eighth Annual Conference on Neural Information Processing Systems},
+        year={2024},
+        url={https://openreview.net/forum?id=dfiXFbECSZ}
+    }
+"""
 import argparse
 import os
 import random
@@ -12,8 +27,8 @@ from trl import DataCollatorForCompletionOnlyLM
 from tamperbench.whitebox.attacks.lofit.trainers import CustomSFTTrainer
 from tamperbench.whitebox.attacks.lofit.vendor.models.modeling_gemma import GemmaForCausalLM
 from tamperbench.whitebox.attacks.lofit.vendor.models.modeling_llama import LlamaForCausalLM
-from tamperbench.whitebox.utils.names import TemplateName
 from tamperbench.whitebox.utils.models.templates import get_template
+from tamperbench.whitebox.utils.names import TemplateName
 
 _LLAMA3_TEMPLATE = get_template(TemplateName.LLAMA3)
 _VENDOR_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "vendor")
@@ -236,6 +251,7 @@ torch.autograd.set_detect_anomaly(True)
 if not args.hf_dataset_path:
     raise ValueError("--hf_dataset_path is required")
 from datasets import load_from_disk
+
 datasets = load_from_disk(args.hf_dataset_path)
 trainer = CustomSFTTrainer
 print(f"Data loaded from {args.hf_dataset_path}")

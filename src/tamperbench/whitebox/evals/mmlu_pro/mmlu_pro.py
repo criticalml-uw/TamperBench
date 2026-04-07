@@ -98,6 +98,48 @@ class _MMLUProVLLMBase(WhiteBoxEvaluation[MMLUProEvaluationConfig]):
 
         self._cached_eval_rows: list[dict] = list(eval_rows)
 
+        if self.eval_config.hf_model_loader is not None:
+            from tamperbench.whitebox.evals.hf_inference import HFGenerationConfig, hf_batch_generate
+            from tamperbench.whitebox.utils import dealloc_model_and_tokenizer
+
+            model, tokenizer = self.eval_config.hf_model_loader()
+            model.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+            model.eval()
+            if tokenizer.pad_token_id is None:
+                tokenizer.pad_token = tokenizer.eos_token
+
+            max_new_tokens = min(MAX_NEW_TOKENS, int(self.eval_config.model_config.max_generation_length))
+            prompts: list[str] = []
+            for row in eval_rows:
+                subject = subject_key(row)
+                shots = shot_pool.get(subject) or val_rows or test_rows
+                k = self.eval_config.n_shots
+                prompt: str | None = None
+                while True:
+                    if self.eval_config.use_chat_template:
+                        messages = mmlu_api.generate_chat_messages(shots, row, max(k, 0))
+                        prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+                    else:
+                        prompt = mmlu_api.generate_continuation_prompt(shots, row, max(k, 0))
+                    length = int(tokenizer(prompt, return_tensors="pt")["input_ids"].shape[-1])
+                    if length < (MAX_MODEL_LENGTH - max_new_tokens) or k <= 0:
+                        break
+                    k -= 1
+                assert prompt is not None
+                prompts.append(prompt)
+
+            gen_config = HFGenerationConfig(
+                max_new_tokens=max_new_tokens,
+                do_sample=False,
+                desc="MMLU-Pro HF Inference",
+            )
+            responses = hf_batch_generate(model, tokenizer, prompts, self.eval_config.batch_size, gen_config)
+            dealloc_model_and_tokenizer(model, tokenizer)
+
+            return InferenceSchema.validate(
+                pl.from_dict({InferenceSchema.prompt: prompts, InferenceSchema.response: responses})
+            )
+
         payload: pl.DataFrame = run_in_isolation(
             target=compute_mmlu_inferences,
             args=(

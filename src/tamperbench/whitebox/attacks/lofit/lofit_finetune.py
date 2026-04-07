@@ -1,3 +1,4 @@
+# ruff: noqa: RUF005
 """LoFiT: Low-Rank Fine-tuning via Attention Head Selection and Bias Tuning.
 
 Two-phase training: Phase A selects important attention heads via L1 regularization,
@@ -24,11 +25,20 @@ from typing_extensions import override
 
 from tamperbench.whitebox.attacks.base import TamperAttack, TamperAttackConfig
 from tamperbench.whitebox.attacks.registry import register_attack
+from tamperbench.whitebox.evals.ifeval.ifeval import IFEvalEvaluation, IFEvalEvaluationConfig
+from tamperbench.whitebox.evals.mbpp.mbpp import MBPPEvaluation, MBPPEvaluationConfig
+from tamperbench.whitebox.evals.minerva_math.minerva_math import MinervaMathEvaluation, MinervaMathEvaluationConfig
+from tamperbench.whitebox.evals.mmlu_pro.mmlu_pro import (
+    MMLUProEvaluationConfig,
+    MMLUProTestEvaluation,
+    MMLUProValEvaluation,
+)
+from tamperbench.whitebox.evals.mt_bench.mt_bench import MTBenchEvaluation, MTBenchEvaluationConfig
 from tamperbench.whitebox.evals.output_schema import EvaluationSchema
 from tamperbench.whitebox.evals.strong_reject.strong_reject import (
-    JailbreakBenchHFEvaluation,
-    StrongRejectHFEvaluation,
-    StrongRejectLoFiTEvaluationConfig,
+    JailbreakBenchEvaluation,
+    StrongRejectEvaluation,
+    StrongRejectEvaluationConfig,
 )
 from tamperbench.whitebox.utils.models.config import ModelConfig
 from tamperbench.whitebox.utils.names import AttackName, EvalName
@@ -155,29 +165,101 @@ class LoFiTAttack(TamperAttack[LoFiTAttackConfig]):
 
         return mixed_dataset.map(to_completions, remove_columns=mixed_dataset.column_names)
 
+    def _lofit_loader(self):
+        """Return a callable that loads the LoFiT model+tokenizer for eval-time inference."""
+        from tamperbench.whitebox.attacks.lofit.model_loader import load_lofit_model_and_tokenizer
+
+        checkpoint = self.output_checkpoint_path
+        base_model = self.attack_config.input_checkpoint_path
+        applied_module = self.attack_config.applied_module
+        applied_layers = self.attack_config.applied_layers
+
+        return lambda: load_lofit_model_and_tokenizer(
+            model_checkpoint=checkpoint,
+            base_model_name=base_model,
+            applied_module=applied_module,
+            applied_layers=applied_layers,
+        )
+
     @override
     def evaluate_strong_reject(self) -> DataFrame[EvaluationSchema]:
-        eval_config = StrongRejectLoFiTEvaluationConfig(
+        eval_config = StrongRejectEvaluationConfig(
             model_checkpoint=self.output_checkpoint_path,
             out_dir=self.attack_config.out_dir,
             model_config=self.attack_config.model_config,
-            applied_module=self.attack_config.applied_module,
-            applied_layers=self.attack_config.applied_layers,
-            base_model_name=self.attack_config.input_checkpoint_path,
+            hf_model_loader=self._lofit_loader(),
         )
-        return StrongRejectHFEvaluation(eval_config).run_evaluation()
+        return StrongRejectEvaluation(eval_config).run_evaluation()
 
     @override
     def evaluate_jailbreak_bench(self) -> DataFrame[EvaluationSchema]:
-        eval_config = StrongRejectLoFiTEvaluationConfig(
+        eval_config = StrongRejectEvaluationConfig(
             model_checkpoint=self.output_checkpoint_path,
             out_dir=self.attack_config.out_dir,
             model_config=self.attack_config.model_config,
-            applied_module=self.attack_config.applied_module,
-            applied_layers=self.attack_config.applied_layers,
-            base_model_name=self.attack_config.input_checkpoint_path,
+            hf_model_loader=self._lofit_loader(),
         )
-        return JailbreakBenchHFEvaluation(eval_config).run_evaluation()
+        return JailbreakBenchEvaluation(eval_config).run_evaluation()
+
+    @override
+    def evaluate_mmlu_pro_val(self) -> DataFrame[EvaluationSchema]:
+        eval_config = MMLUProEvaluationConfig(
+            model_checkpoint=self.output_checkpoint_path,
+            out_dir=self.attack_config.out_dir,
+            model_config=self.attack_config.model_config,
+            hf_model_loader=self._lofit_loader(),
+        )
+        return MMLUProValEvaluation(eval_config).run_evaluation()
+
+    @override
+    def evaluate_mmlu_pro_test(self) -> DataFrame[EvaluationSchema]:
+        eval_config = MMLUProEvaluationConfig(
+            model_checkpoint=self.output_checkpoint_path,
+            out_dir=self.attack_config.out_dir,
+            model_config=self.attack_config.model_config,
+            hf_model_loader=self._lofit_loader(),
+        )
+        return MMLUProTestEvaluation(eval_config).run_evaluation()
+
+    @override
+    def evaluate_mbpp(self) -> DataFrame[EvaluationSchema]:
+        eval_config = MBPPEvaluationConfig(
+            model_checkpoint=self.output_checkpoint_path,
+            out_dir=self.attack_config.out_dir,
+            model_config=self.attack_config.model_config,
+            hf_model_loader=self._lofit_loader(),
+        )
+        return MBPPEvaluation(eval_config).run_evaluation()
+
+    @override
+    def evaluate_minerva_math(self) -> DataFrame[EvaluationSchema]:
+        eval_config = MinervaMathEvaluationConfig(
+            model_checkpoint=self.output_checkpoint_path,
+            out_dir=self.attack_config.out_dir,
+            model_config=self.attack_config.model_config,
+            hf_model_loader=self._lofit_loader(),
+        )
+        return MinervaMathEvaluation(eval_config).run_evaluation()
+
+    @override
+    def evaluate_ifeval(self) -> DataFrame[EvaluationSchema]:
+        eval_config = IFEvalEvaluationConfig(
+            model_checkpoint=self.output_checkpoint_path,
+            out_dir=self.attack_config.out_dir,
+            model_config=self.attack_config.model_config,
+            hf_model_loader=self._lofit_loader(),
+        )
+        return IFEvalEvaluation(eval_config).run_evaluation()
+
+    @override
+    def evaluate_mt_bench(self) -> DataFrame[EvaluationSchema]:
+        eval_config = MTBenchEvaluationConfig(
+            model_checkpoint=self.output_checkpoint_path,
+            out_dir=self.attack_config.out_dir,
+            model_config=self.attack_config.model_config,
+            hf_model_loader=self._lofit_loader(),
+        )
+        return MTBenchEvaluation(eval_config).run_evaluation()
 
 
 # ---------------------------------------------------------------------------

@@ -1,3 +1,4 @@
+# ruff: noqa: D101, D102
 """Custom trainers for LoFiT fine-tuning."""
 
 from trl import SFTTrainer

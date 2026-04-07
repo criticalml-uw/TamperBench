@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C /Users/nnonta/GitHub/SafeTuneBed diff HEAD~8 HEAD --name-only)",
+      "Bash(git -C /Users/nnonta/GitHub/SafeTuneBed show nnonta/lofit_attack:src/tamperbench/whitebox/evals/hf_inference.py)"
+    ]
+  }
+}

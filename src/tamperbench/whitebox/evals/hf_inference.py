@@ -6,8 +6,8 @@ Provides a reusable batch-generate pipeline for evaluations that cannot use vLLM
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable
 
 import polars as pl
 import torch
@@ -106,6 +106,88 @@ def hf_batch_generate(
             responses.append(text)
 
     return responses
+
+
+def hf_get_multiple_choice_answers(
+    model: PreTrainedModel,
+    tokenizer: PreTrainedTokenizer,
+    prompts: list[str],
+    choices: list[str] | None = None,
+    batch_size: int = 8,
+) -> list[str]:
+    """Get multiple-choice answers by comparing next-token logits for each choice.
+
+    For each prompt, tokenises the prompt, runs a forward pass, reads the
+    logits at the last position, and picks the choice whose first token has the
+    highest logit.  Falls back to the first choice if none of the choice tokens
+    appear in the vocabulary.
+
+    Args:
+        model: HuggingFace model (already on device, in eval mode).
+        tokenizer: Corresponding tokenizer.
+        prompts: List of MC prompts (already formatted, ending just before the
+            model should produce the answer token).
+        choices: Answer labels to compare, e.g. ``["A", "B", "C", "D"]``.
+            Each label is looked up with a leading space (`` A``) and without.
+        batch_size: Number of prompts to process per forward pass.
+
+    Returns:
+        List of selected choice strings (one per prompt).
+    """
+    if choices is None:
+        choices = ["A", "B", "C", "D"]
+
+    device = next(model.parameters()).device
+
+    # Resolve first token-id for each choice (try " X" then "X")
+    choice_token_ids: list[int] = []
+    for choice in choices:
+        for variant in (f" {choice}", choice):
+            ids = tokenizer.encode(variant, add_special_tokens=False)
+            if ids:
+                choice_token_ids.append(ids[0])
+                break
+        else:
+            choice_token_ids.append(tokenizer.unk_token_id or 0)
+
+    context_len = getattr(model.config, "max_position_embeddings", 4096)
+    max_input_len = max(32, context_len - 8)
+
+    answers: list[str] = []
+
+    for i in range(0, len(prompts), batch_size):
+        batch = prompts[i : i + batch_size]
+
+        enc = tokenizer(
+            text=batch,
+            return_tensors="pt",
+            padding=True,
+            truncation=True,
+            max_length=max_input_len,
+        )
+        enc = {k: v.to(device) for k, v in enc.items()}
+
+        with torch.no_grad():
+            logits = model(**enc).logits  # [batch, seq_len, vocab]
+
+        # Use attention_mask to find the actual last non-pad token per row
+        # attention_mask: [batch, seq_len], 1 for real tokens, 0 for padding
+        attention_mask = enc.get("attention_mask")
+        if attention_mask is not None:
+            # last real token index = sum of 1s - 1 (left-padded tokenizers)
+            last_indices = attention_mask.sum(dim=1) - 1  # [batch]
+        else:
+            last_indices = torch.full((len(batch),), logits.shape[1] - 1, dtype=torch.long, device=device)
+
+        for row_idx in range(len(batch)):
+            last_logits = logits[row_idx, last_indices[row_idx], :]  # [vocab]
+            scores = {
+                choices[j]: last_logits[choice_token_ids[j]].item()
+                for j in range(len(choices))
+            }
+            answers.append(max(scores, key=scores.get))  # type: ignore[arg-type]
+
+    return answers
 
 
 def hf_generate_inferences(
