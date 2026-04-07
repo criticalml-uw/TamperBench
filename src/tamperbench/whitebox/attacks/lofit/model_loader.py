@@ -28,11 +28,7 @@ def load_lofit_model_and_tokenizer(
             - A model loaded with LoFiT activation modifications applied via forward hooks
             - The associated tokenizer
     """
-    torch_dtype = (
-        torch.bfloat16
-        if torch.cuda.is_available() and torch.cuda.is_bf16_supported()
-        else torch.float16
-    )
+    torch_dtype = torch.bfloat16 if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else torch.float16
 
     config = AutoConfig.from_pretrained(model_checkpoint)
     model_type = getattr(config, "model_type", "").lower()
@@ -64,6 +60,7 @@ def load_lofit_model_and_tokenizer(
         _bin = _os.path.join(_ckpt, "pytorch_model.bin")
         if _os.path.exists(_idx):
             from safetensors.torch import load_file as _load_sf
+
             with open(_idx) as _f:
                 _wmap = _json.load(_f)["weight_map"]
             _shards = {v for k, v in _wmap.items() if "attn_A" in k or "attn_v" in k}
@@ -72,6 +69,7 @@ def load_lofit_model_and_tokenizer(
                 lofit_state.update({k: v for k, v in _d.items() if "attn_A" in k or "attn_v" in k})
         elif _os.path.exists(_single):
             from safetensors.torch import load_file as _load_sf
+
             _d = _load_sf(_single)
             lofit_state = {k: v for k, v in _d.items() if "attn_A" in k or "attn_v" in k}
         elif _os.path.exists(_bin):
@@ -88,6 +86,7 @@ def load_lofit_model_and_tokenizer(
                 _v = v.to(device=x.device, dtype=x.dtype)
                 x = ((_A + 1) * x.view(bsz, q_len, num_heads, head_dim) + _v).view(bsz, q_len, -1)
                 return (x,)
+
             return _hook
 
         num_layers = len(model.model.layers)

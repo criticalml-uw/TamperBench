@@ -15,15 +15,15 @@ def debug_label_masking(batch, tokenizer, print_first_n=1):
         tokenizer: Tokenizer to decode token IDs
         print_first_n: Number of examples to print (default: 1)
     """
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("LABEL MASKING DEBUG")
-    print("="*80)
+    print("=" * 80)
 
-    for idx in range(min(print_first_n, len(batch['input_ids']))):
-        input_ids = batch['input_ids'][idx]
-        labels = batch['labels'][idx]
+    for idx in range(min(print_first_n, len(batch["input_ids"]))):
+        input_ids = batch["input_ids"][idx]
+        labels = batch["labels"][idx]
 
-        print(f"\n--- Example {idx+1} ---")
+        print(f"\n--- Example {idx + 1} ---")
         print("\nFull sequence:")
         print(tokenizer.decode(input_ids, skip_special_tokens=False))
 
@@ -37,20 +37,15 @@ def debug_label_masking(batch, tokenizer, print_first_n=1):
         num_supervised = supervised_mask.sum().item()
         num_total = len(input_ids)
 
-        print(f"\nSupervised: {num_supervised}/{num_total} tokens ({100*num_supervised/num_total:.1f}%)")
+        print(f"\nSupervised: {num_supervised}/{num_total} tokens ({100 * num_supervised / num_total:.1f}%)")
         print("\nSupervised tokens only:")
         print(tokenizer.decode(supervised_ids, skip_special_tokens=False))
 
-    print("\n" + "="*80 + "\n")
+    print("\n" + "=" * 80 + "\n")
 
 
 class CustomSFTTrainer(SFTTrainer):
-    def compute_loss(self,
-                     model,
-                     inputs,return_outputs=False,
-                     num_items_in_batch: int = None,
-                     **kwargs ):
-
+    def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch: int = None, **kwargs):
         outputs = model(**inputs)
 
         ### Save past state if it exists
@@ -61,8 +56,10 @@ class CustomSFTTrainer(SFTTrainer):
         loss = cn_loss
 
         # --- one-time gradient connectivity check ---
-        if not getattr(self, '_grad_check_done', False):
-            print(f"[DEBUG grad-check] loss={loss.item():.4f}, loss.requires_grad={loss.requires_grad}, grad_fn={type(loss.grad_fn).__name__ if loss.grad_fn else None}")
+        if not getattr(self, "_grad_check_done", False):
+            print(
+                f"[DEBUG grad-check] loss={loss.item():.4f}, loss.requires_grad={loss.requires_grad}, grad_fn={type(loss.grad_fn).__name__ if loss.grad_fn else None}"
+            )
             try:
                 p = model.model.layers[0].self_attn.attn_A[0]
                 print(f"[DEBUG grad-check] attn_A[0][0].requires_grad={p.requires_grad}, norm={p.norm().item():.6f}")
@@ -71,7 +68,7 @@ class CustomSFTTrainer(SFTTrainer):
             self._grad_check_done = True
 
         # --- track whether params are actually updating each step ---
-        step = getattr(self, '_step_count', 0)
+        step = getattr(self, "_step_count", 0)
         if step % 5 == 0:
             try:
                 p = model.model.layers[0].self_attn.attn_A[0]
@@ -82,14 +79,14 @@ class CustomSFTTrainer(SFTTrainer):
 
         ### Add L1 regularization term
         l1norm = 0
-        l1_lambda=self.l1_lambda
+        l1_lambda = self.l1_lambda
 
         for param in model.parameters():
             if param.requires_grad:
-                l1norm+=param.abs().sum()
-        loss+=l1_lambda*l1norm
+                l1norm += param.abs().sum()
+        loss += l1_lambda * l1norm
         if return_outputs:
-            return loss,outputs
+            return loss, outputs
         else:
             return loss
 

@@ -206,7 +206,6 @@ class JailbreakBenchEvaluation(StrongRejectEvaluation[S]):
         return EvaluationSchema.validate(_metrics_dataframe)
 
 
-
 def instantiate_model_and_infer(
     eval_config,
     prompts,

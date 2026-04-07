@@ -271,6 +271,7 @@ def _run_lofit_attack(
     output_checkpoint_path: str,
 ) -> None:
     """Prepare dataset, run two-phase LoFiT subprocess training, and export checkpoint."""
+
     # Convert {prompt, completion} -> {text} and split into train/valid/test
     def to_text(example: dict[str, str]) -> dict[str, str]:
         return {"text": example["prompt"] + example["completion"]}
@@ -279,11 +280,13 @@ def _run_lofit_attack(
 
     valid_size = max(1, int(len(text_dataset) * 0.1))
     split = text_dataset.train_test_split(test_size=valid_size, seed=attack_config.random_seed)
-    dataset_dict = hf_datasets.DatasetDict({
-        "train": split["train"],
-        "valid": split["test"],
-        "test": split["test"],
-    })
+    dataset_dict = hf_datasets.DatasetDict(
+        {
+            "train": split["train"],
+            "valid": split["test"],
+            "test": split["test"],
+        }
+    )
 
     with tempfile.TemporaryDirectory() as dataset_tmp:
         dataset_dict.save_to_disk(dataset_tmp)
@@ -298,7 +301,8 @@ def _run_lofit_attack(
         kA = max(attack_config.use_topk_heads, 1) * 5
 
         heads_file = os.path.join(
-            str(vendor_dir), "top_heads",
+            str(vendor_dir),
+            "top_heads",
             f"{model_alias}_alpaca_Aonly_top{kA}heads_{attack_config.random_seed}.npy",
         )
         os.makedirs(os.path.dirname(heads_file), exist_ok=True)
@@ -309,43 +313,71 @@ def _run_lofit_attack(
             env["HF_HOME"] = attack_config.hf_cache_dir
 
         base_args = [
-            "python", trainer_script,
-            "--base_model_name", model_alias,
-            "--task", "alpaca",
-            "--apply_chat_template", str(attack_config.apply_chat_template),
-            "--ft_method", "lofit",
-            "--applied_module", attack_config.applied_module,
-            "--train_batch", str(attack_config.per_device_train_batch_size),
-            "--num_epoch", str(attack_config.num_train_epochs),
-            "--eval_batch", str(attack_config.eval_batch),
-            "--seed", str(attack_config.random_seed),
-            "--save_strategy", attack_config.save_strategy,
-            "--input_checkpoint_path", attack_config.input_checkpoint_path,
-            "--hf_dataset_path", dataset_tmp,
+            "python",
+            trainer_script,
+            "--base_model_name",
+            model_alias,
+            "--task",
+            "alpaca",
+            "--apply_chat_template",
+            str(attack_config.apply_chat_template),
+            "--ft_method",
+            "lofit",
+            "--applied_module",
+            attack_config.applied_module,
+            "--train_batch",
+            str(attack_config.per_device_train_batch_size),
+            "--num_epoch",
+            str(attack_config.num_train_epochs),
+            "--eval_batch",
+            str(attack_config.eval_batch),
+            "--seed",
+            str(attack_config.random_seed),
+            "--save_strategy",
+            attack_config.save_strategy,
+            "--input_checkpoint_path",
+            attack_config.input_checkpoint_path,
+            "--hf_dataset_path",
+            dataset_tmp,
         ]
 
         # Phase A: head selection with L1 regularization
         cmd_A = base_args + [
-            "--lofit_component", "A",
-            "--use_topk_heads", str(kA),
-            "--lr", str(attack_config.lr_A),
-            "--l1_lambda", str(attack_config.l1_lambda),
-            "--output_dir", out_A,
-            "--run_mode", "train",
-            "--output_file_name", os.path.join(work, "outputs_A"),
+            "--lofit_component",
+            "A",
+            "--use_topk_heads",
+            str(kA),
+            "--lr",
+            str(attack_config.lr_A),
+            "--l1_lambda",
+            str(attack_config.l1_lambda),
+            "--output_dir",
+            out_A,
+            "--run_mode",
+            "train",
+            "--output_file_name",
+            os.path.join(work, "outputs_A"),
         ]
         subprocess.run(cmd_A, env=env, check=True)
 
         # Phase v: bias tuning on selected heads
         cmd_v = base_args + [
-            "--lofit_component", "v",
-            "--use_topk_heads", str(attack_config.use_topk_heads),
-            "--lofit_heads", heads_file,
-            "--lr", str(attack_config.lr_v),
-            "--l1_lambda", "0",
-            "--output_dir", out_v,
-            "--run_mode", "train",
-            "--output_file_name", os.path.join(work, "outputs_v"),
+            "--lofit_component",
+            "v",
+            "--use_topk_heads",
+            str(attack_config.use_topk_heads),
+            "--lofit_heads",
+            heads_file,
+            "--lr",
+            str(attack_config.lr_v),
+            "--l1_lambda",
+            "0",
+            "--output_dir",
+            out_v,
+            "--run_mode",
+            "train",
+            "--output_file_name",
+            os.path.join(work, "outputs_v"),
         ]
         subprocess.run(cmd_v, env=env, check=True)
 

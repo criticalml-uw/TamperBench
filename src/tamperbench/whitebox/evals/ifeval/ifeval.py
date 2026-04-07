@@ -116,9 +116,7 @@ class IFEvalEvaluation(WhiteBoxEvaluation[IFEvalEvaluationConfig]):
                         messages, tokenize=False, add_generation_prompt=True, enable_thinking=False
                     )
                 except TypeError:
-                    fmt = tokenizer.apply_chat_template(
-                        messages, tokenize=False, add_generation_prompt=True
-                    )
+                    fmt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
                 formatted_prompts.append(fmt)
 
             gen_config = HFGenerationConfig(

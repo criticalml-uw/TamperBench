@@ -96,9 +96,7 @@ def hf_batch_generate(
         for j in range(len(batch)):
             input_len = input_ids[j].shape[0]
             gen_ids = seqs[j, input_len:]
-            text = tokenizer.decode(
-                gen_ids, skip_special_tokens=True, clean_up_tokenization_spaces=True
-            ).strip()
+            text = tokenizer.decode(gen_ids, skip_special_tokens=True, clean_up_tokenization_spaces=True).strip()
 
             if gen_config.stop_sequences:
                 text = trim_at_stop_sequences(text, gen_config.stop_sequences)
@@ -181,10 +179,7 @@ def hf_get_multiple_choice_answers(
 
         for row_idx in range(len(batch)):
             last_logits = logits[row_idx, last_indices[row_idx], :]  # [vocab]
-            scores = {
-                choices[j]: last_logits[choice_token_ids[j]].item()
-                for j in range(len(choices))
-            }
+            scores = {choices[j]: last_logits[choice_token_ids[j]].item() for j in range(len(choices))}
             answers.append(max(scores, key=scores.get))  # type: ignore[arg-type]
 
     return answers
