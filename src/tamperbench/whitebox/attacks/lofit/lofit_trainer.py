@@ -1,4 +1,5 @@
 # ruff: noqa: E402, E731
+# pyright: reportAttributeAccessIssue=false, reportArgumentType=false, reportPossiblyUnboundVariable=false, reportCallIssue=false, reportOptionalMemberAccess=false, reportIndexIssue=false, reportUnknownLambdaType=false, reportOperatorIssue=false
 """Training script for LoFiT (Localized Fine-tuning on LLM Representations).
 
 Adapted from https://github.com/fc2869/lo-fit
@@ -331,13 +332,6 @@ elif "gemma" in model_name:
 ### DataCollatorForCompletionOnlyLM is used for updating loss ONLY on the response
 data_collator = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
 
-# Verify response template is findable in training data
-print("\n" + "=" * 60)
-print("RESPONSE TEMPLATE DEBUG")
-print("=" * 60)
-print(f"Template string: {response_template_with_context!r}")
-print(f"Template IDs:    {response_template_ids}")
-print(f"Template decoded: {tokenizer.decode(response_template_ids)!r}")
 _sample_text = datasets["train"][0]["text"]
 _sample_ids = tokenizer.encode(_sample_text, add_special_tokens=False)
 _found = any(

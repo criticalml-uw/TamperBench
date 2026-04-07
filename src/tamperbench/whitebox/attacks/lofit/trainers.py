@@ -1,4 +1,5 @@
 # ruff: noqa: D101, D102
+# pyright: reportMissingParameterType=false, reportArgumentType=false, reportUnannotatedClassAttribute=false, reportUninitializedInstanceVariable=false, reportAttributeAccessIssue=false, reportUnusedParameter=false, reportPrivateImportUsage=false, reportIncompatibleMethodOverride=false, reportImplicitOverride=false
 """Custom trainers for LoFiT fine-tuning."""
 
 from trl import SFTTrainer

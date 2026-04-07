@@ -1,3 +1,4 @@
+# pyright: reportMissingParameterType=false, reportUnusedParameter=false, reportAttributeAccessIssue=false
 """Eval-time model loader for LoFiT checkpoints."""
 
 from typing import Any
@@ -111,7 +112,7 @@ def load_lofit_model_and_tokenizer(
 
         model = model.eval()
 
-    model.config.use_cache = False  # pyright: ignore[reportAttributeAccessIssue]
+    model.config.use_cache = False
     if hasattr(model, "generation_config") and model.generation_config is not None:
         model.generation_config.use_cache = False
     if hasattr(model, "model") and hasattr(model.model, "config"):
