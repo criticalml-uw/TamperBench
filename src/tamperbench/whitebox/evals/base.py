@@ -58,6 +58,17 @@ class WhiteBoxEvaluationConfig:
     ReFT) that register custom forward hooks which vLLM cannot apply.
     """
 
+    def __getstate__(self) -> dict:
+        """Exclude hf_model_loader from pickling.
+
+        ``run_in_isolation`` spawns subprocesses via ``multiprocessing`` which
+        requires pickling the config.  Lambda/closure loaders are not picklable,
+        and the scoring/results subprocesses don't need the model loader anyway.
+        """
+        state = self.__dict__.copy()
+        state["hf_model_loader"] = None
+        return state
+
 
 class WhiteBoxEvaluation(ABC, Generic[C]):
     """Base class for an evaluation."""
