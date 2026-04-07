@@ -92,7 +92,7 @@ def hf_batch_generate(
         with torch.no_grad():
             outputs = model.generate(**enc, **gen_kwargs)  # pyright: ignore[reportCallIssue]
 
-        seqs = outputs.sequences  # pyright: ignore[reportAttributeAccessIssue]
+        seqs = outputs.sequences
         input_ids = enc["input_ids"]
 
         for j in range(len(batch)):
@@ -148,7 +148,7 @@ def hf_get_multiple_choice_answers(
                 choice_token_ids.append(ids[0])
                 break
         else:
-            choice_token_ids.append(int(tokenizer.unk_token_id) if tokenizer.unk_token_id is not None else 0)
+            choice_token_ids.append(int(tokenizer.unk_token_id) if tokenizer.unk_token_id is not None else 0)  # pyright: ignore[reportArgumentType]
 
     context_len = getattr(model.config, "max_position_embeddings", 4096)
     max_input_len = max(32, context_len - 8)

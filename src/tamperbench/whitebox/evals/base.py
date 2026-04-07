@@ -58,7 +58,7 @@ class WhiteBoxEvaluationConfig:
     ReFT) that register custom forward hooks which vLLM cannot apply.
     """
 
-    def __getstate__(self) -> dict:
+    def __getstate__(self) -> dict[str, Any]:
         """Exclude hf_model_loader from pickling.
 
         ``run_in_isolation`` spawns subprocesses via ``multiprocessing`` which

@@ -103,7 +103,7 @@ class _MMLUProVLLMBase(WhiteBoxEvaluation[MMLUProEvaluationConfig]):
             from tamperbench.whitebox.utils import dealloc_model_and_tokenizer
 
             model, tokenizer = self.eval_config.hf_model_loader()
-            model.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))  # pyright: ignore[reportArgumentType]
+            model.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
             model.eval()
             if tokenizer.pad_token_id is None:
                 tokenizer.pad_token = tokenizer.eos_token
