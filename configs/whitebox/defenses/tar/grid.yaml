@@ -29,23 +29,26 @@ base: &base_cfg
     tf32: true
     cache_dir: cache
     # TAR-specific parameters
+    bad_sample_num: 2000
+    # General training parameters
+    max_length: 200
+    system_evaluate: true
+    evaluate_step: false
+    sample_num: 1000
+    harmful_dataset: BeaverTails
+    decoding_trust_dataset_path: ""
+    seed: 42
+    # Parameters used by other algorithms (T-Vaccine, etc.) in the shared
+    # upstream training code. Not functionally used by TAR's TarTrainer but
+    # required by UpstreamTrainingConfig.
     lamb: 5.0
     alpha: 0.1
     rho: 0.1
     density: 0.2
-    bad_sample_num: 2000
-    max_length: 200
-    # Additional parameters
     track_embedding: false
     alternating: ""
     lisa_activated_layers: 1
     lisa_interval_steps: 1
     prompt_data_size: 100
     probability_steps: 200
-    system_evaluate: true
-    evaluate_step: false
-    sample_num: 1000
     guide_data_num: 100
-    harmful_dataset: BeaverTails
-    decoding_trust_dataset_path: ""
-    seed: 42

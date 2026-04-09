@@ -31,7 +31,6 @@ base: &base_cfg
     # T-Vaccine-specific parameters (from paper)
     # rho: perturbation intensity (paper Table 7: rho=3 optimal)
     rho: 3.0
-    density: 0.2
     # lisa_activated_layers: number of sampled layers S (paper Table 4: S=8 optimal)
     lisa_activated_layers: 8
     # lisa_interval_steps: layer resampling interval J (from T-Vaccine.sh)
@@ -40,17 +39,21 @@ base: &base_cfg
     prompt_data_size: 200
     # probability_steps: sampling probability recalculation interval K (paper Table 5: K=200 optimal)
     probability_steps: 200
+    # General training parameters
     max_length: 200
-    # Additional parameters (not primary to T-Vaccine but required by shared pipeline)
+    system_evaluate: true
+    evaluate_step: false
+    sample_num: 1000
+    harmful_dataset: BeaverTails
+    decoding_trust_dataset_path: ""
+    seed: 42
+    # Parameters used by other algorithms (TAR, RepNoise, etc.) in the shared
+    # upstream training code. Not functionally used by T-Vaccine's mesfa
+    # optimizer but required by UpstreamTrainingConfig.
+    density: 0.2
     lamb: 5.0
     alpha: 0.1
     bad_sample_num: 2000
     track_embedding: false
     alternating: ""
-    system_evaluate: true
-    evaluate_step: false
-    sample_num: 1000
     guide_data_num: 100
-    harmful_dataset: BeaverTails
-    decoding_trust_dataset_path: ""
-    seed: 42
