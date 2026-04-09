@@ -23,6 +23,7 @@ import logging
 import random
 import sys
 from collections.abc import Sequence
+import dataclasses
 from dataclasses import dataclass, field, fields as dataclass_fields
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -99,8 +100,19 @@ class TrainingArguments(transformers.TrainingArguments):
 
 
 @dataclass
-class TarRunConfig:
-    """Configuration for running TAR alignment training without relying on CLI parsing."""
+class UpstreamTrainingConfig:
+    """Low-level training configuration that maps 1-to-1 onto the original T-Vaccine
+    codebase's CLI arguments.
+
+    This is internal plumbing — external callers should use the public defense
+    configs (:class:`~tamperbench.whitebox.defenses.t_vaccine.t_vaccine.TVaccineConfig`,
+    :class:`~tamperbench.whitebox.defenses.t_vaccine.tar.TARConfig`) and let
+    :func:`defense_config_to_upstream_training_config` handle the translation.
+
+    The attack-only fields (``lora_folder``, ``poison_ratio``, ``benign_dataset``,
+    ``vaccine_ratio``) default to inert values. They are only set explicitly by
+    the paper-reproduction testing script (``scripts/t_vaccine/attack.py``).
+    """
 
     model_name_or_path: str
     output_dir: str
@@ -131,7 +143,6 @@ class TarRunConfig:
     alpha: float
     track_embedding: bool
     alternating: str
-    lora_folder: str
     lisa_activated_layers: int
     lisa_interval_steps: int
     prompt_data_size: int
@@ -139,39 +150,43 @@ class TarRunConfig:
     system_evaluate: bool
     evaluate_step: bool
     max_length: int
-    poison_ratio: float
     sample_num: int
-    benign_dataset: str
-    vaccine_ratio: float
     guide_data_num: int
     bad_sample_num: int
     harmful_dataset: str
     decoding_trust_dataset_path: str
     seed: int
     log_dir: str = "./logs/"
+    # Attack-only fields — only used when benign_dataset != "".
+    # Defense configs don't set these; they default to inert values.
+    lora_folder: str = ""
+    poison_ratio: float = 0.0
+    benign_dataset: str = ""
+    vaccine_ratio: float = 0.0
 
 
-def defense_config_to_tar_run_config(config: AlignmentDefenseConfig) -> TarRunConfig:
-    """Build a TarRunConfig from an AlignmentDefenseConfig subclass.
-
-    Expects *config* to carry every field present on :class:`TarRunConfig`
-    (besides ``model_name_or_path`` and ``output_dir``, which are derived from
-    the base class's checkpoint paths).
+def defense_config_to_upstream_training_config(config: AlignmentDefenseConfig) -> UpstreamTrainingConfig:
+    """Build an UpstreamTrainingConfig from an AlignmentDefenseConfig subclass.
 
     Raises ``AttributeError`` with a clear message if a required field is missing.
     """
     _MAPPED = ("model_name_or_path", "output_dir")
     shared = {}
-    for f in dataclass_fields(TarRunConfig):
+    for f in dataclass_fields(UpstreamTrainingConfig):
         if f.name in _MAPPED:
             continue
-        try:
-            shared[f.name] = getattr(config, f.name)
-        except AttributeError:
+        if not hasattr(config, f.name):
+            has_default = (
+                f.default is not dataclasses.MISSING
+                or f.default_factory is not dataclasses.MISSING
+            )
+            if has_default:
+                continue
             raise AttributeError(
-                f"{type(config).__name__} is missing field '{f.name}' required by TarRunConfig"
-            ) from None
-    return TarRunConfig(
+                f"{type(config).__name__} is missing field '{f.name}' required by UpstreamTrainingConfig"
+            )
+        shared[f.name] = getattr(config, f.name)
+    return UpstreamTrainingConfig(
         model_name_or_path=str(config.input_checkpoint_path),
         output_dir=str(config.output_checkpoint_path),
         **shared,
@@ -580,7 +595,7 @@ def _train_main(
     model_args: ModelArguments,
     data_args: DataArguments,
     training_args: TrainingArguments,
-    tar_config: TarRunConfig,
+    tar_config: UpstreamTrainingConfig,
 ) -> Path:
     """Internal implementation shared by CLI entrypoint and programmatic runner."""
     seed = tar_config.seed
@@ -1047,7 +1062,7 @@ def train() -> None:
     parser.add_argument("--seed", type=int, default=43, help="Random seed.")
 
     model_args, data_args, training_args, extra_args = parser.parse_args_into_dataclasses()
-    tar_config = TarRunConfig(
+    tar_config = UpstreamTrainingConfig(
         model_name_or_path=model_args.model_name_or_path,
         output_dir=str(training_args.output_dir),
         data_path=data_args.data_path,
@@ -1099,7 +1114,7 @@ def train() -> None:
     _train_main(model_args, data_args, training_args, tar_config)
 
 
-def run_tar_training(tar_config: TarRunConfig) -> Path:
+def run_tar_training(tar_config: UpstreamTrainingConfig) -> Path:
     """Programmatic API used by tamperbench codebase."""
     model_args = ModelArguments(model_name_or_path=tar_config.model_name_or_path)
     data_args = DataArguments(data_path=tar_config.data_path)

@@ -33,7 +33,7 @@ from config import (  # pyright: ignore[reportImplicitRelativeImport]
 )
 from dotenv import load_dotenv
 
-from tamperbench.whitebox.defenses.t_vaccine.t_vaccine import TVaccineConfig, TVaccineDefense
+from tamperbench.whitebox.defenses.t_vaccine.train import UpstreamTrainingConfig, run_tar_training
 
 
 def build_sst2_json(output_path: Path) -> Path:
@@ -131,9 +131,9 @@ def main():
 
     # The attack uses optimizer="normal" (standard fine-tuning, no perturbation).
     # It loads the alignment LoRA via lora_folder and trains a second LoRA on top.
-    config = TVaccineConfig(
-        input_checkpoint_path=Path(model),
-        output_checkpoint_path=attack_output,
+    config = UpstreamTrainingConfig(
+        model_name_or_path=model,
+        output_dir=str(attack_output),
         data_path="PKU-Alignment/BeaverTails_dangerous",
         alignment_dataset_path=args.alignment_dataset,
         beaver_tails_dataset_path=args.beaver_tails_dataset,
@@ -180,8 +180,7 @@ def main():
         seed=42,
         log_dir=str(output_dir / "logs" / "attack"),
     )
-    defense = TVaccineDefense(defense_config=config)
-    checkpoint = defense.run_defense()
+    checkpoint = run_tar_training(config)
 
     print(f"\nAttack complete: {checkpoint}")
 

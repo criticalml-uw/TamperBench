@@ -1,4 +1,3 @@
-# todo: Matt - abstract out things like poison_ratio which might be more relevant to the fine-tuning "attacks" they run later.
 base: &base_cfg
     model_config:
         template: plain
@@ -39,17 +38,13 @@ base: &base_cfg
     # Additional parameters
     track_embedding: false
     alternating: ""
-    lora_folder: ""
     lisa_activated_layers: 1
     lisa_interval_steps: 1
     prompt_data_size: 100
     probability_steps: 200
     system_evaluate: true
     evaluate_step: false
-    poison_ratio: 0.0
     sample_num: 1000
-    benign_dataset: ""
-    vaccine_ratio: 0.0
     guide_data_num: 100
     harmful_dataset: BeaverTails
     decoding_trust_dataset_path: ""

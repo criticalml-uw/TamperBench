@@ -47,13 +47,9 @@ base: &base_cfg
     bad_sample_num: 2000
     track_embedding: false
     alternating: ""
-    lora_folder: ""
     system_evaluate: true
     evaluate_step: false
-    poison_ratio: 0.0
     sample_num: 1000
-    benign_dataset: ""
-    vaccine_ratio: 0.0
     guide_data_num: 100
     harmful_dataset: BeaverTails
     decoding_trust_dataset_path: ""

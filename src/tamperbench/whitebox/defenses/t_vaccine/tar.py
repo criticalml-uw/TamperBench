@@ -36,7 +36,7 @@ from tamperbench.whitebox.defenses.defense import (
     AlignmentDefenseConfig,
 )
 from tamperbench.whitebox.defenses.registry import register_defense
-from tamperbench.whitebox.defenses.t_vaccine.train import defense_config_to_tar_run_config, run_tar_training
+from tamperbench.whitebox.defenses.t_vaccine.train import defense_config_to_upstream_training_config, run_tar_training
 from tamperbench.whitebox.utils.names import DefenseName
 
 
@@ -80,7 +80,6 @@ class TARConfig(AlignmentDefenseConfig):
     alpha: float
     track_embedding: bool
     alternating: str
-    lora_folder: str
     lisa_activated_layers: int
     lisa_interval_steps: int
     prompt_data_size: int
@@ -88,10 +87,7 @@ class TARConfig(AlignmentDefenseConfig):
     system_evaluate: bool
     evaluate_step: bool
     max_length: int
-    poison_ratio: float
     sample_num: int
-    benign_dataset: str
-    vaccine_ratio: float
     guide_data_num: int
     bad_sample_num: int
     harmful_dataset: str
@@ -109,4 +105,4 @@ class TARDefense(AlignmentDefense[TARConfig]):
     @override
     def run_defense(self) -> Path:
         """Run TAR fine-tuning to obtain an aligned checkpoint."""
-        return run_tar_training(defense_config_to_tar_run_config(self.defense_config))
+        return run_tar_training(defense_config_to_upstream_training_config(self.defense_config))
