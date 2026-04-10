@@ -1114,7 +1114,7 @@ def train() -> None:
     _train_main(model_args, data_args, training_args, tar_config)
 
 
-def run_tar_training(tar_config: UpstreamTrainingConfig) -> Path:
+def run_upstream_training(tar_config: UpstreamTrainingConfig) -> Path:
     """Programmatic API used by tamperbench codebase."""
     model_args = ModelArguments(model_name_or_path=tar_config.model_name_or_path)
     data_args = DataArguments(data_path=tar_config.data_path)

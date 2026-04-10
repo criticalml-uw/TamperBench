@@ -26,7 +26,10 @@ from tamperbench.whitebox.defenses.defense import (
     AlignmentDefenseConfig,
 )
 from tamperbench.whitebox.defenses.registry import register_defense
-from tamperbench.whitebox.defenses.t_vaccine.train import defense_config_to_upstream_training_config, run_tar_training
+from tamperbench.whitebox.defenses.t_vaccine.train import (
+    defense_config_to_upstream_training_config,
+    run_upstream_training,
+)
 from tamperbench.whitebox.utils.names import DefenseName
 
 
@@ -97,4 +100,4 @@ class TVaccineDefense(AlignmentDefense[TVaccineConfig]):
     @override
     def run_defense(self) -> Path:
         """Run T-Vaccine fine-tuning to obtain an aligned checkpoint."""
-        return run_tar_training(defense_config_to_upstream_training_config(self.defense_config))
+        return run_upstream_training(defense_config_to_upstream_training_config(self.defense_config))

@@ -31,9 +31,10 @@ from config import (  # pyright: ignore[reportImplicitRelativeImport]
     MODELS,
     get_output_dir,
 )
+from datasets import load_dataset
 from dotenv import load_dotenv
 
-from tamperbench.whitebox.defenses.t_vaccine.train import UpstreamTrainingConfig, run_tar_training
+from tamperbench.whitebox.defenses.t_vaccine.train import UpstreamTrainingConfig, run_upstream_training
 
 
 def build_sst2_json(output_path: Path) -> Path:
@@ -41,8 +42,6 @@ def build_sst2_json(output_path: Path) -> Path:
     if output_path.exists():
         print(f"SST2 dataset already exists at {output_path}, skipping build.")
         return output_path
-
-    from datasets import load_dataset
 
     print("Building SST2 dataset from HuggingFace...")
     dataset = load_dataset("sst2")
@@ -185,7 +184,7 @@ def main():
         seed=42,
         log_dir=str(output_dir / "logs" / "attack"),
     )
-    checkpoint = run_tar_training(config)
+    checkpoint = run_upstream_training(config)
 
     print(f"\nAttack complete: {checkpoint}")
 
