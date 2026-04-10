@@ -207,7 +207,7 @@ class MBPPEvaluationConfig(WhiteBoxEvaluationConfig):
     timeout: float = 3.0  # Execution timeout in seconds
 
 
-@register_evaluation(EvalName.MBPP)
+@register_evaluation(EvalName.MBPP, MBPPEvaluationConfig)
 class MBPPEvaluation(WhiteBoxEvaluation[MBPPEvaluationConfig]):
     """MBPP (Mostly Basic Programming Problems) Evaluation.
 

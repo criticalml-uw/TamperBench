@@ -12,7 +12,6 @@ import torch
 from dotenv import load_dotenv
 
 from tamperbench.utils import get_repo_root
-from tamperbench.whitebox.attacks.base import TamperAttack, TamperAttackConfig
 from tamperbench.whitebox.attacks.embedding_attack import (
     embedding_attack as _,
 )
@@ -26,12 +25,9 @@ from tamperbench.whitebox.attacks.lora_finetune import lora_finetune as _
 from tamperbench.whitebox.attacks.multilingual_finetune import (
     multilingual_finetune as _,  # noqa: F401
 )
-from tamperbench.whitebox.attacks.registry import (
-    ATTACKS_REGISTRY,
-)
 from tamperbench.whitebox.utils import AttackName, ConfigPath
 from tamperbench.whitebox.utils.benchmark.io import yaml_to_dict
-from tamperbench.whitebox.utils.names import ConfigKeys
+from tamperbench.whitebox.utils.benchmark.runners import run_attack_grid_configs
 
 REPO_ROOT = get_repo_root()
 
@@ -97,25 +93,18 @@ if __name__ == "__main__":
     )
     random_seed = cast(int, args.random_seed)
 
-    whitebox_attack_config_grids: dict[AttackName, dict[str, Any]] | None = {
+    whitebox_attack_config_grids: dict[AttackName, dict[str, Any]] = {
         attack_name: yaml_to_dict(Path(config_root, attack_name, ConfigPath.GRID_YAML)) for attack_name in args.attacks
     }
 
     for attack_name in args.attacks:
-        attack_config_cls, attack_cls = ATTACKS_REGISTRY[attack_name]
-        for config_name, attack_config_dict in whitebox_attack_config_grids[attack_name].items():
-            # Inject random seed into config
-            attack_config_dict[ConfigKeys.RANDOM_SEED] = random_seed
-
-            attacker: TamperAttack[TamperAttackConfig] = attack_cls(
-                attack_config=attack_config_cls.from_dict(
-                    data={
-                        "input_checkpoint_path": pretrained_model_path,
-                        "out_dir": Path(results_dir, model_alias, attack_name, config_name),
-                        **attack_config_dict,
-                    }
-                )
-            )
-            attacker.benchmark()
+        run_attack_grid_configs(
+            attack_name=attack_name,
+            config_grid=whitebox_attack_config_grids[attack_name],
+            pretrained_model_path=pretrained_model_path,
+            output_base_dir=Path(results_dir, model_alias, attack_name),
+            random_seed=random_seed,
+            cleanup_checkpoints=False,
+        )
 
         torch.cuda.empty_cache()

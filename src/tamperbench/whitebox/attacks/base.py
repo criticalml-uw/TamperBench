@@ -157,9 +157,18 @@ class TamperAttack(ABC, Generic[H]):
 
     @final
     def delete_output_checkpoint(self) -> None:
-        """Delete the tampered model checkpoint if it exists."""
-        if Path(self.output_checkpoint_path).exists():
-            shutil.rmtree(self.output_checkpoint_path)
+        """Delete the tampered model checkpoint if it exists.
+
+        Skips deletion when the output checkpoint is the same path as the
+        input (e.g. ``NoWeightModificationAttack``), to avoid destroying the
+        original model.
+        """
+        output = Path(self.output_checkpoint_path).resolve()
+        input_path = Path(self.attack_config.input_checkpoint_path).resolve()
+        if output == input_path:
+            return
+        if output.exists():
+            shutil.rmtree(output)
 
     def evaluate(self) -> DataFrame[EvaluationSchema]:
         """Evaluate attack on relevant evaluations.

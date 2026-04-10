@@ -60,7 +60,7 @@ class SafetyGapEvaluationConfig(WhiteBoxEvaluationConfig):
     domains: list[SafetyGapDomain] = field(default_factory=lambda: list(SafetyGapDomain))
 
 
-@register_evaluation(EvalName.SAFETY_GAP)
+@register_evaluation(EvalName.SAFETY_GAP, SafetyGapEvaluationConfig)
 class SafetyGapEvaluation(WhiteBoxEvaluation[SafetyGapEvaluationConfig]):
     """SafetyGap Evaluation class.
 

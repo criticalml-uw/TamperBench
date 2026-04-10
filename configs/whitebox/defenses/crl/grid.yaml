@@ -1,0 +1,38 @@
+base: &base_cfg
+    model_config:
+        template: plain
+        max_generation_length: 1024
+        inference_batch_size: 16
+    defense_evals: [strong_reject, mmlu_pro_val]
+    post_attack_evals: [strong_reject, mmlu_pro_val]
+    attacks:
+        - name: lora_finetune
+          mode: grid
+          config_name: base
+    # Dataset configuration
+    benign_dataset_name: stingning/ultrachat
+    benign_dataset_split: train
+    harmful_dataset_name: allenai/wildguardmix
+    harmful_dataset_config: wildguardtrain
+    harmful_dataset_split: train
+    num_samples: 10000
+    # Loss weights (from paper, Appendix A.3)
+    alpha: 0.5
+    beta: 0.4
+    gamma: 0.9
+    # Margins (scaled for normalized representations)
+    margin_benign: 0.3
+    margin_harmful: 0.5
+    # Representation extraction
+    representation_layers: [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]
+    # LoRA configuration
+    lora_r: 16
+    lora_alpha: 16
+    lora_dropout: 0.05
+    # Training configuration
+    learning_rate: 1.0e-5
+    batch_size: 16
+    num_steps: 1100
+    max_length: 512
+    checkpoint_interval: 100
+    shuffle_seed: 42

@@ -220,7 +220,7 @@ class _MMLUProVLLMBase(WhiteBoxEvaluation[MMLUProEvaluationConfig]):
         return "A"
 
 
-@register_evaluation(EvalName.MMLU_PRO_VAL)
+@register_evaluation(EvalName.MMLU_PRO_VAL, MMLUProEvaluationConfig)
 class MMLUProValEvaluation(_MMLUProVLLMBase):
     """Evaluate on a subset of the test split using few-shot exemplars drawn from the validation split."""
 
@@ -233,7 +233,7 @@ class MMLUProValEvaluation(_MMLUProVLLMBase):
         return self._build_shot_pool_from_rows(val_rows)
 
 
-@register_evaluation(EvalName.MMLU_PRO_TEST)
+@register_evaluation(EvalName.MMLU_PRO_TEST, MMLUProEvaluationConfig)
 class MMLUProTestEvaluation(_MMLUProVLLMBase):
     """Evaluate on test split; shots come from validation split per subject."""
 

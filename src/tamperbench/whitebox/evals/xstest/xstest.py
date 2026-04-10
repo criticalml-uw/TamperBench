@@ -225,7 +225,7 @@ class XSTestEvaluationConfig(WhiteBoxEvaluationConfig):
     prompt_types: list[str] = field(default_factory=list)
 
 
-@register_evaluation(EvalName.XSTEST)
+@register_evaluation(EvalName.XSTEST, XSTestEvaluationConfig)
 class XSTestEvaluation(WhiteBoxEvaluation[XSTestEvaluationConfig]):
     """XSTest Evaluation for exaggerated safety behaviors.
 

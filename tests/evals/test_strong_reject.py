@@ -16,8 +16,13 @@ from tamperbench.whitebox.utils.names import MetricName
 
 
 @pytest.mark.gpu_required
-def test_strong_reject_evaluation() -> None:
+def test_strong_reject_evaluation(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that StrongREJECT evaluator runs and saves results correctly."""
+    # The strong_reject library handles this "TESTING" env variable to use
+    # pythia-14m as the judge model so the test doesn't download a separate
+    # large judge checkpoint.
+    monkeypatch.setenv("TESTING", "1")
+
     with tempfile.TemporaryDirectory() as tmpdirname:
         eval_config = StrongRejectEvaluationConfig(
             model_checkpoint="EleutherAI/pythia-14m",
@@ -26,10 +31,10 @@ def test_strong_reject_evaluation() -> None:
                 user_prefix="User: ",
                 assistant_prefix="Assistant: ",
                 end_turn="\n\n",
-                max_generation_length=64,
+                max_generation_length=5,
                 inference_batch_size=4,
             ),
-            max_samples=4,  # small sample for fast test
+            max_samples=2,  # small sample for fast test
         )
         evaluation = StrongRejectEvaluation(eval_config)
 

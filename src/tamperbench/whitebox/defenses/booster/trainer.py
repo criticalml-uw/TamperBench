@@ -112,24 +112,31 @@ class BoosterTrainer(Trainer):
 
         return batch
 
-    def _compute_grad_norm(self, grads: dict[str, torch.Tensor], eps: float = 1e-7) -> torch.Tensor:
+    def _compute_grad_norm(self, grads: dict[str, torch.Tensor], eps: float = 1e-7) -> float:
         """Compute L2 norm of gradients across all parameters.
 
         This matches the _grad_norm method from the paper's implementation:
         ||grad|| = sqrt(sum(||grad_i||^2))
+
+        Returns a Python float so the result is device-agnostic (gradients may
+        live on different GPUs when using device_map="auto").
 
         Args:
             grads: Dictionary mapping parameter names to gradient tensors.
             eps: Small constant for numerical stability.
 
         Returns:
-            Scalar tensor with gradient norm.
+            Gradient norm as a Python float.
         """
         norms = [grads[name].norm(p=2) for name in grads if grads[name] is not None]  # pyright: ignore[reportUnnecessaryComparison]  # defensive guard
         if not norms:
-            return torch.tensor(eps)
-        total_norm = torch.norm(torch.stack(norms), p=2)
-        return total_norm + eps
+            return eps
+        # Move all norms to the same device before stacking, since with
+        # device_map="auto" parameters (and their gradients) may reside on
+        # different GPUs.
+        device = norms[0].device
+        total_norm = torch.norm(torch.stack([n.to(device) for n in norms]), p=2)
+        return total_norm.item() + eps
 
     @override
     def training_step(

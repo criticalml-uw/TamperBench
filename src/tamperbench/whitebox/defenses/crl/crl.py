@@ -31,9 +31,12 @@ from tamperbench.whitebox.defenses.crl.model import (
 )
 from tamperbench.whitebox.defenses.crl.trainer import run_training_loop
 from tamperbench.whitebox.defenses.defense import AlignmentDefense
+from tamperbench.whitebox.defenses.registry import register_defense
+from tamperbench.whitebox.utils.names import DefenseName
 from tamperbench.whitebox.utils.ops.dealloc import dealloc_model_and_tokenizer
 
 
+@register_defense(DefenseName.CRL, CRLConfig)
 class CRL(AlignmentDefense[CRLConfig]):
     """CRL defense: hardens models via contrastive representation learning.
 

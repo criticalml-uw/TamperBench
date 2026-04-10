@@ -83,6 +83,7 @@ class LoraFinetune(FullParameterFinetune[H]):
             max_length=2048,
             seed=self.attack_config.random_seed,
             use_cpu=not torch.cuda.is_available(),
+            report_to="none",
         )
 
         run_in_isolation(
