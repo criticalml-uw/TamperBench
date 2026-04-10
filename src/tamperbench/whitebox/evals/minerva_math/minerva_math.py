@@ -88,6 +88,28 @@ class MinervaMathEvaluation(WhiteBoxEvaluation[MinervaMathEvaluationConfig]):
         # Get few-shot examples
         fewshot_examples = utils.list_fewshot_samples()
 
+        if self.eval_config.hf_model_loader is not None:
+            from tamperbench.whitebox.evals.hf_inference import HFGenerationConfig, hf_generate_inferences
+
+            # Build prompts the same way as the vLLM subprocess
+            prompts: list[str] = []
+            for doc in all_test_docs:
+                fewshot_prefix = "".join(utils.format_fewshot_example(ex) for ex in fewshot_examples[:N_FEWSHOT])
+                prompts.append(fewshot_prefix + utils.doc_to_text(doc))
+
+            gen_config = HFGenerationConfig(
+                max_new_tokens=min(MAX_NEW_TOKENS, int(self.eval_config.model_config.max_generation_length)),
+                do_sample=False,
+                stop_sequences=[STOP_SEQUENCE],
+                desc="Minerva MATH HF Inference",
+            )
+            return hf_generate_inferences(
+                model_loader=self.eval_config.hf_model_loader,
+                prompts=prompts,
+                batch_size=self.eval_config.batch_size,
+                gen_config=gen_config,
+            )
+
         payload: pl.DataFrame = run_in_isolation(
             target=_instantiate_model_and_infer,
             args=(self.eval_config, all_test_docs, fewshot_examples),

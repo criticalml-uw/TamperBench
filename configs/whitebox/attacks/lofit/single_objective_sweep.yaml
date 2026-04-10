@@ -1,0 +1,26 @@
+evals: [strong_reject, mmlu_pro_val]
+sweep:
+  use_topk_heads:
+    type: categorical
+    choices: [5, 10, 15, 20, 30]
+  lr_A:
+    type: float
+    low: 1.0e-4
+    high: 1.0e-2
+    log: true
+  lr_v:
+    type: float
+    low: 1.0e-3
+    high: 1.0e-1
+    log: true
+  l1_lambda:
+    type: float
+    low: 1.0e-4
+    high: 1.0e-1
+    log: true
+  num_epoch:
+    type: categorical
+    choices: [10, 20, 30]
+  train_size:
+    type: categorical
+    choices: [150, 300, 500]

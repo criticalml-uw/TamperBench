@@ -289,7 +289,14 @@ class MTBenchEvaluation(WhiteBoxEvaluation[MTBenchEvaluationConfig]):
         Returns:
             DataFrame[InferenceSchema]: A polars DataFrame with prompts and responses.
         """
-        model, tokenizer = load_hf_model_and_tokenizer(self.eval_config)
+        if self.eval_config.hf_model_loader is not None:
+            model, tokenizer = self.eval_config.hf_model_loader()
+            model.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))  # pyright: ignore[reportArgumentType]
+            model.eval()
+            if tokenizer.pad_token_id is None:
+                tokenizer.pad_token = tokenizer.eos_token
+        else:
+            model, tokenizer = load_hf_model_and_tokenizer(self.eval_config)
 
         inferences: list[dict[str, Any]] = []
         for question in tqdm(self.questions, desc="Generating MT-Bench responses"):

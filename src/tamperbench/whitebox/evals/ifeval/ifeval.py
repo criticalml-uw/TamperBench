@@ -98,6 +98,39 @@ class IFEvalEvaluation(WhiteBoxEvaluation[IFEvalEvaluationConfig]):
         # Pass raw prompts - formatting will be done in subprocess with tokenizer
         raw_prompts = [doc["prompt"] for doc in test_docs]
 
+        if self.eval_config.hf_model_loader is not None:
+            from tamperbench.whitebox.evals.hf_inference import HFGenerationConfig, hf_batch_generate
+            from tamperbench.whitebox.utils import dealloc_model_and_tokenizer
+
+            model, tokenizer = self.eval_config.hf_model_loader()
+            model.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+            model.eval()
+            if tokenizer.pad_token_id is None:
+                tokenizer.pad_token = tokenizer.eos_token
+
+            formatted_prompts: list[str] = []
+            for raw_prompt in raw_prompts:
+                messages = [{"role": "user", "content": raw_prompt}]
+                try:
+                    fmt = tokenizer.apply_chat_template(
+                        messages, tokenize=False, add_generation_prompt=True, enable_thinking=False
+                    )
+                except TypeError:
+                    fmt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+                formatted_prompts.append(fmt)
+
+            gen_config = HFGenerationConfig(
+                max_new_tokens=min(MAX_NEW_TOKENS, int(self.eval_config.model_config.max_generation_length)),
+                do_sample=False,
+                desc="IFEval HF Inference",
+            )
+            responses = hf_batch_generate(model, tokenizer, formatted_prompts, self.eval_config.batch_size, gen_config)
+            dealloc_model_and_tokenizer(model, tokenizer)
+
+            return InferenceSchema.validate(
+                pl.from_dict({InferenceSchema.prompt: formatted_prompts, InferenceSchema.response: responses})
+            )
+
         payload: pl.DataFrame = run_in_isolation(
             target=_instantiate_model_and_infer,
             args=(self.eval_config, raw_prompts),

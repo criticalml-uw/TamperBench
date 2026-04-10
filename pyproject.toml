@@ -98,6 +98,9 @@ exclude = [
   "src/tamperbench/whitebox/defenses/t_vaccine/utils.py",
   "src/tamperbench/whitebox/defenses/t_vaccine/train.py",
   "src/tamperbench/whitebox/defenses/t_vaccine/t_vaccine_trainer.py",
+  # Files vendored from the LoFiT repo (https://github.com/fc2869/lo-fit).
+  # Excluded to preserve diffability against the original source.
+  "src/tamperbench/whitebox/attacks/lofit/vendor/",
   # One-off scripts
   "src/tamperbench/whitebox/attacks/multilingual_finetune/generate_translated_dataset.py",
 ]
@@ -174,6 +177,10 @@ exclude = [
 
   # Files that are one-off scripts (used purely for record keeping)
   "src/tamperbench/whitebox/attacks/multilingual_finetune/generate_translated_dataset.py",
+
+  # Files vendored from the LoFiT repo (https://github.com/fc2869/lo-fit).
+  # Excluded to preserve diffability against the original source.
+  "src/tamperbench/whitebox/attacks/lofit/vendor/",
 ]
 
 # Allow Any as a type
