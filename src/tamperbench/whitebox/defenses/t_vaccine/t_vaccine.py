@@ -70,10 +70,7 @@ class TVaccineConfig(AlignmentDefenseConfig):
     optim: str
     optimizer: str
     rho: float
-    density: float
     lamb: float
-    alpha: float
-    track_embedding: bool
     alternating: str
     lisa_activated_layers: int
     lisa_interval_steps: int

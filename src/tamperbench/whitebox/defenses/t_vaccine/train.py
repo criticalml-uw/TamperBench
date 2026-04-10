@@ -108,10 +108,6 @@ class UpstreamTrainingConfig:
     configs (:class:`~tamperbench.whitebox.defenses.t_vaccine.t_vaccine.TVaccineConfig`,
     :class:`~tamperbench.whitebox.defenses.t_vaccine.tar.TARConfig`) and let
     :func:`defense_config_to_upstream_training_config` handle the translation.
-
-    The attack-only fields (``lora_folder``, ``poison_ratio``, ``benign_dataset``,
-    ``vaccine_ratio``) default to inert values. They are only set explicitly by
-    the paper-reproduction testing script (``scripts/t_vaccine/attack.py``).
     """
 
     model_name_or_path: str
@@ -138,10 +134,7 @@ class UpstreamTrainingConfig:
     optim: str
     optimizer: str
     rho: float
-    density: float
     lamb: float
-    alpha: float
-    track_embedding: bool
     alternating: str
     lisa_activated_layers: int
     lisa_interval_steps: int
@@ -158,11 +151,18 @@ class UpstreamTrainingConfig:
     seed: int
     log_dir: str = "./logs/"
     # Attack-only fields — only used when benign_dataset != "".
-    # Defense configs don't set these; they default to inert values.
+    # Defense configs don't set these; they default to inert values. These are
+    # only used for the paper-reproduction testing script
+    # `scripts/t_vaccine/attack.py`.
     lora_folder: str = ""
     poison_ratio: float = 0.0
     benign_dataset: str = ""
     vaccine_ratio: float = 0.0
+    # Dead — assigned to trainer/training_args but never consumed by any optimizer.
+    # Kept to match the upstream T-Vaccine CLI interface.
+    density: float = 0.2
+    alpha: float = 0.1
+    track_embedding: bool = False
 
 
 def defense_config_to_upstream_training_config(config: AlignmentDefenseConfig) -> UpstreamTrainingConfig:

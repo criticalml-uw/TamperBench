@@ -6,22 +6,12 @@ sweep:
     low: 0.1
     high: 20.0
     log: false
-  alpha:
-    type: "float"
-    low: 0.01
-    high: 0.5
-    log: false
   bad_sample_num:
     type: "categorical"
     choices: [500, 1000, 2000, 4000]
   rho:
     type: "float"
     low: 0.01
-    high: 0.5
-    log: false
-  density:
-    type: "float"
-    low: 0.1
     high: 0.5
     log: false
   # Training hyperparameters

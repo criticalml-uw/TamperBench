@@ -42,10 +42,7 @@ base: &base_cfg
     # upstream training code. Not functionally used by TAR's TarTrainer but
     # required by UpstreamTrainingConfig.
     lamb: 5.0
-    alpha: 0.1
     rho: 0.1
-    density: 0.2
-    track_embedding: false
     alternating: ""
     lisa_activated_layers: 1
     lisa_interval_steps: 1

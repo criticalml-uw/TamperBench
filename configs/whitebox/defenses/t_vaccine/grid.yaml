@@ -50,10 +50,7 @@ base: &base_cfg
     # Parameters used by other algorithms (TAR, RepNoise, etc.) in the shared
     # upstream training code. Not functionally used by T-Vaccine's mesfa
     # optimizer but required by UpstreamTrainingConfig.
-    density: 0.2
     lamb: 5.0
-    alpha: 0.1
     bad_sample_num: 2000
-    track_embedding: false
     alternating: ""
     guide_data_num: 100

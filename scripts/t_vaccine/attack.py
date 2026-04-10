@@ -164,10 +164,7 @@ def main():
         optim="adamw_torch",
         optimizer="normal",  # Standard fine-tuning (no perturbation)
         rho=args.rho,
-        density=0.2,
         lamb=5.0,
-        alpha=0.1,
-        track_embedding=False,
         alternating="",
         lora_folder=str(alignment_checkpoint) if alignment_checkpoint else "",
         lisa_activated_layers=args.lisa_activated_layers,

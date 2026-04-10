@@ -46,7 +46,6 @@ class TARConfig(AlignmentDefenseConfig):
 
     Key Parameters:
         lamb: Regularization strength for TAR loss (default: 5.0)
-        alpha: Weighting factor for adversarial examples (default: 0.1)
         bad_sample_num: Number of harmful examples to use (default: 2000)
         rho: Perturbation radius for adversarial training
 
@@ -75,10 +74,7 @@ class TARConfig(AlignmentDefenseConfig):
     optim: str
     optimizer: str
     rho: float
-    density: float
     lamb: float
-    alpha: float
-    track_embedding: bool
     alternating: str
     lisa_activated_layers: int
     lisa_interval_steps: int
