@@ -85,12 +85,26 @@ class MetricName(StrEnum):
 
     # Lab-Bench metrics
     LAB_BENCH_ACCURACY = "lab_bench_accuracy"
+    LAB_BENCH_PRECISION = "lab_bench_precision"
+    LAB_BENCH_COVERAGE = "lab_bench_coverage"
     LAB_BENCH_LITQA2_ACCURACY = "lab_bench_litqa2_accuracy"
+    LAB_BENCH_LITQA2_PRECISION = "lab_bench_litqa2_precision"
+    LAB_BENCH_LITQA2_COVERAGE = "lab_bench_litqa2_coverage"
     LAB_BENCH_DBQA_ACCURACY = "lab_bench_dbqa_accuracy"
+    LAB_BENCH_DBQA_PRECISION = "lab_bench_dbqa_precision"
+    LAB_BENCH_DBQA_COVERAGE = "lab_bench_dbqa_coverage"
     LAB_BENCH_SUPPQA_ACCURACY = "lab_bench_suppqa_accuracy"
+    LAB_BENCH_SUPPQA_PRECISION = "lab_bench_suppqa_precision"
+    LAB_BENCH_SUPPQA_COVERAGE = "lab_bench_suppqa_coverage"
     LAB_BENCH_PROTOCOLQA_ACCURACY = "lab_bench_protocolqa_accuracy"
+    LAB_BENCH_PROTOCOLQA_PRECISION = "lab_bench_protocolqa_precision"
+    LAB_BENCH_PROTOCOLQA_COVERAGE = "lab_bench_protocolqa_coverage"
     LAB_BENCH_SEQQA_ACCURACY = "lab_bench_seqqa_accuracy"
+    LAB_BENCH_SEQQA_PRECISION = "lab_bench_seqqa_precision"
+    LAB_BENCH_SEQQA_COVERAGE = "lab_bench_seqqa_coverage"
     LAB_BENCH_CLONING_ACCURACY = "lab_bench_cloning_accuracy"
+    LAB_BENCH_CLONING_PRECISION = "lab_bench_cloning_precision"
+    LAB_BENCH_CLONING_COVERAGE = "lab_bench_cloning_coverage"
 
     # XSTest metrics
     XSTEST_SAFE_REFUSAL_RATE = "xstest_safe_refusal_rate"

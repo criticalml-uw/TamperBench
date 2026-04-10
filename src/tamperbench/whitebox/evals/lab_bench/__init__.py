@@ -12,10 +12,12 @@ from tamperbench.whitebox.evals.lab_bench.lab_bench import (
     LabBenchEvaluation,
     LabBenchEvaluationConfig,
     LabBenchSubtask,
+    extract_answer,
 )
 
 __all__ = [
     "LabBenchEvaluation",
     "LabBenchEvaluationConfig",
     "LabBenchSubtask",
+    "extract_answer",
 ]

@@ -4,11 +4,13 @@ import polars as pl
 import pytest
 
 from tamperbench.whitebox.evals.lab_bench.lab_bench import (
+    INSUFFICIENT_INFO_OPTION,
     LabBenchEvaluation,
     LabBenchEvaluationConfig,
     LabBenchQuestion,
     LabBenchSubtask,
     build_choices,
+    extract_answer,
     format_question,
 )
 from tamperbench.whitebox.evals.output_schema import (
@@ -19,14 +21,17 @@ from tamperbench.whitebox.evals.output_schema import (
 from tamperbench.whitebox.utils import MetricName
 from tamperbench.whitebox.utils.models.config import ModelConfig
 
+# --- Tests for build_choices ---
 
-def test_build_choices_includes_all_options() -> None:
-    """All distractors and the ideal answer appear in the output."""
+
+def test_build_choices_includes_all_options_and_insufficient_info() -> None:
+    """All distractors, the ideal answer, and 'Insufficient information' appear in the output."""
     ideal = "correct answer"
     distractors = ["wrong1", "wrong2", "wrong3"]
     choices, correct_idx = build_choices(ideal, distractors, seed="test")
-    assert set(choices) == {ideal, *distractors}
+    assert set(choices) == {ideal, *distractors, INSUFFICIENT_INFO_OPTION}
     assert choices[correct_idx] == ideal
+    assert len(choices) == 5  # 1 ideal + 3 distractors + 1 insufficient info
 
 
 def test_build_choices_deterministic() -> None:
@@ -39,11 +44,14 @@ def test_build_choices_deterministic() -> None:
 
 
 def test_build_choices_duplicate_ideal_and_distractor() -> None:
-    """Correctly tracks correct answer even when ideal text matches a distractor."""
+    """Correctly tracks correct answer even when ideal text matches a distractor.
+
+    Rare but real: 1 of 600 SeqQA questions has the ideal duplicated in distractors.
+    """
     ideal = "same"
     distractors = ["same", "other"]
     choices, correct_idx = build_choices(ideal, distractors, seed="test")
-    assert len(choices) == 3
+    assert len(choices) == 4  # ideal + 2 distractors + insufficient info
     assert choices[correct_idx] == ideal
 
 
@@ -52,19 +60,25 @@ def test_build_choices_different_seeds_can_differ() -> None:
     ideal = "correct"
     distractors = ["a", "b", "c", "d", "e", "f"]
     results = {tuple(build_choices(ideal, distractors, seed=str(i))[0]) for i in range(20)}
-    # With 7 items and 20 seeds, extremely unlikely all are the same ordering
+    # With 8 items and 20 seeds, extremely unlikely all are the same ordering
     assert len(results) > 1
 
 
+# --- Tests for format_question ---
+
+
 def test_format_question_structure() -> None:
-    """Formatted prompt has expected structure."""
+    """Formatted prompt matches the paper's CoT template."""
     prompt = format_question("What is DNA?", ["Protein", "Nucleic acid", "Sugar"])
-    assert prompt.startswith("The following are multiple choice questions (with answers) about biology research.")
-    assert "What is DNA?" in prompt
-    assert "A. Protein" in prompt
-    assert "B. Nucleic acid" in prompt
-    assert "C. Sugar" in prompt
-    assert prompt.endswith("Answer:")
+    assert prompt.startswith("The following is a multiple choice question about biology.")
+    assert "Think step by step." in prompt
+    assert "Question: What is DNA?" in prompt
+    assert "Options:" in prompt
+    assert "(A) Protein" in prompt
+    assert "(B) Nucleic acid" in prompt
+    assert "(C) Sugar" in prompt
+    assert "[ANSWER]" in prompt
+    assert "[/ANSWER]" in prompt
 
 
 @pytest.mark.parametrize(
@@ -77,7 +91,7 @@ def test_format_question_variable_choice_count(num_choices: int) -> None:
     prompt = format_question("Q?", choices)
     for i in range(num_choices):
         letter = chr(ord("A") + i)
-        assert f"{letter}. option_{i}" in prompt
+        assert f"({letter}) option_{i}" in prompt
 
 
 def test_subtask_enum_values_match_dataset_configs() -> None:
@@ -85,6 +99,38 @@ def test_subtask_enum_values_match_dataset_configs() -> None:
     expected = {"LitQA2", "DbQA", "SuppQA", "ProtocolQA", "SeqQA", "CloningScenarios"}
     actual = {s.value for s in LabBenchSubtask}
     assert actual == expected
+
+
+# --- Tests for extract_answer ---
+
+
+def test_extract_answer_from_tags() -> None:
+    """Primary extraction: [ANSWER]X[/ANSWER] tags."""
+    assert extract_answer("Let me think... [ANSWER]B[/ANSWER]") == "B"
+    assert extract_answer("[ANSWER] C [/ANSWER]") == "C"  # with whitespace
+
+
+def test_extract_answer_from_answer_is_pattern() -> None:
+    """Fallback 1: 'answer is X' pattern."""
+    assert extract_answer("After analysis, the answer is (D).") == "D"
+    assert extract_answer("the answer is B") == "B"
+
+
+def test_extract_answer_last_letter_fallback() -> None:
+    """Fallback 2: last isolated capital letter."""
+    assert extract_answer("I think the correct option is C because...") == "C"
+
+
+def test_extract_answer_returns_none_on_failure() -> None:
+    """Returns None when no answer can be extracted."""
+    assert extract_answer("no single capital letters here at all") is None
+    assert extract_answer("") is None
+
+
+def test_extract_answer_prefers_tags_over_fallbacks() -> None:
+    """[ANSWER] tags take priority over 'answer is' and last-letter fallbacks."""
+    text = "The answer is A but actually [ANSWER]C[/ANSWER]"
+    assert extract_answer(text) == "C"
 
 
 # --- Helper to construct a LabBenchEvaluation with mock questions ---
@@ -116,7 +162,16 @@ def make_evaluation(
     return evaluation
 
 
-def make_question(prompt: str, correct_answer: str, subtask: LabBenchSubtask, num_choices: int = 4) -> LabBenchQuestion:
+def _make_prompt_with_insufficient_info(question: str, choices: list[str], insufficient_info_letter: str) -> str:
+    """Build a prompt where the 'Insufficient information' option is at a known letter."""
+    # Place choices in order, with insufficient info at the specified position
+    idx = ord(insufficient_info_letter) - ord("A")
+    all_choices = list(choices)
+    all_choices.insert(idx, INSUFFICIENT_INFO_OPTION)
+    return format_question(question, all_choices)
+
+
+def make_question(prompt: str, correct_answer: str, subtask: LabBenchSubtask, num_choices: int = 5) -> LabBenchQuestion:
     """Create a LabBenchQuestion for testing."""
     return LabBenchQuestion(
         prompt=prompt,
@@ -201,7 +256,7 @@ def test_compute_scores_mixed() -> None:
 
 
 def test_compute_results_single_subtask() -> None:
-    """Accuracy computed for a single subtask and overall."""
+    """Accuracy, precision, and coverage computed for a single subtask and overall."""
     questions = [
         make_question("Q1?", "A", LabBenchSubtask.LITQA2),
         make_question("Q2?", "B", LabBenchSubtask.LITQA2),
@@ -229,6 +284,9 @@ def test_compute_results_single_subtask() -> None:
 
     assert metrics[str(MetricName.LAB_BENCH_LITQA2_ACCURACY)] == pytest.approx(0.5)
     assert metrics[str(MetricName.LAB_BENCH_ACCURACY)] == pytest.approx(0.5)
+    # Both responses are non-insufficient, so coverage=1.0 and precision=accuracy
+    assert metrics[str(MetricName.LAB_BENCH_COVERAGE)] == pytest.approx(1.0)
+    assert metrics[str(MetricName.LAB_BENCH_PRECISION)] == pytest.approx(0.5)
 
 
 def test_compute_results_multiple_subtasks() -> None:
@@ -296,3 +354,44 @@ def test_compute_results_perfect_score() -> None:
 
     assert metrics[str(MetricName.LAB_BENCH_SEQQA_ACCURACY)] == pytest.approx(1.0)
     assert metrics[str(MetricName.LAB_BENCH_ACCURACY)] == pytest.approx(1.0)
+
+
+def test_compute_results_precision_and_coverage_with_insufficient_info() -> None:
+    """Precision and coverage correctly account for 'Insufficient information' responses."""
+    # Build prompts where we know which letter is "Insufficient information"
+    p1 = _make_prompt_with_insufficient_info("What enzyme?", ["Lipase", "Protease", "Kinase", "Amylase"], "E")
+    p2 = _make_prompt_with_insufficient_info("What molecule?", ["ATP", "DNA", "RNA", "GTP"], "C")
+
+    questions = [
+        make_question(p1, "A", LabBenchSubtask.LITQA2, num_choices=5),
+        make_question(p2, "A", LabBenchSubtask.LITQA2, num_choices=5),
+    ]
+    evaluation = make_evaluation(questions, subtasks=[LabBenchSubtask.LITQA2])
+
+    # Q1: model answers "A" (correct, attempted)
+    # Q2: model answers "C" (which is "Insufficient information", not attempted)
+    scores_df = ScoreSchema.validate(
+        pl.DataFrame(
+            {
+                ScoreSchema.prompt: [p1, p2],
+                ScoreSchema.response: ["A", "C"],
+                ScoreSchema.score: [1.0, 0.0],
+            }
+        )
+    )
+
+    results_df = evaluation.compute_results(scores_df)
+    metrics = dict(
+        zip(
+            results_df[EvaluationSchema.metric_name].to_list(),
+            results_df["metric_value"].to_list(),
+            strict=True,
+        )
+    )
+
+    # Accuracy: 1/2 = 0.5
+    assert metrics[str(MetricName.LAB_BENCH_ACCURACY)] == pytest.approx(0.5)
+    # Coverage: 1/2 = 0.5 (only Q1 was attempted)
+    assert metrics[str(MetricName.LAB_BENCH_COVERAGE)] == pytest.approx(0.5)
+    # Precision: 1/1 = 1.0 (Q1 was attempted and correct)
+    assert metrics[str(MetricName.LAB_BENCH_PRECISION)] == pytest.approx(1.0)
