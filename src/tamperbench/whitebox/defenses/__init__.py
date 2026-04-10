@@ -8,6 +8,10 @@ from tamperbench.whitebox.defenses.defense import (
     AlignmentDefenseConfig,
 )
 from tamperbench.whitebox.defenses.registry import DEFENSES_REGISTRY
+from tamperbench.whitebox.defenses.t_vaccine.t_vaccine import (
+    TVaccineConfig,
+    TVaccineDefense,
+)
 from tamperbench.whitebox.defenses.t_vaccine.tar import (
     TARConfig,
     TARDefense,
@@ -25,4 +29,6 @@ __all__: list[str] = [
     "CTRLConfig",
     "TARConfig",
     "TARDefense",
+    "TVaccineConfig",
+    "TVaccineDefense",
 ]
