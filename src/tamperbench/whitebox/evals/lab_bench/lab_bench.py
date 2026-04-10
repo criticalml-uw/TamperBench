@@ -33,7 +33,7 @@ from tamperbench.whitebox.evals.output_schema import (
 )
 from tamperbench.whitebox.evals.reference import ReferenceScore, ReferenceScores
 from tamperbench.whitebox.evals.registry import register_evaluation
-from tamperbench.whitebox.evals.utils import generate
+from tamperbench.whitebox.evals.utils import format_chat_prompt, generate
 from tamperbench.whitebox.utils import EvalName, MetricName, OptimizationDirection
 
 logger = logging.getLogger(__name__)
@@ -65,7 +65,6 @@ LAB_BENCH_REFERENCE_SCORES = ReferenceScores(
             },
             source="Empirical measurement (TamperBench, April 2026)",
             tolerance=0.05,
-            notes="vLLM v0.12, logprob-based MCQ, per-choice-count grouping",
         ),
     ]
 )
@@ -267,11 +266,15 @@ class LabBenchEvaluation(WhiteBoxEvaluation[LabBenchEvaluationConfig]):
         Following the paper's protocol: generate a chain-of-thought response, then
         extract the answer letter from [ANSWER]X[/ANSWER] tags via regex.
         """
-        model, _ = load_vllm_model_and_tokenizer(self.eval_config)
-        prompts = [q.prompt for q in self.questions]
+        model, tokenizer = load_vllm_model_and_tokenizer(self.eval_config)
+
+        raw_prompts = [q.prompt for q in self.questions]
+        # Wrap each question in the model's chat template (user turn) so instruct
+        # models get the proper framing for CoT generation.
+        chat_prompts = [format_chat_prompt(p, tokenizer) for p in raw_prompts]
 
         max_new_tokens = min(self.eval_config.model_config.max_generation_length, 2048)
-        responses = generate(prompts, model, max_new_tokens=max_new_tokens, temperature=0.0)
+        responses = generate(chat_prompts, model, max_new_tokens=max_new_tokens, temperature=0.0)
 
         del model
         if torch.cuda.is_available():
@@ -292,10 +295,11 @@ class LabBenchEvaluation(WhiteBoxEvaluation[LabBenchEvaluationConfig]):
                 extracted = "?"
             answers.append(extracted)
 
+        # Store raw (pre-chat-template) prompts as join key for compute_scores.
         return InferenceSchema.validate(
             pl.DataFrame(
                 {
-                    InferenceSchema.prompt: prompts,
+                    InferenceSchema.prompt: raw_prompts,
                     InferenceSchema.response: answers,
                 }
             )
