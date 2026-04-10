@@ -65,8 +65,8 @@ FULL_TAR_CONFIG: dict[str, object] = {
     "max_steps": 100,
     "tar_inner_loop_steps": 64,
     "lr": 6e-5,
-    "batch_size": 2,
-    "gradient_accumulation_steps": 8,  # effective batch = 2 * 8 * 4 GPUs = 64
+    "batch_size": 1,
+    "gradient_accumulation_steps": 16,  # effective batch = 1 * 16 * 4 GPUs = 64
     "schedule_lambda": 0.0625,
     "warmup_steps": 32,
     "adversary_dist_types": "harmful_completions:1.0",
@@ -77,7 +77,7 @@ FULL_TAR_CONFIG: dict[str, object] = {
     "tar_retain_scale": 1.0,
     "tar_tamper_resistance_loss_type": "dpo",
     "tar_inner_loop_subsample": 4,
-    "tar_adversary_batch_size": 2,
+    "tar_adversary_batch_size": 1,
     "retain_model_name": "meta-llama/Meta-Llama-3-8B-Instruct",
     "retain_representations": True,
     "unbounded": True,
