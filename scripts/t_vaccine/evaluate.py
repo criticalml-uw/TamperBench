@@ -306,9 +306,26 @@ def evaluate_sst2_accuracy(
 # ---------------------------------------------------------------------------
 def main():
     """Evaluate a fine-tuned model for harmful score and SST2 accuracy."""
-    parser = argparse.ArgumentParser(description="Evaluate T-Vaccine (Phase 3)")
+    SCENARIOS = {
+        "defended-attacked": "Base model + alignment LoRA + attack LoRA",
+        "defended-only": "Base model + alignment LoRA (no attack)",
+        "base": "Base model only (no LoRAs)",
+        "undefended-attacked": "Base model + attack LoRA (no defense)",
+    }
+
+    parser = argparse.ArgumentParser(
+        description="Evaluate T-Vaccine (Phase 3)",
+        epilog="Scenarios:\n" + "\n".join(f"  {k:24s} {v}" for k, v in SCENARIOS.items()),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("--tier", choices=MODELS.keys(), default="llama2")
     parser.add_argument("--model", type=str, help="Override base model path")
+    parser.add_argument(
+        "--scenario",
+        choices=SCENARIOS.keys(),
+        default="defended-attacked",
+        help="Which model configuration to evaluate (default: defended-attacked)",
+    )
     parser.add_argument(
         "--eval-model-path",
         type=str,
@@ -337,30 +354,45 @@ def main():
 
     model_path = args.model or MODELS[args.tier]
     output_dir = get_output_dir(model_path)
-    alignment_lora = str(output_dir / "alignment")
-    attack_lora = str(output_dir / "attack")
-    eval_output = output_dir / "eval"
 
-    print("=" * 80)
-    print("T-Vaccine Evaluation (Phase 3)")
-    print("=" * 80)
-    print(f"Base model: {model_path}")
-    print(f"Alignment LoRA: {alignment_lora}")
-    print(f"Attack LoRA: {attack_lora}")
-    print(f"Eval output: {eval_output}")
-    print("=" * 80)
+    # Determine which LoRAs to load based on scenario
+    use_alignment = args.scenario in ("defended-attacked", "defended-only")
+    use_attack = args.scenario in ("defended-attacked", "undefended-attacked")
 
-    # Validate checkpoints exist
-    if not Path(alignment_lora).exists():
+    alignment_lora = str(output_dir / "alignment") if use_alignment else ""
+    if args.scenario == "undefended-attacked":
+        attack_lora = str(output_dir / "attack_no_defense")
+    elif use_attack:
+        attack_lora = str(output_dir / "attack")
+    else:
+        attack_lora = ""
+
+    eval_output = output_dir / f"eval_{args.scenario}"
+
+    # Validate that requested LoRAs exist
+    if alignment_lora and not Path(alignment_lora).exists():
         print(f"ERROR: Alignment checkpoint not found at {alignment_lora}")
         print("Run harden.py first.")
         sys.exit(1)
-    if not Path(attack_lora).exists():
+    if attack_lora and not Path(attack_lora).exists():
         print(f"ERROR: Attack checkpoint not found at {attack_lora}")
-        print("Run attack.py first.")
+        if args.scenario == "undefended-attacked":
+            print("Run attack.py --no-defense first.")
+        else:
+            print("Run attack.py first.")
         sys.exit(1)
 
-    # Load model with both LoRA adapters merged
+    print("=" * 80)
+    print(f"T-Vaccine Evaluation — {args.scenario}")
+    print(f"  {SCENARIOS[args.scenario]}")
+    print("=" * 80)
+    print(f"Base model: {model_path}")
+    print(f"Alignment LoRA: {alignment_lora or '(none)'}")
+    print(f"Attack LoRA: {attack_lora or '(none)'}")
+    print(f"Eval output: {eval_output}")
+    print("=" * 80)
+
+    # Load model with requested LoRA adapters merged
     model, tokenizer = load_model_with_lora(model_path, alignment_lora, attack_lora)
 
     results = {}
@@ -390,17 +422,20 @@ def main():
 
     # Summary
     print("\n" + "=" * 80)
-    print("RESULTS SUMMARY")
+    print(f"RESULTS SUMMARY — {args.scenario}")
     print("=" * 80)
     if "harmful_score" in results:
         print(f"  Harmful Score (HS): {results['harmful_score']:.2f}%")
-        print("  (Paper expected: 14.97%)")
+        if args.scenario == "defended-attacked":
+            print("  (Paper expected: 14.97%)")
     if "sst2_accuracy" in results:
         print(f"  SST2 Accuracy (FA): {results['sst2_accuracy']:.2f}%")
-        print("  (Paper expected: 92.40%)")
+        if args.scenario == "defended-attacked":
+            print("  (Paper expected: 92.40%)")
     print("=" * 80)
 
     # Save combined results
+    results["scenario"] = args.scenario
     summary_path = eval_output / "summary.json"
     summary_path.parent.mkdir(parents=True, exist_ok=True)
     with open(summary_path, "w") as f:

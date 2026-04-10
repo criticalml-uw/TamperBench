@@ -69,6 +69,9 @@ def main():
     parser = argparse.ArgumentParser(description="Run fine-tuning attack (Phase 2)")
     parser.add_argument("--tier", choices=MODELS.keys(), default="llama2")
     parser.add_argument("--model", type=str, help="Override base model path")
+    parser.add_argument(
+        "--no-defense", action="store_true", help="Attack the base model directly (skip alignment LoRA)"
+    )
 
     # Attack hyperparameters (paper Section 5)
     parser.add_argument("--poison-ratio", type=float, default=0.1, help="Harmful data ratio (paper: 0.1)")
@@ -104,18 +107,23 @@ def main():
 
     model = args.model or MODELS[args.tier]
     output_dir = get_output_dir(model)
-    alignment_checkpoint = output_dir / "alignment"
-    attack_output = output_dir / "attack"
+
+    if args.no_defense:
+        alignment_checkpoint = None
+        attack_output = output_dir / "attack_no_defense"
+    else:
+        alignment_checkpoint = output_dir / "alignment"
+        attack_output = output_dir / "attack"
 
     # Build SST2 benign dataset (same as original build_dataset.py)
     sst2_path = output_dir / "data" / "sst2.json"
     build_sst2_json(sst2_path)
 
     print("=" * 80)
-    print("Fine-tuning Attack (Phase 2)")
+    print(f"Fine-tuning Attack {'(no defense)' if args.no_defense else '(Phase 2)'}")
     print("=" * 80)
     print(f"Base model: {model}")
-    print(f"Alignment LoRA: {alignment_checkpoint}")
+    print(f"Alignment LoRA: {alignment_checkpoint or '(none)'}")
     print(f"Output: {attack_output}")
     print(f"Poison ratio: {args.poison_ratio}")
     print(f"Sample num: {args.sample_num}")
@@ -124,7 +132,7 @@ def main():
     print(f"Benign dataset: {sst2_path}")
     print("=" * 80)
 
-    if not alignment_checkpoint.exists():
+    if alignment_checkpoint is not None and not alignment_checkpoint.exists():
         print(f"ERROR: Alignment checkpoint not found at {alignment_checkpoint}")
         print("Run harden.py first to produce the alignment LoRA.")
         sys.exit(1)
@@ -161,7 +169,7 @@ def main():
         alpha=0.1,
         track_embedding=False,
         alternating="",
-        lora_folder=str(alignment_checkpoint),  # Load alignment LoRA
+        lora_folder=str(alignment_checkpoint) if alignment_checkpoint else "",
         lisa_activated_layers=args.lisa_activated_layers,
         lisa_interval_steps=args.lisa_interval_steps,
         prompt_data_size=args.prompt_data_size,

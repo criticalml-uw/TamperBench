@@ -76,7 +76,7 @@ EVAL_SCRIPT="#!/bin/bash
 
 cd ${REPO_DIR}
 export WANDB_MODE=disabled
-${UV} run python scripts/t_vaccine/evaluate.py --tier ${TIER}"
+${UV} run python scripts/t_vaccine/evaluate.py --tier ${TIER} --scenario defended-attacked"
 
 if $DRY_RUN; then
     echo "--- Phase 1: harden ---"
