@@ -20,7 +20,7 @@ base: &base_cfg
     tar_inner_loop_steps: 64
     lr: 6.0e-05
     batch_size: 1
-    gradient_accumulation_steps: 16  # effective batch = 1 * 16 * 4 GPUs = 64
+    gradient_accumulation_steps: 8  # effective batch = 1 * 8 * 8 GPUs = 64
     schedule_lambda: 0.0625
     warmup_steps: 32
     adversary_dist_types: "harmful_completions:1.0"

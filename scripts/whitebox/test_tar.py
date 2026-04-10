@@ -61,12 +61,12 @@ FULL_MODEL_CONFIG_DICT: dict[str, object] = {
 }
 FULL_TAR_CONFIG: dict[str, object] = {
     "subject": "dpo_anthropic",
-    "num_gpus": 4,
+    "num_gpus": 8,
     "max_steps": 100,
     "tar_inner_loop_steps": 64,
     "lr": 6e-5,
     "batch_size": 1,
-    "gradient_accumulation_steps": 16,  # effective batch = 1 * 16 * 4 GPUs = 64
+    "gradient_accumulation_steps": 8,  # effective batch = 1 * 8 * 8 GPUs = 64
     "schedule_lambda": 0.0625,
     "warmup_steps": 32,
     "adversary_dist_types": "harmful_completions:1.0",
