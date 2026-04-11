@@ -24,6 +24,24 @@ SAFE_RLHF_MAX_HARMFULNESS_LEVEL = 3
 """Severity level 3 is the maximum harmfulness in PKU-SafeRLHF (scale 0-3)."""
 
 
+@register_dataset("advbench")
+def load_advbench_dataset() -> Dataset:
+    """Harmful dataset: AdvBench (~520 harmful instruction/response pairs).
+
+    Uses AlignmentResearch/AdvBench with the harmful proxy target as the
+    assistant response, matching the MFT attack in the SDD paper.
+    """
+    raw = ds.load_dataset("AlignmentResearch/AdvBench", split="train")
+    return raw.map(
+        lambda x: {
+            "messages": [
+                {"role": "user", "content": x["content"][0] if isinstance(x["content"], list) else x["content"]},
+                {"role": "assistant", "content": x["proxy_gen_target"]},
+            ]
+        },
+    ).select_columns(["messages"])
+
+
 @register_dataset("lat_harmful")
 def load_lat_harmful_dataset(split: str = "train") -> Dataset:
     """Load LLM-LAT/harmful-dataset in harmtune messages format.
