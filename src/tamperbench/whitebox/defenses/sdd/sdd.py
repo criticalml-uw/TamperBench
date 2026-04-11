@@ -85,7 +85,7 @@ class SDDConfig(AlignmentDefenseConfig):
     """
 
     harmful_dataset_name: str = "PKU-Alignment/BeaverTails"
-    harmful_dataset_split: str = "train"
+    harmful_dataset_split: str = "330k_train"
     benign_dataset_names: list[str] = field(default_factory=lambda: ["tatsu-lab/alpaca", "GAIR/lima"])
     benign_dataset_split: str = "train"
     num_samples: int = 8000
@@ -97,6 +97,7 @@ class SDDConfig(AlignmentDefenseConfig):
     sentence_transformer_model: str = "sentence-transformers/all-MiniLM-L6-v2"
 
     @classmethod
+    @override
     def from_dict(cls, data: dict[str, Any]) -> Self:
         """Construct config from dictionary.
 

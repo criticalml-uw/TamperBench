@@ -27,7 +27,7 @@ def test_dataset_construction():
 
     dataset = construct_sdd_dataset(
         harmful_dataset_name="PKU-Alignment/BeaverTails",
-        harmful_dataset_split="train",
+        harmful_dataset_split="330k_train",
         benign_dataset_names=["tatsu-lab/alpaca"],
         benign_dataset_split="train",
         num_samples=20,
