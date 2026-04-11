@@ -20,8 +20,8 @@ repos:
   hooks:
   - id: basedpyright
     name: basedpyright
-    entry: uv tool run basedpyright
+    entry: uv run basedpyright
     language: system
     types: [python]
     stages: [pre-commit]
-    pass_filenames: false
+    pass_filenames: true

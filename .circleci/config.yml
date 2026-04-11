@@ -1,51 +1,412 @@
 version: 2.1
 
+orbs:
+  python: circleci/python@3.3.0
+  slack: circleci/slack@5.2.3
+
+commands:
+  install-dependencies:
+    description: "Check out and update Python dependencies."
+    steps:
+      - checkout
+      - run:
+          name: Install uv
+          command: |
+            curl -LsSf https://astral.sh/uv/0.10.4/install.sh | sh
+
+      - restore_cache:
+          keys:
+            - deps-v2-{{ checksum "uv.lock" }}
+            - deps-v2-
+      - run:
+          name: Install project
+          command: |
+            uv sync
+            uv cache prune --ci
+      - save_cache:
+          key: deps-v2-{{ checksum "uv.lock" }}
+          paths:
+            - ~/.cache/uv
+
+  store-test-output:
+    description: "Store the output of tests."
+    steps:
+      - store_artifacts:
+          path: /tmp/test-reports
+          destination: test-reports
+
+      - store_test_results:
+          path: /tmp/test-reports
+
+      - store_artifacts:
+          path: /tmp/resource-usage
+          destination: resource-usage
+
+  install-runpod:
+    steps:
+      - run:
+          name: Install RunPod
+          command: |
+            # This download command is suggested in the description of https://github.com/runpod/runpodctl/releases/tag/v2.1.0
+            curl -sL https://github.com/runpod/runpodctl/releases/download/v1.14.15/runpodctl-linux-amd64.tar.gz | tar xz -C ~/.local/bin
+      - run:
+          name: Echo RunPod version
+          command: |
+            runpodctl --version
+      - run:
+          name: Set RunPod API key
+          command: |
+            # We use || true because the config command errors even when it
+            # successfully sets the API key. The following command (get pod)
+            # will fail if the API key is not set.
+            runpodctl config --apiKey=$RUNPOD_API_KEY || true
+      - run:
+          name: runpodctl get pod
+          command: |
+            runpodctl get pod
+
+  create-and-connect-to-runpod-pod:
+    steps:
+      - add_ssh_keys:
+          fingerprints:
+            # Hash key generated when supplying the private SSH key to CircleCI
+            - SHA256:6R85XWkU/6JlTz+ZVidRG/ZLWapfnwiSGC02GywAXw8
+      - run:
+          name: Create and connect to RunPod pod
+          command: |
+            # GPU types we're willing to use listed in increasing price
+            GPU_TYPES=(
+              'NVIDIA RTX 2000 Ada Generation'
+              'NVIDIA RTX A4000'
+              'NVIDIA RTX A4500'
+              'NVIDIA RTX 4000 Ada Generation'
+              'NVIDIA RTX A5000'
+            )
+            MAX_POD_ATTEMPTS=${#GPU_TYPES[@]}
+            for i in $(seq 1 $MAX_POD_ATTEMPTS); do
+              GPU_TYPE="${GPU_TYPES[$((i-1))]}"
+              echo "Attempt $i of $MAX_POD_ATTEMPTS to create and connect to RunPod pod (GPU: $GPU_TYPE)..."
+
+              # Try to create the pod
+              # imageName needs to match the image of the Runpod template, so if
+              # we need a new image, we need to update the template too.
+              if ! POD_OUTPUT=$(runpodctl create pod \
+                --imageName=runpod/pytorch:2.8.0-py3.11-cuda12.8.1-cudnn-devel-ubuntu22.04 \
+                --templateId=7l6fz7jajl \
+                --gpuCount 2 \
+                --gpuType="$GPU_TYPE" \
+                --containerDiskSize 32 \
+                --secureCloud 2>&1); then
+                echo "Pod creation command failed on attempt $i. Error: $POD_OUTPUT"
+                sleep 10
+                continue
+              fi
+              echo "$POD_OUTPUT"
+              POD_ID=$(echo "$POD_OUTPUT" | grep -o '"[^"]*"' | cut -d'"' -f2)
+              if [ -z "$POD_ID" ]; then
+                  echo "Failed to extract POD_ID on attempt $i."
+                  sleep 10
+                  continue
+              fi
+              echo "Pod ID: $POD_ID"
+              # We export here in case a later step needs it, even if this one fails and retries.
+              echo "export POD_ID=$POD_ID" >> $BASH_ENV
+
+              # Wait for pod to be ready
+              TIMEOUT=600
+              INTERVAL=20
+              ELAPSED=0
+              READY=false
+              until [ $ELAPSED -ge $TIMEOUT ]; do
+                echo "Waiting for pod to be ready... ($ELAPSED seconds elapsed)"
+                POD_INFO=$(runpodctl get pod $POD_ID -a)
+                if echo "$POD_INFO" | grep -q '[0-9.]*:[0-9]*->22'; then
+                  READY=true
+                  break
+                fi
+                sleep $INTERVAL
+                ELAPSED=$((ELAPSED + INTERVAL))
+              done
+
+              if [ "$READY" = "false" ]; then
+                echo "Timeout waiting for pod to be ready on attempt $i."
+                runpodctl remove pod $POD_ID
+                continue
+              fi
+
+              POD_INFO=$(runpodctl get pod $POD_ID -a)
+              echo "POD_INFO: $POD_INFO"
+              SSH_CONNECTION=$(echo "$POD_INFO" | grep -o '[0-9.]*:[0-9]*->22.*tcp' | cut -d'-' -f1)
+              SSH_IP=$(echo "$SSH_CONNECTION" | cut -d':' -f1)
+              SSH_PORT=$(echo "$SSH_CONNECTION" | cut -d':' -f2 | cut -d'-' -f1)
+              echo "SSH IP: $SSH_IP"
+              echo "SSH Port: $SSH_PORT"
+              echo "export SSH_IP=$SSH_IP" >> $BASH_ENV
+              echo "export SSH_PORT=$SSH_PORT" >> $BASH_ENV
+
+              # Attempt to connect via SSH
+              MAX_SSH_RETRIES=5
+              SSH_RETRY_INTERVAL=20
+              CONNECTED=false
+              for j in $(seq 1 $MAX_SSH_RETRIES); do
+                echo "Attempting to connect to pod at $SSH_IP:$SSH_PORT... (SSH attempt $j)"
+                if ssh -o StrictHostKeyChecking=accept-new root@$SSH_IP -p $SSH_PORT "echo 'Connection successful'"; then
+                  CONNECTED=true
+                  break
+                fi
+                echo "Connection attempt $j failed. Retrying in $SSH_RETRY_INTERVAL seconds..."
+                sleep $SSH_RETRY_INTERVAL
+              done
+
+              if [ "$CONNECTED" = "true" ]; then
+                echo "SSH connection established successfully."
+                exit 0
+              else
+                echo "SSH connection failed after $MAX_SSH_RETRIES attempts."
+                runpodctl remove pod $POD_ID
+                continue
+              fi
+            done
+
+            echo "Failed to create and connect to pod after $MAX_POD_ATTEMPTS attempts."
+            exit 1
+
+  run-tests-in-pod:
+    steps:
+      - run:
+          name: Clone repo in pod
+          command: >
+            echo "Cloning repository..." &&
+            ssh -o StrictHostKeyChecking=accept-new root@$SSH_IP -p $SSH_PORT "
+              # git config --global http.postBuffer 524288000;
+              # git config --global core.compression 0;
+
+              for i in {1..3}; do
+                echo "Clone attempt \$i...";
+                echo "GITHUB_PAT ends with: \${GITHUB_PAT: -4}";
+                echo "CIRCLE_SHA1 ends with: \${CIRCLE_SHA1: -4}";
+                if git clone --verbose --depth 1 https://$GITHUB_PAT@github.com/criticalml-uw/TamperBench.git; then
+                  cd TamperBench;
+                  echo "Fetching commit $CIRCLE_SHA1...";
+                  git fetch --verbose --depth 1 origin $CIRCLE_SHA1;
+                  git checkout $CIRCLE_SHA1;
+                  echo "Current commit:";
+                  git rev-parse HEAD;
+                  exit 0;
+                fi
+                echo "Clone failed, waiting before retry...";
+                sleep 5;
+              done;
+              echo "Failed to clone after 3 attempts";
+              exit 1;
+            "
+
+
+      - run:
+          name: Prepare repository in runpod
+          command: |
+            ssh -o StrictHostKeyChecking=accept-new root@$SSH_IP -p $SSH_PORT "
+              # The CI variable is used to determine the cache path.
+              export CI=true;
+              echo "Environment variables:"
+              env | sort;
+              echo "---";
+              pwd;
+              cd TamperBench;
+              pwd;
+              git submodule update --init --recursive
+              pip install uv;
+              # The pod is ephemeral so there's no benefit to caching
+              uv sync --no-cache;
+            "
+
+      - run:
+          name: Set HF token
+          command: |
+            ssh -o StrictHostKeyChecking=accept-new root@$SSH_IP -p $SSH_PORT "
+              pwd;
+              cd TamperBench;
+              pwd;
+              uv run hf auth login --token $HF_TOKEN;
+            "
+
+      - run:
+          name: Run tests in pod
+          command: |
+            ssh -o StrictHostKeyChecking=accept-new root@$SSH_IP -p $SSH_PORT \
+              "
+              # The CI variable is used to determine the cache path.
+              export CI=true;
+              nvidia-smi;
+              echo "Environment variables:";
+              env | sort;
+              echo "---";
+              cd /root/TamperBench && \
+              WANDB_MODE=offline uv run pytest \
+              --junitxml=/tmp/test-reports/junit.xml \
+              --durations=500 \
+              -vv \
+              -m '(gpu_optional or gpu_required) and not expensive' \
+              tests/"
+
+      - run:
+          name: Copy test output to CircleCI Runner
+          when: always
+          command: |
+            scp -o StrictHostKeyChecking=accept-new -P $SSH_PORT -r root@$SSH_IP:/tmp/test-reports/ /tmp/test-reports/
+
+
+  tear-down-pod:
+    steps:
+      - run:
+          name: Tear down pod
+          when: always
+          command: |
+            REMOVE_OUTPUT=$(runpodctl remove pod $POD_ID)
+            echo "$REMOVE_OUTPUT"
+
+
 jobs:
+  pytest:
+    docker:
+      - image: cimg/python:3.10
+    steps:
+      - install-dependencies
+      - run:
+          name: Run tests
+          command: |
+            uv run pytest --junitxml=/tmp/test-reports/junit.xml \
+              --durations=500 -vv -m "not gpu_required and not expensive" tests/
+          environment:
+            WANDB_MODE: offline
+      - store-test-output
+
   lint:
     docker:
       - image: cimg/python:3.10
     steps:
-      - checkout
-      - restore_cache:
-          keys:
-            - v1-dependencies-{{ checksum "pyproject.toml" }}
+      - install-dependencies
       - run:
-          name: Install uv
+          name: ruff format check
           command: |
-            curl -LsSf https://astral.sh/uv/install.sh | sh
+            uv run ruff --version
+            uv run ruff format --check .
       - run:
-          name: Create venv if not cached
+          name: ruff lint
           command: |
-            if [ ! -d ".venv" ]; then
-              uv venv
-            fi
+            uv run ruff check .
       - run:
-          name: Install dependencies
+          name: pyright
           command: |
-            source .venv/bin/activate
-            uv pip install -e ".[dev]"
-      - save_cache:
-          paths:
-            - .venv
-          key: v1-dependencies-{{ checksum "pyproject.toml" }}
-      - run:
-          name: Run ruff check
-          command: |
-            source .venv/bin/activate
-            ruff check .
-      - run:
-          name: Run ruff format
-          command: |
-            source .venv/bin/activate
-            ruff format --check .
-      - run:
-          name: Run pyright
-          command: |
-            source .venv/bin/activate
-            pyright
+            uv run basedpyright --version
+            uv run basedpyright .
+
+  pytest-multigpu:
+    docker:
+      - image: cimg/python:3.10
+    environment:
+      # pipeline.git.commit is not listed in the docs but it works---it gives
+      # the first line of the commit message.
+      # It was used in an example in an old version of the docs:
+      # https://github.com/circleci/circleci-docs/pull/9046/files#diff-7b6bb637061c47638baa9a40e0f1fd013e8ff4da8b3983ca897eaf02f9d29769R2776
+      # If it gets removed, perhaps we can use the commit SHA from CIRCLE_SHA1
+      # to look up the commit message and save it to BASH_ENV for use in
+      # slack/notify.
+      GIT_COMMIT_SUBJECT: << pipeline.git.commit.subject >>
+    steps:
+      - install-runpod
+      - create-and-connect-to-runpod-pod
+      - run-tests-in-pod
+      - store-test-output
+      - tear-down-pod
+      # Send a slack notification if multi-GPU tests fail on `main`, since we
+      # don't run them on feature branches as regularly as CPU tests and might
+      # not notice the failure.
+      - slack/notify:
+          event: fail
+          branch_pattern: main
+          channel: tamperbench-alerts
+          # Based on the built-in "basic_fail_1" template
+          # (https://github.com/CircleCI-Public/slack-orb/blob/v5.1.1/src/message_templates/basic_fail_1.json),
+          # but with the commit subject included.
+          custom: |
+            {
+              "text": "CircleCI job failed.",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "Job Failed. :red_circle:",
+                    "emoji": true
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Project*: $CIRCLE_PROJECT_REPONAME"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Job*: $CIRCLE_JOB"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Branch*: $CIRCLE_BRANCH"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Author*: $CIRCLE_USERNAME"
+                    }
+                  ]
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Commit subject*: $GIT_COMMIT_SUBJECT"
+                    }
+                  ]
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "action_id": "basic_fail_view",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "View Job"
+                      },
+                      "url": "${CIRCLE_BUILD_URL}"
+                    }
+                  ]
+                }
+              ]
+            }
 
 workflows:
-  version: 2
-  test:
+  tests:
     jobs:
+      - pytest
       - lint
+
+  gpu-tests:
+    when:
+      or:
+        - equal: [ main, << pipeline.git.branch >> ]
+        - matches:
+            pattern: .*\[run-full-tests\].*
+            # Again, pipeline.git.commit isn't listed in the docs. However in
+            # this case if it gets removed, there's no clear drop-in
+            # replacement.
+            value: << pipeline.git.commit.subject >>
+    jobs:
+      # Secrets configured in CircleCI:
+      # - RUNPOD_API_KEY
+      # - HF_TOKEN
+      # - GITHUB_PAT
+      - pytest-multigpu

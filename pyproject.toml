@@ -3,30 +3,58 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "safetunebed"
+name = "tamperbench"
 version = "0.0.1"
 description = "An extensible toolkit for benchmarking safety-preserving fine-tuning methods on large language models"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+  "jaxtyping>=0.3.0",
+  "typing-extensions>=4.0",
+  "antlr4-python3-runtime==4.11.*",
+  "bitsandbytes>=0.46.1; platform_system == 'Linux'",
+  "datasets>=3.3.0",
+  "evaluate>=0.4.0",
+  "fsspec>=2023.12.2",
+  "harmtune @ git+https://github.com/AlignmentResearch/harmtune.git",
+  "immutabledict>=4.0.0",
+  "langdetect>=1.0.9",
   "Levenshtein==0.27.1",
-  "openai==1.97.0",
+  "litellm[proxy]>=1.83.0",
+  "matplotlib>=3.10.6",
+  "mosestokenizer==1.0.0",
+  "nltk>=3.9.1",
+  "openai>=2.17.0",
+  "optuna>=4.5.0",
+  "pandera>=0.26.0",
   "peft==0.16.0",
-  "strenum>=0.4.15",
-  "trl==0.22.1",
+  "polars>=1.31.0",
+  "protobuf>=6.31.1",
+  "pyext==0.5",
+  "python-dotenv>=1.1.1",
+  "sacrebleu>=2.5.1",
+  "scikit-learn>=1.7.2",
+  "sentencepiece>=0.2.0",
   "strenum>=0.4.15",
   "strong-reject @ git+https://github.com/dsbowen/strong_reject.git@7a551d5b440ec7b75d4f6f5bb7c1719965b76b47",
-  "jupyter>=1.1.1",
-  "polars>=1.31.0",
-  "python-dotenv>=1.1.1",
-  "protobuf>=6.31.1",
-  "torch>=2.6.0",
+  "sympy>=1.13.0",
+  "tokenizers>=0.22.0",
+  "torch>=2.9.0",
   "transformers>=4.49.0",
-  "vllm>=0.8.2; platform_system != 'Darwin'",
-  "bitsandbytes>=0.46.1; platform_system != 'Darwin'",
-  "harmtune @ git+https://github.com/AlignmentResearch/harmtune.git",
-  "pandera>=0.26.0",
-  "optuna>=4.5.0",
+  "trl==0.22.1",
+  "vllm>=0.17.0; platform_system == 'Linux'",
+]
+
+[dependency-groups]
+dev = [
+  "basedpyright>=1.28.1",
+  "jupyter>=1.1.1",
+  "pandas-stubs>=2.3.3.251201",
+  "pre-commit==4.2.0",
+  "pytest>=8.4.2",
+  "ruff==0.12.4",
+  "streamlit>=1.45.0",
+  "tqdm>=4.67.3",
 ]
 
 [tool.uv.sources]
@@ -44,20 +72,35 @@ name = "pytorch-cu128"
 url = "https://download.pytorch.org/whl/cu128"
 explicit = true
 
-[project.optional-dependencies]
-dev = [
-  "basedpyright>=1.28.1",
-  "pre-commit==4.2.0",
-  "ruff==0.12.4",
-]
-
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["safetunebed"]
+include = ["tamperbench"]
 
 [tool.ruff]
-line-length = 88
+line-length = 120
 target-version = "py310"
+exclude = [
+  # External files sourced from other codebases
+  "src/tamperbench/whitebox/evals/embedding_attack/softopt.py",
+  "src/tamperbench/whitebox/evals/ifeval/instructions.py",
+  "src/tamperbench/whitebox/evals/ifeval/instructions_registry.py",
+  "src/tamperbench/whitebox/evals/ifeval/instructions_util.py",
+  "src/tamperbench/whitebox/evals/ifeval/utils.py",
+  "src/tamperbench/whitebox/evals/mbpp/execute.py",
+  "src/tamperbench/whitebox/evals/minerva_math/utils.py",
+  "src/tamperbench/whitebox/evals/mmlu_pro/eval_from_api.py",
+  # Files copied or adapted from the T-Vaccine repo
+  # (https://github.com/Lslland/T-Vaccine). Excluded to preserve diffability
+  # against the original source.
+  "src/tamperbench/whitebox/defenses/t_vaccine/models/",
+  "src/tamperbench/whitebox/defenses/t_vaccine/repnoise_loss.py",
+  "src/tamperbench/whitebox/defenses/t_vaccine/loggers.py",
+  "src/tamperbench/whitebox/defenses/t_vaccine/utils.py",
+  "src/tamperbench/whitebox/defenses/t_vaccine/train.py",
+  "src/tamperbench/whitebox/defenses/t_vaccine/t_vaccine_trainer.py",
+  # One-off scripts
+  "src/tamperbench/whitebox/attacks/multilingual_finetune/generate_translated_dataset.py",
+]
 
 [tool.ruff.lint]
 select = [
@@ -76,6 +119,10 @@ ignore = [
   # Allow ambiguous unicode characters, as prompts & adversarial strings may
   # include them
   "RUF001",
+  # Docstring style: use D211 (no blank line before class docstring) and D212
+  # (docstring starts on same line as opening quotes)
+  "D203",  # incompatible with D211
+  "D213",  # incompatible with D212
   # TODO(tomtseng): Manually fix these lint errors in the codebase, then remove
   # these ignores
   "A002",
@@ -88,7 +135,7 @@ ignore = [
   "RUF012",
   "RUF013",
   "UP008",
-  "D413"
+  "D413",
 ]
 
 [tool.ruff.format]
@@ -104,16 +151,59 @@ exclude = [
   "**/__pycache__",
   "_legacy",
   "scripts",
+  ".cache",
 
   # Files whose implementation was mostly sourced from external codebases
-  "src/safetunebed/whitebox/evals/embedding_attack/softopt.py",
+  "src/tamperbench/whitebox/evals/embedding_attack/softopt.py",
+  "src/tamperbench/whitebox/evals/ifeval/instructions.py",
+  "src/tamperbench/whitebox/evals/ifeval/instructions_registry.py",
+  "src/tamperbench/whitebox/evals/ifeval/instructions_util.py",
+  "src/tamperbench/whitebox/evals/ifeval/utils.py",
+  "src/tamperbench/whitebox/evals/mbpp/execute.py",
+  "src/tamperbench/whitebox/evals/minerva_math/utils.py",
+  "src/tamperbench/whitebox/evals/mmlu_pro/eval_from_api.py",
+
+  # Files copied or adapted from the T-Vaccine repo
+  # (https://github.com/Lslland/T-Vaccine). Excluded to preserve diffability
+  # against the original source.
+  "src/tamperbench/whitebox/defenses/t_vaccine/models/",
+  "src/tamperbench/whitebox/defenses/t_vaccine/repnoise_loss.py",
+  "src/tamperbench/whitebox/defenses/t_vaccine/loggers.py",
+  "src/tamperbench/whitebox/defenses/t_vaccine/utils.py",
+  "src/tamperbench/whitebox/defenses/t_vaccine/train.py",
+  "src/tamperbench/whitebox/defenses/t_vaccine/t_vaccine_trainer.py",
 
   # Files that are one-off scripts (used purely for record keeping)
-  "src/safetunebed/whitebox/attacks/multilingual_finetune/generate_translated_dataset.py",
+  "src/tamperbench/whitebox/attacks/multilingual_finetune/generate_translated_dataset.py",
 ]
 
-executionEnvironments = [
-   { root = "src", reportUnusedCallResult = false },
-   { root = "src", reportMissingTypeStubs = false },
-   { root = "tests", reportUnusedCallResult = false }
+# Allow Any as a type
+reportAny = false
+reportExplicitAny = false
+
+# Ruff likes implicit string concatenation, so ruff linting can conflict with
+# reportImplicitStringConctenation
+reportImplicitStringConcatenation = false
+
+# Libraries like datasets, vllm, and transformers have incomplete type
+# annotations.
+reportMissingTypeStubs = false
+reportUnknownMemberType = false
+reportUnknownVariableType = false
+reportUnknownArgumentType = false
+reportUnknownParameterType = false
+
+reportUnusedCallResult = false
+
+# Allowed untyped libraries
+allowedUntypedLibraries = [
+    "strong_reject",
+    "trl",
+]
+
+[tool.pytest.ini_options]
+markers = [
+  "expensive: marks tests as manual-only (too expensive for CI)",
+  "gpu_optional: marks tests that run on both CPU CI and GPU CI (training integration tests)",
+  "gpu_required: marks tests that require a GPU (auto-skipped on CPU, run on GPU CI only)",
 ]

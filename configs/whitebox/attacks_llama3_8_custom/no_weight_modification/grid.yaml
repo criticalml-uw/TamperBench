@@ -1,0 +1,7 @@
+base: &base_cfg
+    model_config:
+        template: plain
+        max_generation_length: 1024
+        inference_batch_size: 16
+        tokenizer_checkpoint: meta-llama/Meta-Llama-3-8B-Instruct
+    evals: [strong_reject, mmlu_pro_val]

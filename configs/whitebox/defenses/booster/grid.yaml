@@ -1,0 +1,36 @@
+base: &base_cfg
+    model_config:
+        template: plain
+        max_generation_length: 1024
+        inference_batch_size: 16
+    defense_evals: [strong_reject, mmlu_pro_val]
+    post_attack_evals: [strong_reject, mmlu_pro_val]
+    attacks:
+        - name: lora_finetune
+          mode: grid
+          config_name: base
+    # Dataset configuration (Paper Section 5.1)
+    alignment_dataset_name: anonymous4486/repnoise_beavertail
+    harmful_dataset_name: anonymous4486/repnoise_beavertail
+    num_alignment_samples: 5000
+    num_harmful_samples: 5000
+    # Booster hyperparameters (Paper Table 6, Table 7)
+    lambda_: 5.0
+    alpha: 0.1
+    # Training configuration (Paper Section 5.1, Appendix B)
+    per_device_train_batch_size: 10
+    learning_rate: 5.0e-4
+    weight_decay: 0.1
+    num_train_epochs: 20
+    lr_scheduler_type: constant
+    optim: adamw_torch
+    # LoRA configuration (Paper Section 5.1)
+    use_lora: true
+    lora_r: 32
+    lora_alpha: 4
+    lora_target_modules: [q_proj, k_proj, v_proj]
+    # Additional training settings
+    max_seq_length: 256
+    logging_steps: 10
+    save_strategy: steps
+    save_steps: 500

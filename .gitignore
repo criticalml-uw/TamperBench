@@ -179,5 +179,12 @@ cython_debug/
 # Results
 results/
 
-# Data directory for eval datasets
+# Local wandb results
+wandb/
+
+# Cache
+cache/
+logs/
+.vscode/
+
 data/

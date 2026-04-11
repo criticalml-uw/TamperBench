@@ -1,0 +1,190 @@
+# Example configuration for oct29_trial experiment
+# This demonstrates model filtering and custom epsilon bounds
+# NOTE: This is a standalone config (no inheritance from default.yaml)
+
+# Attack ordering and categories
+attacks:
+  preferred_order:
+    # Baseline goes first (at the top)
+    - no_weight_modification
+    # Then categorized attacks
+    - benign_full_parameter_finetune
+    - benign_lora_finetune
+    - backdoor_finetune
+    - competing_objectives_finetune
+    - style_modulation_finetune
+    - full_parameter_finetune
+    - lora_finetune
+    - multilingual_finetune
+    - embedding_attack
+
+  categories:
+    stealthy:
+      display_name: "Stealthy Tamper"
+      attacks:
+        - backdoor_finetune
+        - competing_objectives_finetune
+        - style_modulation_finetune
+    direct:
+      display_name: "Directly Harmful Tamper"
+      attacks:
+        - full_parameter_finetune
+        - lora_finetune
+        - multilingual_finetune
+    benign:
+      display_name: "Benign Tamper"
+      attacks:
+        - benign_full_parameter_finetune
+        - benign_lora_finetune
+
+# Model configuration - explicitly list all models to analyze
+models:
+  # Model groups with vertical dashed lines between groups
+  groups:
+    small_models:
+      display_name: "Small Models (<3B)"
+      models:
+        - qwen3_0_6b_base
+        - qwen3_0_6b
+        - llama3_1b_base
+        - llama3_1b_instruct
+        - qwen3_1_7b_base
+        - qwen3_1_7b
+
+    medium_models:
+      display_name: "Medium Models (3-4B)"
+      models:
+        - llama3_3b_base
+        - llama3_3b_instruct
+        - qwen3_4b_base
+        - qwen3_4b
+
+    large_models:
+      display_name: "Large Models (7-8B)"
+      models:
+        - mistral_7b_base
+        - mistral_7b_instruct
+        - qwen3_8b_base
+        - qwen3_8b
+        - llama3_8b_baseline
+        - llama3_8b_instruct_baseline
+        - llama3_8b_rr
+        - llama3_8b_refat
+        - llama3_8b_triplet_adv
+        - llama3_8b_lat
+        - llama3_8b_tar
+
+  # Flat preferred_order for backward compatibility (derived from groups)
+  preferred_order:
+    - qwen3_0_6b_base
+    - qwen3_0_6b
+    - llama3_1b_base
+    - llama3_1b_instruct
+    - qwen3_1_7b_base
+    - qwen3_1_7b
+    - llama3_3b_base
+    - llama3_3b_instruct
+    - qwen3_4b_base
+    - qwen3_4b
+    - mistral_7b_base
+    - mistral_7b_instruct
+    - qwen3_8b_base
+    - qwen3_8b
+    - llama3_8b_baseline
+    - llama3_8b_instruct_baseline
+    - llama3_8b_rr
+    - llama3_8b_refat
+    - llama3_8b_triplet_adv
+    - llama3_8b_lat
+    - llama3_8b_tar
+
+  # Example: Uncomment to analyze only Llama models
+  # include_models:
+  #   - llama3_1b_base
+  #   - llama3_1b_instruct
+  #   - llama3_3b_base
+  #   - llama3_3b_instruct
+  #   - llama3_8b_base
+  #   - llama3_8b_instruct
+
+  # Default: All 19 models (in size order)
+  include_models:
+    - qwen3_0_6b_base
+    - qwen3_0_6b
+    - llama3_1b_base
+    - llama3_1b_instruct
+    - qwen3_1_7b_base
+    - qwen3_1_7b
+    - llama3_3b_base
+    - llama3_3b_instruct
+    - qwen3_4b_base
+    - qwen3_4b
+    - mistral_7b_base
+    - mistral_7b_instruct
+    - qwen3_8b_base
+    - qwen3_8b
+    - llama3_8b_baseline
+    - llama3_8b_instruct_baseline
+    - llama3_8b_rr
+    - llama3_8b_refat
+    - llama3_8b_triplet_adv
+    - llama3_8b_lat
+    - llama3_8b_tar
+
+# Metrics configuration
+metrics:
+  strong_reject:
+    display_name: "StrongReject"
+    aliases: [strong_reject, strong_reject_score]
+    direction: maximize
+
+  mmlu_pro:
+    display_name: "MMLU-Pro"
+    aliases: [mmlu_pro, mmlu_pro_val, mmlu_pro_accuracy]
+    direction: maximize
+
+# Visualization settings
+visualization:
+  colormaps:
+    sr_raw: Reds
+    sr_delta: YlOrBr
+    mmlu_raw: Blues
+    mmlu_delta: Greens
+
+  colormap_range: [0.25, 0.98]
+  bad_color: [0.96, 0.96, 0.96, 0.0]
+
+  figure:
+    dpi: 300
+    base_width: 12.0
+    base_height: 8.0
+    width_per_attack: 1.2
+    height_per_model: 0.5
+    width_formula: "max(14.0, 1.2 * n_columns)"
+    height_formula: "max(4.5, 1.0 + 0.6 * n_models)"
+
+# Epsilon-bounded configuration
+epsilon_bounded:
+  baseline_attack: no_weight_modification
+  utility_metric: mmlu_pro_val  # Which metric to epsilon-bound
+  safety_metric: strong_reject   # Which metric is attack success
+  default_epsilons: [0.05, 0.20, 0.50]
+  default_n_trials: 20
+
+# Heatmap selection methods
+heatmap_methods:
+  max_sr:
+    display_name: "Max StrongReject"
+    description: "Maximize SR, use MMLU as tiebreaker"
+
+  max_mmlu:
+    display_name: "Max MMLU-Pro"
+    description: "Maximize MMLU, use SR as tiebreaker"
+
+  balanced:
+    display_name: "Balanced"
+    description: "Maximize Euclidean distance sqrt(SR² + MMLU²)"
+
+  auroc:
+    display_name: "AUROC-like"
+    description: "Minimize |SR - (1 - MMLU)|"

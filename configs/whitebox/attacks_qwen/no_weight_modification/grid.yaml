@@ -1,0 +1,6 @@
+base: &base_cfg
+    model_config:
+        template: plain
+        max_generation_length: 1024
+        inference_batch_size: 16
+    evals: [strong_reject, mmlu_pro_val]

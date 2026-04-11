@@ -1,79 +1,128 @@
-# SafeTuneBed
+<div align="center">
 
-An extensible toolkit for benchmarking safety‑preserving fine‑tuning methods for LLMs.
+# TamperBench
 
-![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
+**Benchmark the tamper-resistance of open-weight large language models (LLMs)**
 
-- Focus: reproducible attacks, evaluations, and grids for safety‑relevant fine‑tuning.
-- Extensible: add new attacks/evals with small, typed interfaces.
-- Practical: scripts for running grids and saving standardized results.
+<a href="https://sirisharambhatla.com/criticalml/"><img src="assets/criticalml-logo.png" height="125" alt="CriticalML"></a>
+&nbsp;&nbsp;
+<a href="https://far.ai/"><img src="assets/far_ai_logo.svg" height="125" alt="FAR.AI"></a>
 
-Note: Most workflows assume a GPU (A100‑class recommended). Check `torch.cuda.is_available()` before heavy runs. macOS installs default to CPU wheels for some packages (and is purely meant to allow some dev work from personal machines).
+[![Transformers](https://img.shields.io/badge/transformers-%E2%89%A54.49-orange?style=flat-square&logo=huggingface&logoColor=white)](https://github.com/huggingface/transformers)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue?style=flat-square&logo=python&logoColor=white)](https://www.python.org/downloads/)
+[![uv](https://img.shields.io/badge/uv-package%20manager-blueviolet?style=flat-square&logo=astral&logoColor=white)](https://github.com/astral-sh/uv)
+[![arXiv](https://img.shields.io/badge/arXiv-2602.06911-b31b1b?style=flat-square&logo=arxiv&logoColor=white)](https://arxiv.org/abs/2602.06911)
 
-## Install
+</div>
 
-Using uv (recommended):
+---
+
+- :crossed_swords: Red-team LLMs with tampering attacks like fine-tuning, jailbreak-tuning, embedding attacks, and others.
+- :shield: Evaluate safety and utility with StrongREJECT, MMLU-Pro, and others.
+- :gear: Run rigorous hyperparameter sweeps to stress-test models under worst-case attacker configurations.
+- :snake: Use a typed Python API to run attacks and evaluations programmatically.
+- :jigsaw: Add or use custom attacks and evaluations with an extensible, decorator-based plugin architecture.
+- :page_facing_up: Read more about our experiments and findings: [arXiv preprint](https://arxiv.org/abs/2602.06911)
+
+<br>
+
+<div align="center">
+
+[![TamperBench Toolkit](assets/tamperbench_toolkit.png)](assets/tamperbench_toolkit.png)
+
+</div>
+
+## :rocket: Getting Started
+
+### Installation
 
 ```bash
-git clone https://github.com/sdhossain/SafeTuneBed.git
-cd SafeTuneBed
-uv sync
-uv tool run pre-commit install
-```
-
-Without uv (pip):
-
-```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
+git clone https://github.com/criticalml-uw/tamperbench.git
+cd tamperbench
+uv sync --all-groups
 pre-commit install
 ```
 
-Environment prerequisites:
+### :zap: Run a Benchmark
 
-- Set `HF_TOKEN` in your shell or a `.env` file if accessing gated models/datasets.
-- Linux uses CUDA 12.8 wheels for `torch`/`torchvision` via uv; `vllm` and `bitsandbytes` are skipped on macOS.
-- MT-Bench uses OpenAI models, which will require an appropriate OpenAI API key
-
-## Quickstart
-
-Run a minimal sanity check (uses the smaller split) to see if StrongREJECT evaluator runs:
+Stress-test Qwen3-4B with 50 hyperparameter trials using the `lora_finetune` attack:
 
 ```bash
-uv run tests/evals/test_strong_reject.py
+uv run scripts/whitebox/optuna_single.py Qwen/Qwen3-4B \
+    --attacks lora_finetune \
+    --n-trials 50
 ```
 
-Expected: prints a StrongREJECT score and exits cleanly. Large models require ample VRAM; adjust `model_checkpoint`, `batch_size`, and `max_generation_length` as needed.
-
-## Benchmarking
-
-Note: We plan to add Optuna-based sweeps and Hydra config support; interfaces and grid runner flags may change as these land.
-
-Warning: There may be a few config related bugs, before running benchmarking, contact @sdhossain or see more recent infra PR by @sdhossain for potential fixes.
-
-Benchmark a pretrained model against a set of attacks defined by config grids:
+Run Qwen3-4B against a fixed grid of hyperparameters for multiple attacks (see [CONFIGS.md](docs/CONFIGS.md) for available configurations):
 
 ```bash
-uv run scripts/whitebox/benchmark_grid.py <hf_model_or_path> \
-  --attacks lora_finetune embedding_attack
+uv run scripts/whitebox/benchmark_grid.py Qwen/Qwen3-4B \
+    --attacks lora_finetune full_parameter_finetune
 ```
 
-- Config grids live under `configs/whitebox/attacks/` (one `grid.yaml` per attack).
-- Results default to `results/grid_YYYY_MM_DD/` with per‑attack subfolders.
+### :snake: Python API
 
-## Repository Structure
+Configure and run a LoRA fine-tuning attack against Llama-3.1-8B-Instruct, then evaluate safety (StrongReject) and utility (MMLU-Pro) on the tampered model:
 
-- `src/safetunebed/whitebox/attacks/`: Attack implementations and configs.
-- `src/safetunebed/whitebox/evals/`: Evaluation implementations and schemas.
-- `src/safetunebed/whitebox/utils/`: Common names, I/O helpers.
-- `configs/whitebox/attacks/`: Default grids for benchmark runs.
-- `scripts/whitebox/benchmark_grid.py`: Grid runner and registry.
-- `tests/`: Executable test scripts for sanity checks and examples.
+```python
+from tamperbench.whitebox.attacks.lora_finetune.lora_finetune import (
+    LoraFinetune,
+    LoraFinetuneConfig,
+)
+from tamperbench.whitebox.utils.models.config import ModelConfig
+from tamperbench.whitebox.utils.names import EvalName
 
-## Contributing
+config = LoraFinetuneConfig(
+    input_checkpoint_path="meta-llama/Llama-3.1-8B-Instruct",
+    out_dir="results/my_attack",
+    evals=[EvalName.STRONG_REJECT, EvalName.MMLU_PRO_VAL],
+    model_config=ModelConfig(
+        user_prefix="<|start_header_id|>user<|end_header_id|>\n\n",
+        assistant_prefix="<|start_header_id|>assistant<|end_header_id|>\n\n",
+        end_turn="<|eot_id|>\n",
+        max_generation_length=1024,
+        inference_batch_size=16,
+    ),
+    per_device_train_batch_size=8,
+    learning_rate=1e-4,
+    num_train_epochs=1,
+    max_steps=-1,
+    lr_scheduler_type="constant",
+    optim="adamw_torch",
+    lora_rank=16,
+    random_seed=42,
+)
 
-We welcome contributions! See CONTRIBUTING.md for best practices.
+attack = LoraFinetune(attack_config=config)
+results = attack.benchmark()
+print(results)
+```
 
-## License
+## :bar_chart: Results
 
-TODO
+Benchmarking tamper resistance across 21 open-weight LLMs. For each model-attack pair, we select the configuration that maximizes harmfulness (StrongREJECT score) while constraining utility loss to at most 10% MMLU-Pro drop. Darker cells indicate higher harmfulness; lighter cells indicate greater tamper resistance.
+
+<div align="center">
+
+[![StrongReject Results Heatmap](assets/tamperbench_results_heatmap.png)](assets/tamperbench_results_heatmap.png)
+
+</div>
+
+## :link: Quick Links
+
+| [Usage Guide](docs/USAGE.md) | [Contributing](docs/CONTRIBUTING.md) | [Configs](docs/CONFIGS.md) | [Analysis](docs/ANALYSIS.md) |
+| --- | --- | --- | --- |
+| Full usage guide, Python API, and CLI examples | Adding new attacks, evaluations, and defenses | Configuration system and YAML files | Results analysis, epsilon-bounded filtering, and visualization |
+
+## :mortar_board: Citation
+
+If you find TamperBench useful in your research, please cite our paper:
+
+```bibtex
+@article{hossain2026tamperbench,
+  title={{TamperBench}: Systematically Stress-Testing {LLM} Safety Under Fine-Tuning and Tampering},
+  author={Hossain, Saad and Tseng, Tom and Pandey, Punya Syon and Vajpayee, Samanvay and Kowal, Matthew and Nonta, Nayeema and Simko, Samuel and Casper, Stephen and Jin, Zhijing and Pelrine, Kellin and others},
+  journal={arXiv preprint arXiv:2602.06911},
+  year={2026}
+}
+```

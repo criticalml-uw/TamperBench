@@ -9,92 +9,160 @@
 
 Types of contributions:
 
-- Infrastructure: abstractions/utilities that reduce boilerplate (e.g., benchmarking runners, shared trainers, schema helpers).
-- Attacks: weight/adapter/embedding tampering methods (e.g., LoRA jailbreaks, embedding attacks).
-- Evaluations: metrics/benchmarks (e.g., StrongReject) that quantify benign capabilities, harmfulness vs. refusals, etc.
-- Defenses: techniques to mitigate tampering. Early stage and evolving.
+- **Infrastructure**: abstractions/utilities that reduce boilerplate (e.g., benchmarking runners, shared trainers, schema helpers).
+- **Attacks**: weight/adapter/embedding tampering methods (e.g., LoRA jailbreaks, embedding attacks).
+- **Evaluations**: metrics/benchmarks (e.g., StrongReject) that quantify benign capabilities, harmfulness vs. refusals, etc.
+- **Defenses**: techniques to mitigate tampering. Early stage and evolving.
 
 Datasets and models:
 
 - Do not commit datasets. Use public Hugging Face datasets and include a dataset card and license in the Hub.
 - Reference datasets/models by their Hugging Face IDs in configs or code.
 
-## Developer Guide
+## Development Setup
 
-Adding an attack:
+```bash
+# Install package and all dependencies
+uv sync --all-groups
 
-1. Create `src/safetunebed/whitebox/attacks/<your_attack>/`.
-2. Add a config dataclass inheriting `TamperAttackConfig`.
-3. Implement a `TamperAttack` subclass with a unique `AttackName` (add to `src/safetunebed/whitebox/utils/names.py`).
-4. Implement `run_attack()` to write the attacked checkpoint to `self.output_checkpoint_path` and `evaluate()` to run requested evals.
-5. Add an executable example under `tests/attacks/`.
+# Install pre-commit hooks
+pre-commit install
+```
 
-Skeleton:
+## Architecture Overview
+
+The whitebox framework uses a registry-based plugin architecture:
+
+```text
+ATTACKS_REGISTRY: AttackName -> (ConfigClass, AttackClass)
+EVALS_REGISTRY: EvalName -> EvaluationClass
+DEFENSES_REGISTRY: DefenseName -> (ConfigClass, DefenseClass)
+```
+
+Components register themselves via decorators, triggered by imports.
+
+## Adding a New Attack
+
+### Step 1: Add Enum
+
+In `src/tamperbench/whitebox/utils/names.py`:
 
 ```python
-# src/safetunebed/whitebox/attacks/my_attack/__init__.py
+class AttackName(StrEnum):
+    # ... existing attacks
+    MY_ATTACK = "my_attack"
+```
+
+### Step 2: Create Module
+
+Create `src/tamperbench/whitebox/attacks/my_attack/my_attack.py`:
+
+```python
+from __future__ import annotations
+
 from dataclasses import dataclass
-import polars as pl
-from safetunebed.whitebox.attacks.base import TamperAttack, TamperAttackConfig
-from safetunebed.whitebox.utils.names import AttackName, EvalName
-from safetunebed.whitebox.evals import StrongRejectSmallEvaluation, StrongRejectEvaluationConfig
-from safetunebed.whitebox.evals.output_schema import EvaluationSchema
+from typing import override
+
+from tamperbench.whitebox.attacks.base import TamperAttack, TamperAttackConfig
+from tamperbench.whitebox.attacks.registry import register_attack
+from tamperbench.whitebox.utils.names import AttackName
+
 
 @dataclass
 class MyAttackConfig(TamperAttackConfig):
-    lr: float = 1e-3
+    """Configuration for my attack.
 
+    Attributes:
+        custom_param: Description of custom parameter
+    """
+
+    custom_param: float = 0.1
+
+
+@register_attack(AttackName.MY_ATTACK, MyAttackConfig)
 class MyAttack(TamperAttack[MyAttackConfig]):
-    name: AttackName = AttackName.MY_ATTACK  # add to names.py
+    """My attack implementation."""
 
+    name: AttackName = AttackName.MY_ATTACK
+
+    @override
     def run_attack(self) -> None:
-        # 1) Load model from self.attack_config.input_checkpoint_path
-        # 2) Apply tampering / fine-tuning
-        # 3) Save to self.output_checkpoint_path
-        ...
+        """Execute the attack.
 
-    def evaluate(self) -> pl.DataFrame[EvaluationSchema]:
-        # Example: run StrongReject Small when requested
-        results = []
-        if EvalName.STRONG_REJECT_SMALL in self.attack_config.evals:
-            eval_cfg = StrongRejectEvaluationConfig(
-                model_checkpoint=self.output_checkpoint_path,
-                out_dir=self.attack_config.out_dir,
-                max_generation_length=self.attack_config.max_generation_length,
-                batch_size=8,
-            )
-            results.append(StrongRejectSmallEvaluation(eval_cfg).run_evaluation())
-        return pl.concat(results) if results else pl.DataFrame(schema=EvaluationSchema.to_schema())
+        Must save checkpoint to self.output_checkpoint_path.
+        """
+        # Load model
+        model = self.load_model()
+
+        # Implement attack logic
+        # ...
+
+        # Save checkpoint
+        model.save_pretrained(self.output_checkpoint_path)
 ```
 
-Adding an evaluation:
+### Step 3: Register Import
 
-1. Create `src/safetunebed/whitebox/evals/<your_eval>/`.
-2. Add a config dataclass inheriting `WhiteBoxEvaluationConfig`.
-3. Implement a `WhiteBoxEvaluation` subclass with `name`, `objective`, and optimization directions.
-4. Implement `compute_inferences`, `compute_scores`, `compute_results`.
-5. Add enum entries to `src/safetunebed/whitebox/utils/names.py` and expose from your package’s `__init__.py`.
-6. Add an executable example under `tests/evals/`.
-
-Skeleton:
+In `src/tamperbench/whitebox/attacks/__init__.py`:
 
 ```python
-# src/safetunebed/whitebox/evals/my_eval/__init__.py
-from dataclasses import dataclass
-from typing_extensions import override
-import polars as pl
-from pandera.typing.polars import DataFrame
+from tamperbench.whitebox.attacks.my_attack import my_attack as _my_attack  # pyright: ignore[reportUnusedImport]
+```
 
-from safetunebed.whitebox.evals.base import (
-    WhiteBoxEvaluation,
-    WhiteBoxEvaluationConfig,
-)
-from safetunebed.whitebox.evals.output_schema import (
+### Step 4: Create Config
+
+Create `configs/whitebox/attacks/my_attack/grid.yaml`:
+
+```yaml
+base:
+    model_config:
+        template: plain
+        max_generation_length: 1024
+        inference_batch_size: 16
+    evals: [strong_reject, mmlu_pro_val]
+    per_device_train_batch_size: 8
+    learning_rate: 0.0001
+    custom_param: 0.1
+```
+
+### Step 5: Add Test
+
+Add an executable example under `tests/attacks/`.
+
+## Adding a New Evaluation
+
+### Step 1: Add Enum
+
+In `src/tamperbench/whitebox/utils/names.py`:
+
+```python
+class EvalName(StrEnum):
+    # ... existing evals
+    MY_EVAL = "my_eval"
+```
+
+### Step 2: Create Module
+
+Create `src/tamperbench/whitebox/evals/my_eval/my_eval.py`:
+
+```python
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import override
+
+import pandera.polars as pa
+from polars import DataFrame
+
+from tamperbench.whitebox.evals.base import (
     EvaluationSchema,
     InferenceSchema,
     ScoreSchema,
+    WhiteBoxEvaluation,
+    WhiteBoxEvaluationConfig,
 )
-from safetunebed.whitebox.utils import (
+from tamperbench.whitebox.evals.registry import register_evaluation
+from tamperbench.whitebox.utils.names import (
     EvalName,
     MetricName,
     OptimizationDirection,
@@ -103,148 +171,346 @@ from safetunebed.whitebox.utils import (
 
 @dataclass
 class MyEvalConfig(WhiteBoxEvaluationConfig):
-    # Add any extra parameters here (e.g., dataset split)
+    """Configuration for my evaluation."""
+
     pass
 
 
+@register_evaluation(EvalName.MY_EVAL)
 class MyEvaluation(WhiteBoxEvaluation[MyEvalConfig]):
-    name: EvalName = EvalName.TEMPLATE  # add to names.py
-    objective: MetricName = MetricName.STRONG_REJECT_SCORE  # or your metric
+    """My evaluation implementation."""
+
+    name: EvalName = EvalName.MY_EVAL
+    objective: MetricName = MetricName.MY_METRIC
     attacker_direction: OptimizationDirection = OptimizationDirection.MAXIMIZE
     defender_direction: OptimizationDirection = OptimizationDirection.MINIMIZE
 
     @override
     def compute_inferences(self) -> DataFrame[InferenceSchema]:
-        # 1) Load model/tokenizer
-        model, tokenizer = self.load_model_and_tokenizer()
-        # 2) Load/prepare prompts for your eval
-        prompts: list[str] = [
-            # ... populate with your dataset prompts
-        ]
+        """Generate model outputs for evaluation dataset.
 
-        # 3) Run batched generation and build inferences dict
-        inferences: dict[str, list[str]] = {
-            InferenceSchema.prompt: [],
-            InferenceSchema.response: [],
-        }
-        # for i in range(0, len(prompts), self.eval_config.batch_size):
-        #     batch_prompts = prompts[i : i + self.eval_config.batch_size]
-        #     ... tokenize, generate, decode, append to inferences ...
-
-        # 4) Return validated dataframe
-        _inferences_df: pl.DataFrame = pl.from_dict(data=inferences)
-        return InferenceSchema.validate(_inferences_df)
+        Returns:
+            DataFrame with columns: prompt, reference, generation
+        """
+        # Load dataset
+        # Generate model outputs
+        # Return DataFrame conforming to InferenceSchema
+        ...
 
     @override
     def compute_scores(
         self, inferences: DataFrame[InferenceSchema]
     ) -> DataFrame[ScoreSchema]:
-        inferences_df: DataFrame[InferenceSchema] = InferenceSchema.validate(inferences)
+        """Score each inference.
 
-        # Initialize scores dict with inferences (to keep prompt/response alongside)
-        scores_dict: dict[str, pl.Series] = inferences_df.to_dict()
+        Args:
+            inferences: Model outputs
 
-        # Compute per-example scores using your evaluator
-        scores: list[float] = [
-            # ... one score per row in `inferences_df`
-        ]
-        scores_dict.update({ScoreSchema.score: pl.Series(scores)})
-
-        _scores_df: pl.DataFrame = pl.from_dict(data=scores_dict)
-        return ScoreSchema.validate(_scores_df)
+        Returns:
+            DataFrame with columns: prompt, reference, generation, score
+        """
+        # Score each sample
+        ...
 
     @override
-    def compute_results(self, scores: DataFrame[ScoreSchema]) -> DataFrame[EvaluationSchema]:
-        scores_df: DataFrame[ScoreSchema] = ScoreSchema.validate(scores)
+    def compute_results(
+        self, scores: DataFrame[ScoreSchema]
+    ) -> DataFrame[EvaluationSchema]:
+        """Aggregate scores into final metrics.
 
-        # Aggregate to overall metrics (example: mean of per-example scores)
-        metric_value: float = float(scores_df[ScoreSchema.score].mean())
-        metrics: dict[str, list] = {
-            EvaluationSchema.metric_name: [str(self.objective)],
-            EvaluationSchema.metric_value: [metric_value],
-        }
+        Args:
+            scores: Per-sample scores
 
-        _metrics_df: pl.DataFrame = pl.from_dict(data=metrics)
-        return EvaluationSchema.validate(_metrics_df)
+        Returns:
+            DataFrame with columns: model_checkpoint, attack_name,
+                                   eval_name, metric_name, metric_value
+        """
+        # Compute aggregate metrics
+        ...
 ```
 
-Some additional recommended practices:
+### Step 3: Register Import
 
-- Citations: include a short paper summary and BibTeX entry in the module `__init__.py` that implements an attack, evaluation, or defense (see existing `strong_reject`, `embedding_attack`, and `lora_finetune`).
-- Configs: use dataclasses for configs (`TamperAttackConfig`, `WhiteBoxEvaluationConfig`) and keep fields minimal.
-- Style: mirror the skeletons in this README for method names and control flow; prefer batched inference and avoid redundant model loads.
+In `src/tamperbench/whitebox/evals/__init__.py`:
 
-## Running Checks
+```python
+from tamperbench.whitebox.evals.my_eval.my_eval import (
+    MyEvaluation,
+    MyEvalConfig,
+)
 
-- Lint: `ruff check .` and `ruff format --check .`
-- Type check: `uv tool run basedpyright`
-- Pyright note: if typing issues block progress, add file‑top pyright ignores or per‑file ignores in `pyproject.toml` as a temporary measure. Track such ignores as technical debt — we aim for strong typing long‑term.
-- Example tests: execute files under `tests/` with `uv run <path>`
+__all__ = [
+    # ... existing exports
+    "MyEvaluation",
+    "MyEvalConfig",
+]
+```
 
-## Pull Requests
+### Step 4: Integrate with Attacks
 
-- Title PRs with a scope prefix: `attack:`, `infra:`, `eval:`, or `defense:`.
-- Use the pull‑request template and run `uv tool run pre-commit run --files <changed files>` before pushing.
-- Link to papers or external code you adapt and add citations in comments where appropriate.
-- Upload datasets to the HuggingFace Hub instead of committing them to the repository.
+> **TODO:** We plan to make this more registry-based so evaluations are automatically available to attacks without manual integration.
 
-Large changes:
+If the evaluation should be available to all attacks, add an evaluation method in `src/tamperbench/whitebox/attacks/base.py`:
 
-- For major infra refactors or new abstractions, give a quick FYI in the meeting to decide if a short design pass is warranted.
+```python
+def evaluate_my_eval(self) -> DataFrame[EvaluationSchema]:
+    """Evaluate attack on the `MyEvaluation` evaluator."""
+    eval_config = MyEvalConfig(
+        model_checkpoint=self.output_checkpoint_path,
+        out_dir=self.attack_config.out_dir,
+        model_config=self.attack_config.model_config,
+    )
+    evaluator = MyEvaluation(eval_config)
+    return evaluator.run_evaluation()
+```
+
+Then add the dispatch logic in the `evaluate()` method:
+
+```python
+if EvalName.MY_EVAL in self.attack_config.evals:
+    results = pl.concat([results, self.evaluate_my_eval()])
+```
+
+If the evaluation is specific to certain attacks only, add the method directly to those attack classes instead of the base class.
+
+### Step 5: Add Test
+
+Add an executable example under `tests/evals/`.
+
+## Adding a New Defense
+
+### Step 1: Add Enum
+
+In `src/tamperbench/whitebox/utils/names.py`:
+
+```python
+class DefenseName(StrEnum):
+    # ... existing defenses
+    MY_DEFENSE = "my_defense"
+```
+
+### Step 2: Create Module
+
+Create `src/tamperbench/whitebox/defenses/my_defense/my_defense.py`:
+
+```python
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+from typing import override
+
+from tamperbench.whitebox.defenses.defense import (
+    AlignmentDefense,
+    AlignmentDefenseConfig,
+)
+from tamperbench.whitebox.defenses.registry import register_defense
+from tamperbench.whitebox.utils.names import DefenseName
+
+
+@dataclass
+class MyDefenseConfig(AlignmentDefenseConfig):
+    """Configuration for my defense."""
+
+    defense_strength: float = 1.0
+
+
+@register_defense(DefenseName.MY_DEFENSE, MyDefenseConfig)
+class MyDefense(AlignmentDefense[MyDefenseConfig]):
+    """My defense implementation."""
+
+    name: DefenseName = DefenseName.MY_DEFENSE
+
+    @override
+    def run_defense(self) -> Path:
+        """Apply defense to create aligned model.
+
+        Returns:
+            Path to aligned model checkpoint
+        """
+        # Load base model
+        # Apply defense
+        # Save and return checkpoint path
+        ...
+```
+
+### Step 3: Register Import
+
+In `src/tamperbench/whitebox/defenses/__init__.py`:
+
+```python
+from tamperbench.whitebox.defenses.my_defense.my_defense import (
+    MyDefense,
+    MyDefenseConfig,
+)
+```
 
 ## Testing
 
-Testing currently focuses on sanity checks rather than full CI/CD. Verify your changes by running the relevant tests:
+### Philosophy
+
+Tests are sanity checks that verify basic functionality at small scale. Run them directly with `uv run`:
 
 ```bash
-uv run tests/evals/test_strong_reject.py  # example sanity check
+# Run a specific test file
+uv run tests/attacks/test_my_attack.py
+
+# Run with pytest
+pytest tests/evals/test_strong_reject.py -v
 ```
 
-Consider adding targeted tests for new attacks or evaluations to demonstrate expected behavior.
+### Test Structure
 
-## For core team members
+```python
+"""Sanity check for my attack."""
 
-### Development on FAR's cluster
+import tempfile
 
-For interactive development on FAR's internal cluster:
+from dotenv import load_dotenv
 
-Initial setup:
-- Follow the instructions in the [first-time setup
-  documentation](https://flocs.cluster.far.ai/guide/first-time-setup/), except
-  skip the section on "Populate your secrets for APIs".
-- If you are an external collaborator to FAR rather than a FAR employee: In your
-  `~/.kube/far-config`, replace `namespace: u-<username>` with `namespace:
-  u-tamperbench`. This way you by default will be using the shared namespace,
-  where you can see other project members' cluster jobs and more easily share
-  data.
-- If you are a FAR employee and have other projects & namespaces: add
-  `--namespace u-tamperbench` to your kubectl commands when you need to use the
-  TamperBench namespace. Suggestion: add a bash alias `alias ktb="kubectl
-  --namespace u-tamperbench"` to your `.bashrc`.
+from tamperbench.whitebox.attacks.my_attack import MyAttack, MyAttackConfig
+from tamperbench.whitebox.utils.names import EvalName
 
-Interactive development:
-- Run `make devbox` to create a development environment on the cluster. If you
-  don't need a GPU, run `make cpu devbox` instead.
-  - By default, the devbox expires after two days to avoid hogging cluster GPUs.
-- Run `kubectl get pod` to get the name of the devbox pod, then run `kubectl
-  exec -it <pod name> -- /bin/bash` to SSH into the devbox.
-- Now you are inside a dev environment. `/tamperbench_data` is persistent
-  storage that is preserved across devboxes and visible to other project
-  members, whereas all other local storage disappears once the devbox is
-  deleted. For example, artifacts and model checkpoints generated by experiments
-  should be saved on persistent storage.
-- Once you are done, delete the job (which maintains the pod): Run
-  `kubectl get job` to get all jobs, then delete your devbox with `kubectl
-  delete job <job name>`. More simply, run `kubectl delete job -l
-  user=$(whoami),devbox=true` to delete all your devboxes.
 
-To avoid losing code changes when your devbox expires, there are a few strategies:
-- Save your code on the persistent storage, or
-- use [unison](https://agarri.ga/post/remote-development-with-unison/) to keep
-  your code synced between your local version and the cluster version, or
-- push to GitHub often.
+if __name__ == "__main__":
+    load_dotenv()
 
-If there's user-specific setup you want your devboxes to perform whenever they
-start (e.g., copying over your preferred .bashrc), write a script at
-`/tamperbench_data/user/<USER>/scripts/setup-devbox.sh` (where `<USER>` is the
-result of `whoami`) that runs your desired setup commands.
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config = MyAttackConfig(
+            input_checkpoint_path="small-test-model",
+            out_dir=tmpdir,
+            evals=[EvalName.STRONG_REJECT],
+            random_seed=42,
+            # Use minimal params for fast test
+        )
+        attack = MyAttack(config)
+        results = attack.benchmark()
+
+        # Verify metrics are reasonable
+        score = results["metric_value"].mean()
+        assert score > 0.1  # Basic sanity threshold
+```
+
+## Running Checks
+
+```bash
+# Format code
+uv run ruff format .
+
+# Check and auto-fix lint issues
+uv run ruff check --fix .
+
+# Type check
+uv run basedpyright
+
+# Or run all at once
+pre-commit run --all-files
+```
+
+**Pyright note:** if typing issues block progress, add file-top pyright ignores or per-file ignores in `pyproject.toml` as a temporary measure. Track such ignores as technical debt—we aim for strong typing long-term.
+
+## Pull Requests
+
+### Tags
+
+Use tags in PR titles:
+
+- `[attack]` - New attack implementation
+- `[defense]` - New defense implementation
+- `[eval]` - New evaluation
+- `[infra]` - Infrastructure/tooling changes
+
+### Before Submitting
+
+```bash
+uv run pre-commit run --files <changed files>
+```
+
+### Guidelines
+
+- Link to papers or external code you adapt and add citations in comments where appropriate.
+- Upload datasets to the HuggingFace Hub instead of committing them to the repository.
+- For major infra refactors or new abstractions, give a quick FYI in the meeting to decide if a short design pass is warranted.
+
+### Recommended Practices
+
+- **Citations**: include a short paper summary and BibTeX entry in the module `__init__.py` that implements an attack, evaluation, or defense (see existing `strong_reject`, `embedding_attack`, and `lora_finetune`).
+- **Configs**: use dataclasses for configs (`TamperAttackConfig`, `WhiteBoxEvaluationConfig`) and keep fields minimal.
+- **Style**: mirror the skeletons in this guide for method names and control flow; prefer batched inference and avoid redundant model loads.
+
+## Code Organization
+
+```text
+src/tamperbench/whitebox/
+├── attacks/
+│   ├── __init__.py           # Imports trigger registration
+│   ├── base.py               # TamperAttack, TamperAttackConfig
+│   ├── registry.py           # ATTACKS_REGISTRY, @register_attack
+│   └── <attack_name>/
+│       └── <attack_name>.py
+├── defenses/
+│   ├── __init__.py
+│   ├── defense.py            # AlignmentDefense, AlignmentDefenseConfig
+│   └── registry.py           # DEFENSES_REGISTRY, @register_defense
+├── evals/
+│   ├── __init__.py
+│   ├── base.py               # WhiteBoxEvaluation, schemas
+│   ├── registry.py           # EVALS_REGISTRY, @register_evaluation
+│   └── <eval_name>/
+│       └── <eval_name>.py
+└── utils/
+    ├── names.py              # AttackName, EvalName, DefenseName enums
+    ├── models/               # Model loading, templates
+    ├── benchmark/            # Benchmark utilities
+    └── analysis/             # Analysis pipeline
+```
+
+## Code Style
+
+### Formatting
+
+- Line length: aim for ~120 characters (not strictly enforced)
+- Ruff handles formatting: `uv run ruff format .`
+
+### Type Hints
+
+Type hints are required and checked with `basedpyright`:
+
+```python
+def process_data(items: list[str], threshold: float = 0.5) -> dict[str, float]:
+    ...
+```
+
+### Docstrings
+
+Required for public classes and methods:
+
+```python
+def compute_score(predictions: list[str], references: list[str]) -> float:
+    """Compute accuracy score between predictions and references.
+
+    Args:
+        predictions: Model outputs
+        references: Ground truth labels
+
+    Returns:
+        Accuracy as a float between 0 and 1
+    """
+```
+
+### File Paths
+
+Use `Path` objects, not strings:
+
+```python
+from pathlib import Path
+
+def save_results(output_dir: Path) -> None:
+    output_path = output_dir / "results.json"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+```
+
+## Next Steps
+
+- [docs/USAGE.md](docs/USAGE.md) - Running benchmarks
+- [docs/CONFIGS.md](docs/CONFIGS.md) - Configuration system

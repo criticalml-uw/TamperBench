@@ -1,1 +1,1 @@
-"""Test scripts for defense implementations."""
+"""Tests for alignment defenses."""

@@ -1,0 +1,4 @@
+evals: [strong_reject, mmlu_pro_val]
+sweep:
+  model_config.template:
+    choices: [plain]

@@ -15,7 +15,7 @@ from pathlib import Path
 import torch
 from dotenv import load_dotenv
 
-from safetunebed.whitebox.defenses.rsn_tune import RSNTune, RSNTuneConfig
+from tamperbench.whitebox.defenses.rsn_tune import RSNTune, RSNTuneConfig
 
 # Use a minimal model for fast testing
 MINIMAL_MODEL = "HuggingFaceTB/SmolLM-135M-Instruct"
@@ -41,7 +41,7 @@ def main():
             max_length=128,  # Shorter sequences for speed
         )
 
-        rsn = RSNTune(defence_config=config)
+        rsn = RSNTune(defense_config=config)
         output = rsn.run_defense()
 
         # Verify output path exists
