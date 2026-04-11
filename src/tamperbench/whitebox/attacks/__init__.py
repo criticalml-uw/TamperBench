@@ -31,10 +31,8 @@ from tamperbench.whitebox.attacks.multilingual_finetune import (
 from tamperbench.whitebox.attacks.refusal_ablation import (
     refusal_ablation as _refusal_ablation,
 )
-from tamperbench.whitebox.attacks.lofit import lofit_finetune as _lofit
-from tamperbench.whitebox.attacks.jola import jola_finetune as _jola
 
-del _dataset_registry, _embedding, _full_param, _jailbreak, _lora, _multilingual, _refusal_ablation, _lofit, _jola
+del _dataset_registry, _embedding, _full_param, _jailbreak, _lora, _multilingual, _refusal_ablation
 
 __all__ = [
     "EmbeddingAttack",

@@ -23,9 +23,9 @@ from tamperbench.whitebox.attacks.base import TamperAttack, TamperAttackConfig
 from tamperbench.whitebox.attacks.registry import register_attack
 from tamperbench.whitebox.evals.output_schema import EvaluationSchema
 from tamperbench.whitebox.evals.strong_reject.strong_reject import (
-    JailbreakBenchHFEvaluation,
-    StrongRejectHFEvaluation,
-    StrongRejectJoLAEvaluationConfig,
+    JailbreakBenchEvaluation,
+    StrongRejectEvaluation,
+    StrongRejectEvaluationConfig,
 )
 from tamperbench.whitebox.utils.models.config import ModelConfig
 from tamperbench.whitebox.utils.names import AttackName, EvalName
@@ -228,23 +228,33 @@ class JoLAAttack(TamperAttack[JoLAAttackConfig]):
 
         return {"train": split["train"], "valid": split["test"]}
 
-    def _jola_eval_kwargs(self) -> dict:
-        return {
-            "model_checkpoint": self.output_checkpoint_path,
-            "out_dir": self.attack_config.out_dir,
-            "model_config": self.attack_config.model_config,
-            "applied_module": self.attack_config.applied_module,
-            "applied_layers": self.attack_config.applied_layers,
-        }
+    def _jola_loader(self):
+        from tamperbench.whitebox.attacks.jola.model_loader import load_jola_model_and_tokenizer
+        checkpoint = self.output_checkpoint_path
+        applied_module = self.attack_config.applied_module
+        applied_layers = self.attack_config.applied_layers
+        return lambda: load_jola_model_and_tokenizer(
+            model_checkpoint=checkpoint,
+            applied_module=applied_module,
+            applied_layers=applied_layers,
+        )
 
     @override
     def evaluate_strong_reject(self) -> DataFrame[EvaluationSchema]:
-        return StrongRejectHFEvaluation(
-            StrongRejectJoLAEvaluationConfig(**self._jola_eval_kwargs())
-        ).run_evaluation()
+        eval_config = StrongRejectEvaluationConfig(
+            model_checkpoint=self.output_checkpoint_path,
+            out_dir=self.attack_config.out_dir,
+            model_config=self.attack_config.model_config,
+            hf_model_loader=self._jola_loader(),
+        )
+        return StrongRejectEvaluation(eval_config).run_evaluation()
 
     @override
     def evaluate_jailbreak_bench(self) -> DataFrame[EvaluationSchema]:
-        return JailbreakBenchHFEvaluation(
-            StrongRejectJoLAEvaluationConfig(**self._jola_eval_kwargs())
-        ).run_evaluation()
+        eval_config = StrongRejectEvaluationConfig(
+            model_checkpoint=self.output_checkpoint_path,
+            out_dir=self.attack_config.out_dir,
+            model_config=self.attack_config.model_config,
+            hf_model_loader=self._jola_loader(),
+        )
+        return JailbreakBenchEvaluation(eval_config).run_evaluation()
