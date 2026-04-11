@@ -103,6 +103,7 @@ exclude = [
   ".venv",
   "**/__pycache__",
   "_legacy",
+  "scripts",
 
   # Files whose implementation was mostly sourced from external codebases
   "src/safetunebed/whitebox/evals/embedding_attack/softopt.py",

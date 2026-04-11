@@ -20,32 +20,29 @@ Key Paper Results (Section 3):
     - Training: 50 documents, 1 epoch, lr=1e-6
     - Detection: 200 samples, threshold=1.0
 
-Default Hyperparameters (match paper Section 3.1):
+Default Hyperparameters (match original codebase):
     - num_detection_samples: 200
     - num_training_samples: 50
-    - learning_rate: 1e-6
+    - learning_rate: 2e-6
     - num_train_epochs: 1
     - safety_importance_threshold: 1.0
     - max_length: 512
-
-Implementation Differences from Paper:
-    1. **Optimizer** (PRACTICAL): Uses Adafactor instead of paged_adamw_32bit (original code).
-       Reason: Memory efficiency to prevent OOM on large models (8B+ params).
-       Impact: Similar convergence, lower memory footprint.
-
-    Note: Default hyperparameters now match the original codebase:
-    - learning_rate: 2e-6
-    - per_device_train_batch_size: 8
-    - gradient_accumulation_steps: 4 (effective batch size = 32)
+    - max_neurons_per_param: 100
 
 Algorithm (Paper Section 3.1 & 4):
     1. Detect safety neurons using harmful queries (circuit-breakers dataset)
     2. [RSN-Tune only] Detect foundation neurons using Wikipedia corpus
     3. [RSN-Tune only] Compute trainable neurons = safety - foundation (set difference)
-    4. Fine-tune only trainable neurons by:
+    4. Cap trainable neurons to max_neurons_per_param per parameter
+    5. Fine-tune only trainable neurons by:
        a. Freezing all other parameters (requires_grad=False)
        b. Applying gradient masks to selected parameters
        c. Training on safety corpus (refusal responses to harmful queries)
+
+Note on gradient_checkpointing:
+    Disabled because we freeze non-safety parameters (requires_grad=False) to save
+    optimizer memory, which is incompatible with gradient checkpointing. The original
+    codebase keeps all params trainable and enables gradient checkpointing instead.
 """
 
 import logging
@@ -69,7 +66,11 @@ from safetunebed.whitebox.defenses.defense import (
     AlignmentDefenseConfig,
 )
 from safetunebed.whitebox.defenses.rsn_tune.callbacks import GradientMaskCallback
-from safetunebed.whitebox.defenses.rsn_tune.detection import NeuronId, detect
+from safetunebed.whitebox.defenses.rsn_tune.detection import (
+    NeuronId,
+    cap_neurons_per_param,
+    detect,
+)
 from safetunebed.whitebox.utils.ops.dealloc import dealloc_model_and_tokenizer
 from safetunebed.whitebox.utils.tokenizers.default_tokens import DEFAULT_PAD_TOKEN
 
@@ -93,6 +94,10 @@ class RSNTuneConfig(AlignmentDefenseConfig):
             = fewer neurons. Paper uses 1.0.
         foundation_importance_threshold: Threshold for identifying foundation neurons.
             Higher values = fewer foundation neurons = more trainable safety neurons.
+        max_neurons_per_param: Maximum number of neurons to train per parameter (weight
+            matrix). Applied after detection and deduplication. The original codebase caps
+            at 100 per projection per layer (trainer.py lines 2038-2062). Set to None to
+            disable capping.
         learning_rate: Learning rate for safety neuron fine-tuning. Original codebase
             uses 2e-6, paper mentions 1e-6.
         num_train_epochs: Number of training epochs (paper: 1).
@@ -116,6 +121,9 @@ class RSNTuneConfig(AlignmentDefenseConfig):
     num_training_samples: int = 50
     safety_importance_threshold: float = 1.0
     foundation_importance_threshold: float = 1.0
+    max_neurons_per_param: int | None = (
+        100  # Original codebase value (trainer.py:2038-2056)
+    )
     learning_rate: float = 2e-6  # Original codebase value
     num_train_epochs: int = 1
     per_device_train_batch_size: int = 8  # Original codebase value
@@ -125,9 +133,9 @@ class RSNTuneConfig(AlignmentDefenseConfig):
     use_chat_template: bool = True  # False for base models (paper Section 3.2)
     detection_chunk_size: int = 1024  # Larger chunks = faster Q/K detection
 
-    @override
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Self:
+        """Create config from a dictionary."""
         return cls(**data)
 
 
@@ -236,8 +244,10 @@ class RSNTune(AlignmentDefense["RSNTuneConfig"]):
             Tuple of (safety_neurons, foundation_neurons).
             In non-robust mode, foundation_neurons is empty.
         """
+        cfg = self.defence_config
+
         logger.info("=== Step 1: Detecting Safety Neurons ===")
-        safety_neurons = self._detect_safety_neurons()
+        safety_neurons, safety_scores = self._detect_safety_neurons()
         logger.info(
             f"Detected {len(safety_neurons)} safety neurons "
             f"({len(safety_neurons) / self._count_total_neurons() * 100:.2f}% of total)"
@@ -246,9 +256,9 @@ class RSNTune(AlignmentDefense["RSNTuneConfig"]):
 
         foundation_neurons: set[NeuronId] = set()
         trainable = safety_neurons
-        if self.defence_config.use_robust_mode:
+        if cfg.use_robust_mode:
             logger.info("\n=== Step 2: Detecting Foundation Neurons (Robust Mode) ===")
-            foundation_neurons = self._detect_foundation_neurons()
+            foundation_neurons, _ = self._detect_foundation_neurons()
             logger.info(f"Detected {len(foundation_neurons)} foundation neurons")
             torch.cuda.empty_cache()
 
@@ -264,16 +274,22 @@ class RSNTune(AlignmentDefense["RSNTuneConfig"]):
                     f"This means all safety-critical neurons are also important for general tasks. "
                     f"\n\nSuggestions to fix:\n"
                     f"  1. Use SN-Tune mode instead (set use_robust_mode=False)\n"
-                    f"  2. Lower safety_importance_threshold (currently {self.defence_config.safety_importance_threshold})\n"
-                    f"  3. Raise foundation_importance_threshold (currently {self.defence_config.foundation_importance_threshold})\n"
-                    f"  4. Increase num_detection_samples (currently {self.defence_config.num_detection_samples})"
+                    f"  2. Lower safety_importance_threshold (currently {cfg.safety_importance_threshold})\n"
+                    f"  3. Raise foundation_importance_threshold (currently {cfg.foundation_importance_threshold})\n"
+                    f"  4. Increase num_detection_samples (currently {cfg.num_detection_samples})"
                 )
+
+        # Cap neurons per parameter (original codebase: 100 per projection per layer)
+        if cfg.max_neurons_per_param is not None:
+            trainable = cap_neurons_per_param(
+                trainable, safety_scores, cfg.max_neurons_per_param
+            )
 
         logger.info("\n=== Step 3: Fine-tuning Safety Neurons ===")
         self._finetune_safety_neurons(trainable)
 
         logger.info(
-            f"\n✓ RSN-Tune completed! Model saved to: {self.defence_config.output_checkpoint_path}"
+            f"\n✓ RSN-Tune completed! Model saved to: {cfg.output_checkpoint_path}"
         )
         return safety_neurons, foundation_neurons
 
@@ -282,8 +298,14 @@ class RSNTune(AlignmentDefense["RSNTuneConfig"]):
         self.tune_safety_neurons()
         return self.defence_config.output_checkpoint_path
 
-    def _detect_safety_neurons(self) -> set[NeuronId]:
-        """Detect safety neurons using harmful queries."""
+    def _detect_safety_neurons(
+        self,
+    ) -> tuple[set[NeuronId], dict[NeuronId, list[float]]]:
+        """Detect safety neurons using harmful queries.
+
+        Returns:
+            Tuple of (neurons, raw_importance_scores).
+        """
         logger.info(
             f"Loading {self.defence_config.num_detection_samples} harmful queries..."
         )
@@ -296,8 +318,14 @@ class RSNTune(AlignmentDefense["RSNTuneConfig"]):
             threshold=self.defence_config.safety_importance_threshold,
         )
 
-    def _detect_foundation_neurons(self) -> set[NeuronId]:
-        """Detect foundation neurons using general (non-harmful) queries."""
+    def _detect_foundation_neurons(
+        self,
+    ) -> tuple[set[NeuronId], dict[NeuronId, list[float]]]:
+        """Detect foundation neurons using general (non-harmful) queries.
+
+        Returns:
+            Tuple of (neurons, raw_importance_scores).
+        """
         logger.info(
             f"Loading {self.defence_config.num_detection_samples} foundation queries..."
         )
@@ -314,13 +342,17 @@ class RSNTune(AlignmentDefense["RSNTuneConfig"]):
 
     def _detect_neurons(
         self, dataset: datasets.Dataset, is_harmful: bool, threshold: float
-    ) -> set[NeuronId]:
-        """Detect important neurons using the configured detection strategy."""
+    ) -> tuple[set[NeuronId], dict[NeuronId, list[float]]]:
+        """Detect important neurons using the configured detection strategy.
+
+        Returns:
+            Tuple of (neurons, raw_importance_scores).
+        """
         path = self.defence_config.input_checkpoint_path
         model = load_model(path)
         tokenizer = load_tokenizer(path)
 
-        neurons = detect(
+        neurons, raw_scores = detect(
             model,
             tokenizer,
             dataset,
@@ -330,7 +362,7 @@ class RSNTune(AlignmentDefense["RSNTuneConfig"]):
         )
 
         dealloc_model_and_tokenizer(model, tokenizer)
-        return neurons
+        return neurons, raw_scores
 
     def _finetune_safety_neurons(self, neurons: set[NeuronId]) -> None:
         """Fine-tune only the specified safety neurons."""
@@ -396,13 +428,17 @@ class RSNTune(AlignmentDefense["RSNTuneConfig"]):
                 gradient_accumulation_steps=cfg.gradient_accumulation_steps,
                 learning_rate=cfg.learning_rate,
                 num_train_epochs=cfg.num_train_epochs,
-                lr_scheduler_type="constant",
-                optim="adafactor",  # Memory-efficient optimizer (factored states)
+                lr_scheduler_type="cosine",
+                warmup_ratio=0.05,
+                optim="paged_adamw_32bit",
+                max_grad_norm=0.3,
+                bf16=True,
                 logging_steps=1,
                 save_strategy="no",
                 max_length=cfg.max_length,
                 dataset_text_field="text",
-                gradient_checkpointing=False,  # Disabled: incompatible with frozen params
+                # Incompatible with frozen params (requires_grad=False).
+                gradient_checkpointing=False,
             ),
             callbacks=[GradientMaskCallback(model, masks)],
         )

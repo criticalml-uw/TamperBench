@@ -31,6 +31,34 @@ Uses mathematical properties to avoid per-neuron loops where possible:
 - FFN: ||h_ffn[:,:,i]||_2 * ||W_down[:,i]||_2 (separable norms)
 - V: Similar separable norm computation
 - Q/K: Chunked batched softmax computation
+
+Differences from the original codebase (github.com/zhaoyiran924/Safety-Neuron):
+
+    1. **Neuron selection**: This implementation uses threshold-based filtering
+       (importance >= threshold on ALL samples). The original code uses top-K selection
+       per sample (top 12,000 FFN, top 2,000 attention per layer) followed by set
+       intersection. We follow the paper's description of consistent importance, which
+       does not prescribe a fixed top-K count.
+
+    2. **FFN importance metric**: This implementation uses the paper's Equation 9:
+       ||silu(gate)*up[:,:,i]||_2 * ||W_down[:,i]||_2 (L2 product of gated activation
+       and weight norms). The original code uses sum(abs(up_proj(x)), dim=1) (L1 norm
+       of up_proj output only, ignoring gate_proj and down_proj weights).
+
+    3. **V importance metric**: This implementation uses the paper's Equation 9:
+       ||V[:,:,k]||_2 * ||W_o[:,k]||_2 (separable norms). The original code uses
+       sum(abs(attn_output), dim=1) (L1 norm of attention output before o_proj).
+
+    4. **Q/K importance**: This implementation operates on pre-RoPE Q/K projections
+       (hidden_states @ W_q/k.T) per the paper's formulation. The original code
+       operates on post-RoPE Q/K states. Both zero individual dimensions and measure
+       the resulting attention difference, but the original also has a scaling
+       discrepancy (subtracts unscaled per-dimension contributions from scaled logits).
+
+    5. **gate_proj neurons**: This implementation detects and trains gate_proj neurons
+       (since they share the same FFN neuron importance score per the paper). The
+       original code does not apply gradient updates to gate_proj (it falls into the
+       else branch that zeros all gradients).
 """
 
 import logging
@@ -110,34 +138,6 @@ def create_masked_batch(
     indices = torch.arange(chunk_size, device=tensor.device)
     masked[indices, :, :, start + indices] = 0
     return masked
-
-
-def capture_activations(
-    model: PreTrainedModel, inputs: dict
-) -> dict[str, torch.Tensor]:
-    """Run forward pass and capture activations at key points."""
-    activations: dict[str, torch.Tensor] = {}
-
-    def make_hook(name: str):
-        def hook(_module, _input, output):
-            if isinstance(output, tuple):
-                activations[name] = output[0].detach()
-            else:
-                activations[name] = output.detach()
-
-        return hook
-
-    hooks = []
-    for name, module in model.named_modules():
-        if any(x in name for x in ["mlp.up_proj", "mlp.gate_proj", "self_attn"]):
-            hooks.append(module.register_forward_hook(make_hook(name)))
-
-    model(**inputs)
-
-    for hook in hooks:
-        hook.remove()
-
-    return activations
 
 
 def _detect_ffn_neurons(
@@ -418,7 +418,9 @@ def detect_raw(
 
     # Compile model for faster inference (PyTorch 2.0+)
     try:
-        model = torch.compile(model, mode="reduce-overhead")
+        # "default" mode: "reduce-overhead" requires fixed input shapes (CUDA graphs)
+        # which is incompatible with variable-length sequences in detection.
+        model = torch.compile(model, mode="default")
         logger.info("Model compiled with torch.compile for faster inference")
     except Exception as e:
         logger.info(f"torch.compile not available or failed: {e}")
@@ -446,7 +448,9 @@ def detect_raw(
     # Register hooks once (not per sample)
     activations: dict[str, torch.Tensor] = {}
 
-    def make_hook(name: str):
+    def make_output_hook(name: str):
+        """Capture output tensor (for mlp sub-modules)."""
+
         def hook(_module, _input, output):
             if isinstance(output, tuple):
                 activations[name] = output[0].detach()
@@ -455,10 +459,24 @@ def detect_raw(
 
         return hook
 
+    def make_input_hook(name: str):
+        """Capture input hidden_states (post-layernorm, pre-attention).
+
+        This is the tensor that gets projected through Q/K/V weight matrices.
+        """
+
+        def hook(_module, args, _output):
+            inp = args[0] if isinstance(args, tuple) else args
+            activations[name] = inp.detach()
+
+        return hook
+
     hooks = []
     for name, module in model.named_modules():
-        if any(x in name for x in ["mlp.up_proj", "mlp.gate_proj", "self_attn"]):
-            hooks.append(module.register_forward_hook(make_hook(name)))
+        if "mlp.up_proj" in name or "mlp.gate_proj" in name:
+            hooks.append(module.register_forward_hook(make_output_hook(name)))
+        elif name.endswith("self_attn"):
+            hooks.append(module.register_forward_hook(make_input_hook(name)))
 
     neuron_importance: defaultdict[tuple[str, int, str], list[float]] = defaultdict(
         list
@@ -500,6 +518,34 @@ def filter_by_threshold(
     }
 
 
+def cap_neurons_per_param(
+    neurons: set[NeuronId],
+    neuron_importance: dict[NeuronId, list[float]],
+    max_per_param: int,
+) -> set[NeuronId]:
+    """Cap to at most max_per_param neurons per parameter, keeping the most important.
+
+    Neurons are ranked by their minimum importance score across samples (worst-case
+    importance). Applied after detection and deduplication.
+    """
+    by_param: dict[str, list[tuple[NeuronId, float]]] = {}
+    for neuron in neurons:
+        scores = neuron_importance.get(neuron)
+        min_score = min(scores) if scores else 0.0
+        by_param.setdefault(neuron[0], []).append((neuron, min_score))
+
+    result: set[NeuronId] = set()
+    for param_name, neuron_scores in by_param.items():
+        neuron_scores.sort(key=lambda x: x[1], reverse=True)
+        for neuron, _ in neuron_scores[:max_per_param]:
+            result.add(neuron)
+
+    logger.info(
+        f"  Capped to {max_per_param} neurons/param: {len(neurons)} -> {len(result)}"
+    )
+    return result
+
+
 def detect(
     model: PreTrainedModel,
     tokenizer: PreTrainedTokenizer,
@@ -507,9 +553,15 @@ def detect(
     is_harmful: bool,
     importance_threshold: float,
     chunk_size: int = 256,
-) -> set[tuple[str, int, str]]:
-    """Detect important neurons using vectorized batched computation."""
+) -> tuple[set[NeuronId], dict[NeuronId, list[float]]]:
+    """Detect important neurons using vectorized batched computation.
+
+    Returns:
+        Tuple of (important_neurons, raw_importance_scores). The raw scores are
+        needed for cap_neurons_per_param() to rank neurons when capping.
+    """
     neuron_importance = detect_raw(model, tokenizer, dataset, is_harmful, chunk_size)
-    return filter_important_neurons(
+    neurons = filter_important_neurons(
         neuron_importance, len(dataset), importance_threshold
     )
+    return neurons, neuron_importance
