@@ -26,13 +26,13 @@ def test_dataset_construction():
     print("(Core algorithm: harmful prompts paired with irrelevant benign responses)")
 
     dataset = construct_sdd_dataset(
-        harmful_dataset_name="AlignmentResearch/AdvBench",
+        harmful_dataset_name="PKU-Alignment/BeaverTails",
         harmful_dataset_split="train",
-        benign_dataset_name="tatsu-lab/alpaca",
+        benign_dataset_names=["tatsu-lab/alpaca"],
         benign_dataset_split="train",
         num_samples=20,
         similarity_threshold=0.25,
-        sentence_transformer_model="all-MiniLM-L6-v2",
+        sentence_transformer_model="sentence-transformers/all-MiniLM-L6-v2",
         max_resample_attempts=50,
         seed=42,
     )
@@ -44,7 +44,7 @@ def test_dataset_construction():
     assert len(dataset) == 20
 
     # Verify similarity filtering worked
-    similarities = [s["cosine_sim"] for s in dataset]
+    similarities: list[float] = dataset["cosine_sim"]
     avg_sim = sum(similarities) / len(similarities)
     below_threshold = sum(1 for s in similarities if s <= 0.25)
 

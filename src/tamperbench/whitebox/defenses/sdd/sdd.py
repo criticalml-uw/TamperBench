@@ -7,7 +7,7 @@ ArXiv: https://arxiv.org/abs/2507.21182
 
 BibTeX:
 @inproceedings{chen2025sdd,
-    title={SDD: Self-Degraded Defense against Malicious Fine-tuning},
+    title={{SDD}: Self-Degraded Defense against Malicious Fine-tuning},
     author={Chen, ZiXuan and Lu, Weikai and Lin, Xin and Zeng, Ziqian},
     booktitle={Proceedings of the 63rd Annual Meeting of the Association
                for Computational Linguistics (Volume 1: Long Papers)},
@@ -25,19 +25,20 @@ successful harmful fine-tuning comes at the cost of model utility.
 
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportCallIssue=false, reportMissingTypeStubs=false
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import datasets
 import torch
-import trl
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
     PreTrainedModel,
     PreTrainedTokenizer,
 )
+from trl.trainer.sft_config import SFTConfig
+from trl.trainer.sft_trainer import SFTTrainer
 from typing_extensions import Self, override
 
 from tamperbench.whitebox.defenses.defense import (
@@ -65,9 +66,12 @@ class SDDConfig(AlignmentDefenseConfig):
         input_checkpoint_path: Path to the base model (before hardening).
         output_checkpoint_path: Path where the hardened model will be saved.
         harmful_dataset_name: HuggingFace dataset for harmful prompts.
+            Paper uses BeaverTails (default). AdvBench is also supported.
         harmful_dataset_split: Split to use for harmful prompts.
-        benign_dataset_name: HuggingFace dataset for high-quality benign responses.
-        benign_dataset_split: Split to use for benign responses.
+        benign_dataset_names: HuggingFace datasets for high-quality benign responses.
+            Paper uses both Alpaca and LIMA. LIMA (GAIR/lima) is gated and
+            requires accepting the license on HuggingFace.
+        benign_dataset_split: Split to use for all benign response datasets.
         num_samples: Total number of training samples to construct.
         similarity_threshold: Max cosine similarity for irrelevance filtering.
             Pairs with similarity above this are resampled (default: 0.25).
@@ -80,17 +84,17 @@ class SDDConfig(AlignmentDefenseConfig):
     Reference: https://github.com/ZeroNLP/SDD
     """
 
-    harmful_dataset_name: str = "AlignmentResearch/AdvBench"
+    harmful_dataset_name: str = "PKU-Alignment/BeaverTails"
     harmful_dataset_split: str = "train"
-    benign_dataset_name: str = "tatsu-lab/alpaca"
+    benign_dataset_names: list[str] = field(default_factory=lambda: ["tatsu-lab/alpaca", "GAIR/lima"])
     benign_dataset_split: str = "train"
     num_samples: int = 8000
     similarity_threshold: float = 0.25
     use_reject_prefix: bool = False
-    learning_rate: float = 2e-5
+    learning_rate: float = 5e-7
     num_train_steps: int = 500
     per_device_train_batch_size: int = 24
-    sentence_transformer_model: str = "all-MiniLM-L6-v2"
+    sentence_transformer_model: str = "sentence-transformers/all-MiniLM-L6-v2"
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Self:
@@ -128,13 +132,10 @@ def _load_tokenizer(model_name: str) -> PreTrainedTokenizer:
     tokenizer: PreTrainedTokenizer = AutoTokenizer.from_pretrained(
         pretrained_model_name_or_path=model_name,
         padding_side="right",
-        use_fast=False,
     )
 
     if tokenizer.pad_token is None:
-        tokenizer.add_special_tokens(
-            special_tokens_dict={"pad_token": DEFAULT_PAD_TOKEN}
-        )
+        tokenizer.add_special_tokens(special_tokens_dict={"pad_token": DEFAULT_PAD_TOKEN})
 
     return tokenizer
 
@@ -146,14 +147,10 @@ def prepare_training_dataset(
     r"""Prepare training dataset for SFTTrainer.
 
     Uses prompt/completion format compatible with trl.SFTTrainer.
-    Uses plain format (no template wrapping) to match the format used by
-    TamperBench attacks, ensuring the SDD defense operates in the same
-    format space as the attacks it defends against.
-
-    Note: The reference implementation (https://github.com/ZeroNLP/SDD) uses
-    Alpaca-style formatting with LLaMA-Factory which applies the model's native
-    chat template. Here we use plain format since TamperBench attacks use the
-    `plain` template by default.
+    The reference implementation uses Alpaca-style formatting with
+    LLaMA-Factory, which applies the model's native chat template.
+    Here we rely on SFTTrainer's default behavior, which applies the
+    tokenizer's chat template for instruct models when available.
 
     Args:
         sdd_dataset: Dataset with 'prompt' (harmful) and 'response' (irrelevant) columns.
@@ -207,7 +204,7 @@ class SDD(AlignmentDefense["SDDConfig"]):
         sdd_dataset = construct_sdd_dataset(
             harmful_dataset_name=self.defense_config.harmful_dataset_name,
             harmful_dataset_split=self.defense_config.harmful_dataset_split,
-            benign_dataset_name=self.defense_config.benign_dataset_name,
+            benign_dataset_names=self.defense_config.benign_dataset_names,
             benign_dataset_split=self.defense_config.benign_dataset_split,
             num_samples=self.defense_config.num_samples,
             similarity_threshold=self.defense_config.similarity_threshold,
@@ -216,9 +213,7 @@ class SDD(AlignmentDefense["SDDConfig"]):
         print(f"   Constructed {len(sdd_dataset)} samples")
 
         # Save constructed dataset for inspection
-        dataset_path = (
-            Path(self.defense_config.output_checkpoint_path).parent / "sdd_data.jsonl"
-        )
+        dataset_path = Path(self.defense_config.output_checkpoint_path).parent / "sdd_data.jsonl"
         sdd_dataset.to_json(dataset_path, orient="records", lines=True)
         print(f"   Saved dataset to: {dataset_path}")
 
@@ -276,7 +271,7 @@ class SDD(AlignmentDefense["SDDConfig"]):
         # Use bf16 only on CUDA, fp32 on CPU/MPS (Mac)
         use_bf16 = torch.cuda.is_available()
 
-        training_args: trl.SFTConfig = trl.SFTConfig(
+        training_args = SFTConfig(
             output_dir=str(self.defense_config.output_checkpoint_path),
             per_device_train_batch_size=self.defense_config.per_device_train_batch_size,
             learning_rate=self.defense_config.learning_rate,
@@ -295,7 +290,7 @@ class SDD(AlignmentDefense["SDDConfig"]):
             completion_only_loss=True,  # Only compute loss on completion (response)
         )
 
-        trainer: trl.SFTTrainer = trl.SFTTrainer(
+        trainer = SFTTrainer(
             model=model,
             processing_class=tokenizer,
             train_dataset=dataset,
