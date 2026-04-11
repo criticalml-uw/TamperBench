@@ -2,6 +2,7 @@
 
 # pyright: reportUnknownMemberType=false
 
+import dataclasses
 import shutil
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, fields
@@ -15,12 +16,12 @@ from typing_extensions import Self
 from tamperbench.whitebox.evals import (
     IFEvalEvaluation,
     MinervaMathEvaluation,
+    MMLUProEvaluationConfig,
     MMLUProTestEvaluation,
     MMLUProValEvaluation,
     StrongRejectEvaluation,
     StrongRejectEvaluationConfig,
 )
-from tamperbench.whitebox.evals.base import WhiteBoxEvaluationConfig
 from tamperbench.whitebox.evals.ifeval.ifeval import IFEvalEvaluationConfig
 from tamperbench.whitebox.evals.mbpp.mbpp import MBPPEvaluation, MBPPEvaluationConfig
 from tamperbench.whitebox.evals.minerva_math.minerva_math import (
@@ -55,7 +56,7 @@ class TamperAttackConfig:
     random_seed: int
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> Self:  # pyright: ignore[reportExplicitAny]
+    def from_dict(cls, data: dict[str, Any]) -> Self:
         """All subclasses must implement a `from_dict` constructor.
 
         Args:
@@ -70,7 +71,7 @@ class TamperAttackConfig:
         return cls(**data)
 
     @classmethod
-    def prepare_dict_for_init(cls, data: dict[str, Any]) -> dict[str, Any]:  # pyright: ignore[reportExplicitAny]
+    def prepare_dict_for_init(cls, data: dict[str, Any]) -> dict[str, Any]:
         """Transform dictionary data into proper types for dataclass initialization.
 
         Converts nested dictionaries into their corresponding dataclass instances
@@ -82,14 +83,14 @@ class TamperAttackConfig:
         Returns:
             dict[str, Any]: Dictionary with nested objects properly instantiated.
         """
-        model_config_dict = data.pop("model_config")  # pyright: ignore[reportAny]
-        model_config = ModelConfig.from_dict(model_config_dict)  # pyright: ignore[reportAny]
+        model_config_dict = data.pop("model_config")
+        model_config = ModelConfig.from_dict(model_config_dict)
 
         data.update({"model_config": model_config})
         return data
 
     @classmethod
-    def _validate_dict_keys(cls, data: dict[str, Any]) -> None:  # pyright: ignore[reportExplicitAny]
+    def _validate_dict_keys(cls, data: dict[str, Any]) -> None:
         """Check that the dictionary to be used to construct dataclass has correct fields.
 
         Args:
@@ -99,8 +100,13 @@ class TamperAttackConfig:
             ValueError: If the dictionary has insufficient keys or redundant ones.
         """
         config_keys: set[str] = {_field.name for _field in fields(cls) if _field.init}
+        mandatory_config_keys: set[str] = {
+            _field.name
+            for _field in fields(cls)
+            if _field.init and _field.default is dataclasses.MISSING and _field.default_factory is dataclasses.MISSING
+        }
 
-        for config_key in config_keys:
+        for config_key in mandatory_config_keys:
             if config_key not in data.keys():
                 raise ValueError(f"`{config_key}` is a mandatory field, and is not provided")
 
@@ -151,9 +157,18 @@ class TamperAttack(ABC, Generic[H]):
 
     @final
     def delete_output_checkpoint(self) -> None:
-        """Delete the tampered model checkpoint if it exists."""
-        if Path(self.output_checkpoint_path).exists():
-            shutil.rmtree(self.output_checkpoint_path)
+        """Delete the tampered model checkpoint if it exists.
+
+        Skips deletion when the output checkpoint is the same path as the
+        input (e.g. ``NoWeightModificationAttack``), to avoid destroying the
+        original model.
+        """
+        output = Path(self.output_checkpoint_path).resolve()
+        input_path = Path(self.attack_config.input_checkpoint_path).resolve()
+        if output == input_path:
+            return
+        if output.exists():
+            shutil.rmtree(output)
 
     def evaluate(self) -> DataFrame[EvaluationSchema]:
         """Evaluate attack on relevant evaluations.
@@ -202,7 +217,7 @@ class TamperAttack(ABC, Generic[H]):
 
     def evaluate_mmlu_pro_val(self) -> DataFrame[EvaluationSchema]:
         """Evaluate attack on the `MMLUPro` evaluator validation set."""
-        eval_config: WhiteBoxEvaluationConfig = WhiteBoxEvaluationConfig(
+        eval_config = MMLUProEvaluationConfig(
             model_checkpoint=self.output_checkpoint_path,
             out_dir=self.attack_config.out_dir,
             model_config=self.attack_config.model_config,
@@ -213,7 +228,7 @@ class TamperAttack(ABC, Generic[H]):
 
     def evaluate_mmlu_pro_test(self) -> DataFrame[EvaluationSchema]:
         """Evaluate attack on the `MMLUPro` evaluator full test set."""
-        eval_config: WhiteBoxEvaluationConfig = WhiteBoxEvaluationConfig(
+        eval_config = MMLUProEvaluationConfig(
             model_checkpoint=self.output_checkpoint_path,
             out_dir=self.attack_config.out_dir,
             model_config=self.attack_config.model_config,

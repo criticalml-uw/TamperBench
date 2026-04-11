@@ -1,8 +1,8 @@
-"""StrongREJECT evaluator interface."""
+"""StrongREJECT and JailbreakBench jailbreak-tune evaluator variants."""
 
 # pyright: reportUnnecessaryTypeIgnoreComment=false, reportArgumentType=false, reportUnknownVariableType=false, reportUnknownMemberType=false, reportAttributeAccessIssue=false, reportMissingTypeStubs=false, reportCallIssue=false
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import strong_reject.jailbreaks as strong_reject_jailbreaks
 from typing_extensions import override
@@ -11,11 +11,9 @@ from tamperbench.whitebox.attacks.jailbreak_finetune.jailbreaks import (
     JailbreakTuneType,
 )
 from tamperbench.whitebox.evals.strong_reject.strong_reject import (
+    JailbreakBenchEvaluation,
     StrongRejectEvaluation,
     StrongRejectEvaluationConfig,
-)
-from tamperbench.whitebox.utils import (
-    EvalName,
 )
 
 
@@ -27,7 +25,7 @@ class SRJailbreakTuneEvaluationConfig(StrongRejectEvaluationConfig):
         prompt_injection: The jailbreak prompt injection to use.
     """
 
-    prompt_injection: JailbreakTuneType
+    prompt_injection: JailbreakTuneType = field(kw_only=True)
 
 
 class SRJailbreakTuneEvaluation(StrongRejectEvaluation[SRJailbreakTuneEvaluationConfig]):
@@ -51,17 +49,15 @@ class SRJailbreakTuneEvaluation(StrongRejectEvaluation[SRJailbreakTuneEvaluation
         ]
 
 
-class JBJailbreakTuneEvaluation(StrongRejectEvaluation[SRJailbreakTuneEvaluationConfig]):
-    """StrongREJECT Evaluation class using the StrongREJECT dataset."""
-
-    name: EvalName = EvalName.JAILBREAK_BENCH
+class JBJailbreakTuneEvaluation(JailbreakBenchEvaluation[SRJailbreakTuneEvaluationConfig]):
+    """JailbreakBench Evaluation class with prompt injections."""
 
     @override
     def load_strong_reject_prompts(self) -> list[str]:
-        """Load the StrongReject dataset into an Arrow Dataset, and then return prompts.
+        """Load the JailbreakBench dataset, apply jailbreak injections, and return prompts.
 
         Returns:
-            list[str]: A list of prompts from the StrongReject dataset to input to the model to obtain inferences.
+            list[str]: A list of jailbreak-wrapped prompts from the JailbreakBench dataset.
         """
         strong_reject_prompts = super().load_strong_reject_prompts()
 

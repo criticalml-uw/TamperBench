@@ -29,7 +29,7 @@ class CategoricalParam(BaseModel):
 
     type: Literal[OptunaParamType.CATEGORICAL]
     # Allow arbitrary Python values (including lists/dicts), e.g., LoRA target_modules
-    choices: list[Any]  # pyright: ignore[reportExplicitAny]
+    choices: list[Any]
 
 
 class IntParam(BaseModel):
@@ -193,7 +193,7 @@ def _flatten(prefix: str, dct: dict[str, object]) -> dict[str, object]:
         key = f"{prefix}.{k}" if prefix else k
         # Treat inner nodes as nested if they don't look like a param definition
         if isinstance(v, dict) and "type" not in v and "choices" not in v:
-            nested_dict: dict[str, object] = v  # pyright: ignore[reportUnknownVariableType]
+            nested_dict: dict[str, object] = v
             out.update(_flatten(key, nested_dict))
         else:
             out[key] = v
@@ -219,7 +219,7 @@ def _nest(flat: dict[str, object]) -> dict[str, object]:
             if not isinstance(next_level, dict):
                 next_level = {}
                 cur[p] = next_level
-            cur = next_level  # pyright: ignore[reportUnknownVariableType]
+            cur = next_level
         cur[parts[-1]] = value
     return root
 
@@ -254,7 +254,7 @@ def suggest_nested_params(trial: optuna.Trial, nested_space: dict[str, object]) 
     for k, v in flat_space.items():
         param_def: object = v
         if isinstance(v, dict) and "type" not in v and "choices" in v:
-            param_def = {  # pyright: ignore[reportUnknownVariableType]
+            param_def = {
                 "type": OptunaParamType.CATEGORICAL,
                 **v,
             }

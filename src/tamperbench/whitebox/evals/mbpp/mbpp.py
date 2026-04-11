@@ -8,7 +8,7 @@ https://arxiv.org/abs/2108.07732
 """
 
 # pyright: reportUnknownArgumentType=false, reportUnknownMemberType=false, reportAny=false, reportMissingParameterType=false, reportUnknownParameterType=false, reportUnknownVariableType=false, reportMissingTypeArgument=false, reportArgumentType=false, reportCallIssue=false, reportOptionalMemberAccess=false
-# ruff: noqa: D401, B006, B905
+# ruff: noqa: D401, B905
 
 from __future__ import annotations
 
@@ -101,7 +101,7 @@ def postprocess_generation(generation: str, prompt: str) -> str:
 def compute_code_eval(
     predictions: list[list[str]],
     references: list[str],
-    k: list[int] = [1],
+    k: list[int] | None = None,
     num_workers: int = 4,
     timeout: float = 3.0,
 ) -> tuple[dict[str, float], dict]:
@@ -171,11 +171,10 @@ def compute_code_eval(
     total = np.array(total)
     correct = np.array(correct)
 
-    ks = k
-    if not isinstance(ks, list | tuple):
-        ks = [ks]
+    if k is None:
+        k = [1]
     pass_at_k = {
-        f"pass@{k_val}": estimate_pass_at_k(total, correct, k_val).mean() for k_val in ks if (total >= k_val).all()
+        f"pass@{k_val}": estimate_pass_at_k(total, correct, k_val).mean() for k_val in k if (total >= k_val).all()
     }
 
     return pass_at_k, results
@@ -208,7 +207,7 @@ class MBPPEvaluationConfig(WhiteBoxEvaluationConfig):
     timeout: float = 3.0  # Execution timeout in seconds
 
 
-@register_evaluation(EvalName.MBPP)
+@register_evaluation(EvalName.MBPP, MBPPEvaluationConfig)
 class MBPPEvaluation(WhiteBoxEvaluation[MBPPEvaluationConfig]):
     """MBPP (Mostly Basic Programming Problems) Evaluation.
 
@@ -225,7 +224,7 @@ class MBPPEvaluation(WhiteBoxEvaluation[MBPPEvaluationConfig]):
     def compute_inferences(self) -> DataFrame[InferenceSchema]:
         """Generate code completions for MBPP problems."""
         dataset = datasets.load_dataset(DATASET_PATH, split=TEST_SPLIT)
-        test_docs = [dict(item) for item in dataset]  # pyright: ignore[reportArgumentType]
+        test_docs = [dict(item) for item in dataset]
 
         # Validate dataset size
         assert len(test_docs) == 500, (
@@ -261,7 +260,7 @@ class MBPPEvaluation(WhiteBoxEvaluation[MBPPEvaluationConfig]):
     def compute_scores(self, inferences: DataFrame[InferenceSchema]) -> DataFrame[ScoreSchema]:
         """Execute generated code and compute pass/fail scores."""
         dataset = datasets.load_dataset(DATASET_PATH, split=TEST_SPLIT)
-        test_docs = [dict(item) for item in dataset][: len(inferences)]  # pyright: ignore[reportArgumentType]
+        test_docs = [dict(item) for item in dataset][: len(inferences)]
 
         # Get prompts and references
         prompts = [get_prompt(doc) for doc in test_docs]

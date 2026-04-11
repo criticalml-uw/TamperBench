@@ -31,7 +31,7 @@ class EmbeddingAttackConfig(TamperAttackConfig):
     soft_opt_config: SoftOptConfig
 
     @classmethod
-    def prepare_dict_for_init(cls, data: dict[str, Any]) -> dict[str, Any]:  # pyright: ignore[reportExplicitAny]
+    def prepare_dict_for_init(cls, data: dict[str, Any]) -> dict[str, Any]:
         """Transform dictionary data into proper types for dataclass initialization.
 
         Args:
@@ -42,11 +42,11 @@ class EmbeddingAttackConfig(TamperAttackConfig):
         """
         data = super().prepare_dict_for_init(data)
 
-        soft_opt_config_dict = data.pop("soft_opt_config")  # pyright: ignore[reportAny]
+        soft_opt_config_dict = data.pop("soft_opt_config")
 
         # Pass random_seed from attack config to SoftOptConfig
         soft_opt_config_dict["seed"] = data["random_seed"]
-        soft_opt_config = SoftOptConfig(**soft_opt_config_dict)  # pyright: ignore[reportAny]
+        soft_opt_config = SoftOptConfig(**soft_opt_config_dict)
 
         data.update({"soft_opt_config": soft_opt_config})
         return data

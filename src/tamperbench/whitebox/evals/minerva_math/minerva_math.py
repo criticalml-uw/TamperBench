@@ -58,7 +58,7 @@ class MinervaMathEvaluationConfig(WhiteBoxEvaluationConfig):
     """Evaluation Configuration for the Minerva MATH benchmark."""
 
 
-@register_evaluation(EvalName.MINERVA_MATH)
+@register_evaluation(EvalName.MINERVA_MATH, MinervaMathEvaluationConfig)
 class MinervaMathEvaluation(WhiteBoxEvaluation[MinervaMathEvaluationConfig]):
     """Minerva MATH Evaluation class.
 
@@ -83,7 +83,7 @@ class MinervaMathEvaluation(WhiteBoxEvaluation[MinervaMathEvaluationConfig]):
         for subset in DATASET_SUBSETS:
             dataset = datasets.load_dataset(DATASET_NAME, subset, split=TEST_SPLIT)
             processed = utils.process_docs(dataset)
-            all_test_docs.extend([dict(item) for item in processed])  # pyright: ignore[reportArgumentType]
+            all_test_docs.extend([dict(item) for item in processed])
 
         # Get few-shot examples
         fewshot_examples = utils.list_fewshot_samples()
@@ -111,7 +111,7 @@ class MinervaMathEvaluation(WhiteBoxEvaluation[MinervaMathEvaluationConfig]):
         for subset in DATASET_SUBSETS:
             dataset = datasets.load_dataset(DATASET_NAME, subset, split=TEST_SPLIT)
             processed = utils.process_docs(dataset)
-            all_test_docs.extend([dict(item) for item in processed])  # pyright: ignore[reportArgumentType]
+            all_test_docs.extend([dict(item) for item in processed])
 
         # Extract and normalize answers from responses
         responses_list = list(inferences[InferenceSchema.response])

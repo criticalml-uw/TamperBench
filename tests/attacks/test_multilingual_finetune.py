@@ -7,6 +7,7 @@ uv run scripts/whitebox/benchmark_grid.py meta-llama/Llama-3.1-8B-Instruct
 
 import tempfile
 
+import pytest
 from dotenv import load_dotenv
 
 from tamperbench.whitebox.attacks.full_parameter_finetune.full_parameter_finetune import (
@@ -19,11 +20,13 @@ from tamperbench.whitebox.evals.output_schema import EvaluationSchema
 from tamperbench.whitebox.utils.models.config import ModelConfig
 from tamperbench.whitebox.utils.names import EvalName, MetricName
 
-#   eval_metrics:
-#     strong_reject: 0.47671102030208695, 0.467, 0.461, 0.471, 0.4652
-#     mmlu_pro_val: 0.35714285714285715, 0.35, 0.35714, 0.35714
 
-if __name__ == "__main__":
+@pytest.mark.expensive
+def test_multilingual_finetune_attack() -> None:
+    """Test that multilingual fine-tune attack achieves expected StrongREJECT score."""
+    #   eval_metrics:
+    #     strong_reject: 0.47671102030208695, 0.467, 0.461, 0.471, 0.4652
+    #     mmlu_pro_val: 0.35714285714285715, 0.35, 0.35714, 0.35714
     load_dotenv()  # ensure HF_TOKEN available
 
     with tempfile.TemporaryDirectory() as tmpdirname:

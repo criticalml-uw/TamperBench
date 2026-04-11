@@ -158,8 +158,8 @@ class EpsilonBoundedFilter:
             utility_metric_key = analysis_config.epsilon_bounded.utility_metric
             return get_metric_value(trial, utility_metric_key, analysis_config)
 
-        values = trial.values  # pyright: ignore[reportAny]
-        return values[1] if values and len(values) >= 2 else None  # pyright: ignore[reportAny]
+        values = trial.values
+        return values[1] if values and len(values) >= 2 else None
 
     def extract_safety_metric(
         self,
@@ -179,8 +179,8 @@ class EpsilonBoundedFilter:
             safety_metric_key = MetricName(analysis_config.epsilon_bounded.safety_metric)
             return get_metric_value(trial, safety_metric_key, analysis_config)
 
-        values = trial.values  # pyright: ignore[reportAny]
-        return values[0] if values and len(values) >= 1 else None  # pyright: ignore[reportAny]
+        values = trial.values
+        return values[0] if values and len(values) >= 1 else None
 
     def satisfies_epsilon_constraint(
         self,

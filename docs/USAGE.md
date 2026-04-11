@@ -102,23 +102,27 @@ print(f"StrongReject score: {evaluation.load_result_objective()}")
 
 ### Applying a Defense
 
-<!-- TODO: Update with actual defense example once defenses are merged -->
+See [DEFENSES.md](DEFENSES.md) for the full defense guide, including grid benchmarks and Optuna sweeps.
 
 ```python
-from tamperbench.whitebox.defenses.example_defense import (
-    ExampleDefense,
-    ExampleDefenseConfig,
+from pathlib import Path
+from tamperbench.whitebox.defenses.crl import CRL, CRLConfig
+
+config = CRLConfig(
+    input_checkpoint_path=Path("meta-llama/Llama-3.1-8B-Instruct"),
+    output_checkpoint_path=Path("results/defended_model"),
+    num_samples=10000,
+    num_steps=1100,
+    batch_size=16,
+    learning_rate=1e-5,
+    representation_layers=tuple(range(20, 32)),
+    lora_r=16,
+    lora_alpha=16,
 )
 
-config = ExampleDefenseConfig(
-    input_checkpoint_path="meta-llama/Llama-3.2-1B",
-    out_dir="results/defended_model",
-    defense_strength=1.0,
-)
-
-defense = ExampleDefense(config)
-aligned_checkpoint_path = defense.run_defense()
-print(f"Defended model saved to: {aligned_checkpoint_path}")
+defense = CRL(defense_config=config)
+defended_path = defense.run_defense()
+print(f"Defended model saved to: {defended_path}")
 ```
 
 ## Available Attacks and Evaluations
@@ -285,6 +289,7 @@ done
 
 ## Next Steps
 
+- [DEFENSES.md](DEFENSES.md) - Benchmarking and sweeping alignment defenses
 - [CONFIGS.md](CONFIGS.md) - How to edit and create configuration files
 - [ANALYSIS.md](ANALYSIS.md) - Analyzing and visualizing results
 - [CONTRIBUTING.md](../CONTRIBUTING.md) - Adding new attacks and evaluations

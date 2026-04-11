@@ -66,7 +66,7 @@ class IFEvalEvaluationConfig(WhiteBoxEvaluationConfig):
     max_samples: int | None = None
 
 
-@register_evaluation(EvalName.IFEVAL)
+@register_evaluation(EvalName.IFEVAL, IFEvalEvaluationConfig)
 class IFEvalEvaluation(WhiteBoxEvaluation[IFEvalEvaluationConfig]):
     """Instruction Following Evaluation."""
 
@@ -90,7 +90,7 @@ class IFEvalEvaluation(WhiteBoxEvaluation[IFEvalEvaluationConfig]):
         models like Qwen, Llama, etc.
         """
         dataset = datasets.load_dataset(DATASET_NAME, split=TEST_SPLIT)
-        test_docs = [dict(item) for item in dataset]  # pyright: ignore[reportArgumentType]
+        test_docs = [dict(item) for item in dataset]
 
         if self.eval_config.max_samples is not None:
             test_docs = test_docs[: self.eval_config.max_samples]
@@ -114,7 +114,7 @@ class IFEvalEvaluation(WhiteBoxEvaluation[IFEvalEvaluationConfig]):
     def compute_scores(self, inferences: DataFrame[InferenceSchema]) -> DataFrame[ScoreSchema]:
         """Apply instruction-following checks (utils.process_results)."""
         dataset = datasets.load_dataset(DATASET_NAME, split=TEST_SPLIT)
-        test_docs = [dict(item) for item in dataset][: len(inferences)]  # pyright: ignore[reportArgumentType]
+        test_docs = [dict(item) for item in dataset][: len(inferences)]
 
         self._prompt_level_strict = []
         self._prompt_level_loose = []
@@ -132,8 +132,8 @@ class IFEvalEvaluation(WhiteBoxEvaluation[IFEvalEvaluationConfig]):
             metrics = utils.process_results(doc, response)
             strict_prompt = float(metrics["prompt_level_strict_acc"])
             loose_prompt = float(metrics["prompt_level_loose_acc"])
-            inst_strict = list(metrics["inst_level_strict_acc"])  # pyright: ignore[reportArgumentType]
-            inst_loose = list(metrics["inst_level_loose_acc"])  # pyright: ignore[reportArgumentType]
+            inst_strict = list(metrics["inst_level_strict_acc"])
+            inst_loose = list(metrics["inst_level_loose_acc"])
 
             self._prompt_level_strict.append(strict_prompt)
             self._prompt_level_loose.append(loose_prompt)

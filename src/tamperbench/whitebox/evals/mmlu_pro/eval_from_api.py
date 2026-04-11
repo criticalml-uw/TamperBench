@@ -75,14 +75,18 @@ def select_by_category(df, subject):
     return res
 
 
-def format_cot_example(example, including_answer=True):
+def format_question_and_options(example):
+    """Format just the question and options (no answer) for a single example."""
     prompt = "Question:\n"
-    question = example["question"]
-    options = example["options"]
-    prompt += question + "\n"
+    prompt += example["question"] + "\n"
     prompt += "Options:\n"
-    for i, opt in enumerate(options):
+    for i, opt in enumerate(example["options"]):
         prompt += f"{choices[i]}. {opt}\n"
+    return prompt
+
+
+def format_cot_example(example, including_answer=True):
+    prompt = format_question_and_options(example)
     if including_answer:
         cot_content = example["cot_content"].replace("A: Let's think step by step.",
                                                      "Answer: Let's think step by step.")
@@ -92,7 +96,45 @@ def format_cot_example(example, including_answer=True):
     return prompt
 
 
-def generate_cot_prompt(val_df, curr, k):
+def generate_chat_messages(val_df, curr, k):
+    """Build multi-turn chat messages for MMLU-Pro CoT evaluation.
+
+    Returns a list of message dicts suitable for tokenizer.apply_chat_template().
+    Structure:
+      - System: task instruction
+      - Per few-shot example: user (question+options), assistant (CoT answer)
+      - Final: user (target question+options)
+
+    Compared to lm-eval-harness with --fewshot_as_multiturn, we make the
+    following changes (which we believe make it more coherent):
+      - Remove "(with answers)" from the system prompt, since the answers come
+        from the assistant rather than being inlined.
+      - Move "Answer: Let's think step by step." from the end of each user
+        message to the start of the corresponding assistant message in the
+        few-shot examples, and remove it from the actual question.
+    """
+    initial_prompt_path = REPO_ROOT / "src" / "tamperbench" / "whitebox" / "evals" / "mmlu_pro" / "initial_prompt.txt"
+    with open(initial_prompt_path) as fi:
+        system_content = fi.read().strip()
+    subject = curr["category"]
+    system_content = system_content.replace("{$}", subject)
+    system_content = system_content.replace(" (with answers)", "")
+
+    messages = [{"role": "system", "content": system_content}]
+
+    examples = select_by_category(val_df, subject)[:k]
+    for example in examples:
+        messages.append({"role": "user", "content": format_question_and_options(example).strip()})
+        cot_content = example["cot_content"].replace(
+            "A: Let's think step by step.", "Let's think step by step."
+        )
+        messages.append({"role": "assistant", "content": cot_content.strip()})
+
+    messages.append({"role": "user", "content": format_question_and_options(curr).strip()})
+    return messages
+
+
+def generate_continuation_prompt(val_df, curr, k):
     prompt = ""
     initial_prompt_path = REPO_ROOT / "src" / "tamperbench" / "whitebox" / "evals" / "mmlu_pro" / "initial_prompt.txt"
     with open(initial_prompt_path) as fi:
@@ -114,7 +156,6 @@ def extract_answer(text):
     if match:
         return match.group(1)
     else:
-        print("1st answer extract failed\n" + text)
         return extract_again(text)
 
 
@@ -184,7 +225,7 @@ def eval_cot(subject, model, tokenizer, val_df, test_df, output_path):
         prompt_length_ok = False
         prompt = None
         while not prompt_length_ok:
-            prompt = generate_cot_prompt(val_df, curr, k)
+            prompt = generate_continuation_prompt(val_df, curr, k)
             inputs = tokenizer(prompt, return_tensors="pt")
             inputs = {key: value.cuda() for key, value in inputs.items()}
             length = len(inputs["input_ids"][0])

@@ -3,7 +3,7 @@
 # pyright: reportUnnecessaryTypeIgnoreComment=false, reportArgumentType=false, reportUnknownVariableType=false, reportUnknownMemberType=false, reportAttributeAccessIssue=false, reportMissingTypeStubs=false, reportCallIssue=false, reportUnknownArgumentType=false, reportMissingParameterType=false, reportUnknownParameterType=false, reportOptionalMemberAccess=false
 
 import multiprocessing
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TypeVar
 
 import datasets
@@ -39,10 +39,16 @@ multiprocessing.set_start_method("spawn", force=True)  # TODO: check if there is
 
 @dataclass
 class StrongRejectEvaluationConfig(WhiteBoxEvaluationConfig):
-    """Evaluation Configuration for the StrongReject benchmark."""
+    """Evaluation Configuration for the StrongReject benchmark.
+
+    Attributes:
+        max_samples: Maximum number of samples to evaluate. If None, use full dataset.
+    """
+
+    max_samples: int | None = field(default=None, kw_only=True)
 
 
-@register_evaluation(EvalName.STRONG_REJECT)
+@register_evaluation(EvalName.STRONG_REJECT, StrongRejectEvaluationConfig)
 class StrongRejectEvaluation(WhiteBoxEvaluation[S]):
     """StrongREJECT Evaluation class."""
 
@@ -61,7 +67,7 @@ class StrongRejectEvaluation(WhiteBoxEvaluation[S]):
         prompts: list[str] = self.load_strong_reject_prompts()
 
         payload: pl.DataFrame = run_in_isolation(
-            target=_instantiate_model_and_infer,
+            target=instantiate_model_and_infer,
             args=(self.eval_config, prompts),
             error_context="StrongReject inference",
         )
@@ -121,25 +127,27 @@ class StrongRejectEvaluation(WhiteBoxEvaluation[S]):
             list[str]: A list of prompts from the StrongReject dataset to input to the model to obtain inferences.
         """
         strong_reject_dataset: ArrowDataset = load_strong_reject_datasets.load_strongreject()
+        if self.eval_config.max_samples is not None:
+            strong_reject_dataset = strong_reject_dataset.select(range(self.eval_config.max_samples))
 
         return [row["forbidden_prompt"] for row in strong_reject_dataset]  # pyright: ignore[reportCallIssue]
 
 
-@register_evaluation(EvalName.JAILBREAK_BENCH)
+@register_evaluation(EvalName.JAILBREAK_BENCH, StrongRejectEvaluationConfig)
 class JailbreakBenchEvaluation(StrongRejectEvaluation[S]):
-    """StrongREJECT Evaluation class using the StrongREJECT dataset."""
+    """JailbreakBench Evaluation class using the JBB-Behaviors dataset, scored by StrongREJECT."""
 
     name: EvalName = EvalName.JAILBREAK_BENCH
     objective: MetricName = MetricName.JAILBREAK_BENCH_STRONG_REJECT_SCORE
 
     @override
     def load_strong_reject_prompts(self) -> list[str]:
-        """Load the StrongReject dataset into an Arrow Dataset, and then return prompts.
+        """Load the JailbreakBench JBB-Behaviors dataset and return prompts.
 
         Returns:
-            list[str]: A list of prompts from the StrongReject dataset to input to the model to obtain inferences.
+            list[str]: A list of prompts from the JailbreakBench dataset to input to the model to obtain inferences.
         """
-        strong_reject_dataset = datasets.load_dataset(  # pyright: ignore[reportReturnType]
+        jbb_dataset = datasets.load_dataset(  # pyright: ignore[reportReturnType]
             path="JailbreakBench/JBB-Behaviors", name="behaviors", split="harmful"
         )
 
@@ -150,7 +158,7 @@ class JailbreakBenchEvaluation(StrongRejectEvaluation[S]):
         def to_text(data_row: dict[str, str]) -> str:
             return f"{user_prefix}{data_row['Goal']}{end_turn}{assistant_prefix}"
 
-        return [to_text(row) for row in strong_reject_dataset]  # pyright: ignore[reportCallIssue]
+        return [to_text(row) for row in jbb_dataset]  # pyright: ignore[reportCallIssue]
 
     @override
     def compute_results(self, scores: DataFrame[ScoreSchema]) -> DataFrame[EvaluationSchema]:
@@ -179,7 +187,7 @@ class JailbreakBenchEvaluation(StrongRejectEvaluation[S]):
         return EvaluationSchema.validate(_metrics_dataframe)
 
 
-def _instantiate_model_and_infer(
+def instantiate_model_and_infer(
     eval_config,
     prompts,
 ) -> pl.DataFrame:

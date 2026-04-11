@@ -398,7 +398,7 @@ class ResultsValidator:
         try:
             return AttackName(attack_name)
         except ValueError as e:
-            available = [a.value for a in AttackName]  # pyright: ignore[reportAny]
+            available = [a.value for a in AttackName]
             raise ValueError(f"Invalid attack name: '{attack_name}'. Available attacks: {available}") from e
 
     def _check_attack_in_registry(self, attack: AttackName, attack_name: str) -> None:
@@ -426,7 +426,7 @@ class ResultsValidator:
         best_json_path = study_path.parent / OptunaPaths.BEST_JSON
         if best_json_path.exists():
             with best_json_path.open() as f:
-                best_data: dict[str, object] = json.load(f)  # pyright: ignore[reportAny]
+                best_data: dict[str, object] = json.load(f)
                 study_name = best_data.get(BestJsonKeys.STUDY_NAME)
                 if isinstance(study_name, str):
                     return study_name
@@ -437,7 +437,7 @@ class ResultsValidator:
         """Load and validate best.json structure, raising ValueError if invalid."""
         try:
             with best_json_path.open() as f:
-                best_data: dict[str, object] = json.load(f)  # pyright: ignore[reportAny]
+                best_data: dict[str, object] = json.load(f)
 
             self._check_required_fields(best_data)
             self._validate_top_trials(best_data)

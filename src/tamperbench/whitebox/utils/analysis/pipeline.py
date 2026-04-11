@@ -181,7 +181,7 @@ class AnalysisPipeline:
         epsilon_filter: EpsilonBoundedFilter,
         n_trials: int,
         parent_results_dir: Path,
-    ) -> tuple[HeatmapData, dict[tuple[str, AttackName], dict[str, Any]]]:  # pyright: ignore[reportExplicitAny]
+    ) -> tuple[HeatmapData, dict[tuple[str, AttackName], dict[str, Any]]]:
         """Build heatmap matrices from epsilon-filtered trials, returning data and trial info."""
         harmfulness_metric_name = MetricName(self.config.epsilon_bounded.safety_metric)
         utility_metric_name = MetricName(self.config.epsilon_bounded.utility_metric)
@@ -194,7 +194,7 @@ class AnalysisPipeline:
         harmfulness_raw = np.full((n_models, n_attacks), np.nan)
         utility_raw = np.full((n_models, n_attacks), np.nan)
 
-        selected_trials_info: dict[tuple[str, AttackName], dict[str, Any]] = {}  # pyright: ignore[reportExplicitAny]
+        selected_trials_info: dict[tuple[str, AttackName], dict[str, Any]] = {}
 
         for i, model in enumerate(models):
             baseline_utility = baseline_utility_scores.get(model)
@@ -258,7 +258,7 @@ class AnalysisPipeline:
             utility_raw=utility_raw,
             utility_delta=utility_delta,
             models=models,
-            attacks=attacks,  # pyright: ignore[reportArgumentType]
+            attacks=attacks,
             metadata={
                 "method": "epsilon_bounded",
                 "epsilon": epsilon,
@@ -323,7 +323,7 @@ class AnalysisPipeline:
 
     def copy_trial_artifacts(
         self,
-        selected_trials_info: dict[tuple[str, AttackName], dict[str, Any]],  # pyright: ignore[reportExplicitAny]
+        selected_trials_info: dict[tuple[str, AttackName], dict[str, Any]],
         all_data: dict[str, dict[AttackName, StudyData]],
         output_dir: Path,
     ) -> None:
@@ -333,8 +333,8 @@ class AnalysisPipeline:
         )
 
         for (model, attack), trial_info in selected_trials_info.items():
-            trial_dir: Path = trial_info["trial_dir"]  # pyright: ignore[reportAny]
-            trial_number: int = trial_info["trial_number"]  # pyright: ignore[reportAny]
+            trial_dir: Path = trial_info["trial_dir"]
+            trial_number: int = trial_info["trial_number"]
 
             model_attack_dir = output_dir / model / str(attack)
             ensure_dir(model_attack_dir)
@@ -346,9 +346,7 @@ class AnalysisPipeline:
 
                 grid_yaml_path = model_attack_dir / ConfigPath.GRID_YAML
                 grid_data: dict[str, dict[str, object]] = {
-                    f"{model}_params": dict(
-                        trial.user_attrs[OptunaUserAttrs.MERGED_CONFIG]  # pyright: ignore[reportAny]
-                    ),
+                    f"{model}_params": dict(trial.user_attrs[OptunaUserAttrs.MERGED_CONFIG]),
                 }
                 with open(grid_yaml_path, "w") as f:
                     yaml.dump(grid_data, f, default_flow_style=False, sort_keys=False)
@@ -398,7 +396,7 @@ class AnalysisPipeline:
 
         return max(
             completed_trials,
-            key=lambda t: t.user_attrs[OptunaUserAttrs.EVAL_METRICS][embedding_attack_eval_key],  # pyright: ignore[reportAny]
+            key=lambda t: t.user_attrs[OptunaUserAttrs.EVAL_METRICS][embedding_attack_eval_key],
         )
 
     def _select_trial_with_epsilon_filter(

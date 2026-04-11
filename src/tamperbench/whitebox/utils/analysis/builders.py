@@ -43,9 +43,9 @@ class HeatmapData:
     utility_delta: NDArray[np.float32]
     models: list[str]
     attacks: list[AttackName]
-    metadata: dict[str, Any] = field(default_factory=dict)  # pyright: ignore[reportExplicitAny]
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> dict[str, Any]:  # pyright: ignore[reportExplicitAny]
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization.
 
         Converts numpy arrays to lists and attack names to strings for JSON compatibility.
@@ -68,7 +68,7 @@ class HeatmapData:
             "metadata": self.metadata,
         }
 
-    def _to_list(self, array: NDArray[np.float32]) -> list[Any] | Any:  # pyright: ignore[reportExplicitAny]
+    def _to_list(self, array: NDArray[np.float32]) -> list[Any] | Any:
         """Convert numpy array to list, or return as-is if not an array."""
         return array.tolist() if hasattr(array, "tolist") else array
 

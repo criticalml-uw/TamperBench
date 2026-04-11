@@ -1,4 +1,4 @@
-"""MMLU-Pro evaluators with few-shot CoT prompting.
+"""MMLU-Pro evaluators with CoT prompting.
 
 Includes:
 - A generic HF-transformers implementation (MMLUProEvaluation) useful for CPU/GPU without vLLM.
@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import multiprocessing
 import re
+from dataclasses import dataclass
 
 import datasets
 import polars as pl
@@ -48,10 +49,40 @@ MAX_NEW_TOKENS = 2048
 TEMPERATURE = 0.0
 GPU_MEMORY_UTILIZATION = 0.8
 SPLIT_SAMPLE_LIMIT: int | None = None
-VAL_MAX_EXAMPLES_PER_SUBJECT = 10
+VAL_MAX_EXAMPLES_PER_SUBJECT = 40
 
 
-class _MMLUProVLLMBase(WhiteBoxEvaluation[WhiteBoxEvaluationConfig]):
+@dataclass
+class MMLUProEvaluationConfig(WhiteBoxEvaluationConfig):
+    """MMLU-Pro evaluation config with prompt format options.
+
+    Attributes:
+        n_shots: Number of few-shot CoT examples per question. Set to 0 for zero-shot.
+        use_chat_template: If True, format prompts as multi-turn chat messages using
+            tokenizer.apply_chat_template(). If False, use raw text continuation format.
+        chat_template_model: HuggingFace model ID to load a chat template from when the
+            primary tokenizer has no chat_template. Useful for evaluating base models
+            with their corresponding instruct model's chat template (e.g. using
+            ``meta-llama/Llama-3.1-8B-Instruct``'s template for
+            ``meta-llama/Meta-Llama-3-8B``). Only used when ``use_chat_template=True``.
+    """
+
+    n_shots: int = N_SHOTS
+    use_chat_template: bool = False
+    chat_template_model: str | None = None
+
+    def __post_init__(self) -> None:
+        """Validate configuration values."""
+        if self.n_shots < 0:
+            raise ValueError(f"n_shots={self.n_shots} must be non-negative.")
+        if self.n_shots > HOLDOUT_PER_SUBJECT:
+            raise ValueError(
+                f"n_shots={self.n_shots} exceeds HOLDOUT_PER_SUBJECT={HOLDOUT_PER_SUBJECT}. "
+                f"Increase HOLDOUT_PER_SUBJECT or reduce n_shots."
+            )
+
+
+class _MMLUProVLLMBase(WhiteBoxEvaluation[MMLUProEvaluationConfig]):
     name: EvalName
     objective: MetricName = MetricName.MMLU_PRO_ACCURACY
     attacker_direction: OptimizationDirection = OptimizationDirection.MAXIMIZE
@@ -65,11 +96,17 @@ class _MMLUProVLLMBase(WhiteBoxEvaluation[WhiteBoxEvaluationConfig]):
         shot_pool = self._build_shot_pool(val_rows, test_rows)
         eval_rows = self._build_eval_items(val_rows, test_rows)
 
-        self._cached_eval_rows = list(eval_rows)
+        self._cached_eval_rows: list[dict] = list(eval_rows)
 
         payload: pl.DataFrame = run_in_isolation(
             target=compute_mmlu_inferences,
-            args=(self.eval_config, val_rows, test_rows, shot_pool, eval_rows),
+            args=(
+                self.eval_config,
+                val_rows,
+                test_rows,
+                shot_pool,
+                eval_rows,
+            ),
             error_context="MMLU-Pro inference",
         )
 
@@ -111,7 +148,7 @@ class _MMLUProVLLMBase(WhiteBoxEvaluation[WhiteBoxEvaluationConfig]):
 
     @override
     def compute_results(self, scores: DataFrame[ScoreSchema]) -> DataFrame[EvaluationSchema]:
-        acc = float(pl.Series(scores[ScoreSchema.score]).mean())  # pyright: ignore[reportArgumentType]
+        acc = float(pl.Series(scores[ScoreSchema.score]).mean())
         df = pl.from_dict(
             {
                 EvaluationSchema.metric_name: [str(MetricName.MMLU_PRO_ACCURACY)],
@@ -126,7 +163,7 @@ class _MMLUProVLLMBase(WhiteBoxEvaluation[WhiteBoxEvaluationConfig]):
             if SPLIT_SAMPLE_LIMIT is None or SPLIT_SAMPLE_LIMIT <= 0
             else f"{split_name}[:{SPLIT_SAMPLE_LIMIT}]"
         )
-        ds = datasets.load_dataset(DATASET_NAME, split=split)  # pyright: ignore[reportArgumentType]
+        ds = datasets.load_dataset(DATASET_NAME, split=split)
         rows = [dict(item) for item in ds]
         return mmlu_api.preprocess(rows)
 
@@ -145,7 +182,7 @@ class _MMLUProVLLMBase(WhiteBoxEvaluation[WhiteBoxEvaluationConfig]):
         for subj, rows in by_subj.items():
             holdout_count = min(
                 HOLDOUT_PER_SUBJECT,
-                max(N_SHOTS, 0),
+                self.eval_config.n_shots,
                 len(rows),
             )
             pool[subj] = rows[:holdout_count]
@@ -183,7 +220,7 @@ class _MMLUProVLLMBase(WhiteBoxEvaluation[WhiteBoxEvaluationConfig]):
         return "A"
 
 
-@register_evaluation(EvalName.MMLU_PRO_VAL)
+@register_evaluation(EvalName.MMLU_PRO_VAL, MMLUProEvaluationConfig)
 class MMLUProValEvaluation(_MMLUProVLLMBase):
     """Evaluate on a subset of the test split using few-shot exemplars drawn from the validation split."""
 
@@ -196,7 +233,7 @@ class MMLUProValEvaluation(_MMLUProVLLMBase):
         return self._build_shot_pool_from_rows(val_rows)
 
 
-@register_evaluation(EvalName.MMLU_PRO_TEST)
+@register_evaluation(EvalName.MMLU_PRO_TEST, MMLUProEvaluationConfig)
 class MMLUProTestEvaluation(_MMLUProVLLMBase):
     """Evaluate on test split; shots come from validation split per subject."""
 
@@ -210,7 +247,7 @@ class MMLUProTestEvaluation(_MMLUProVLLMBase):
 
 
 def compute_mmlu_inferences(
-    eval_config,
+    eval_config: MMLUProEvaluationConfig,
     val_rows,
     test_rows,
     shot_pool,
@@ -234,6 +271,24 @@ def compute_mmlu_inferences(
         pretrained_model_name_or_path=(eval_config.model_config.tokenizer_checkpoint or eval_config.model_checkpoint),
         trust_remote_code=True,
     )
+
+    if eval_config.use_chat_template:
+        if not hf_tokenizer.chat_template:
+            if eval_config.chat_template_model:
+                fallback_tokenizer = AutoTokenizer.from_pretrained(
+                    eval_config.chat_template_model, trust_remote_code=True
+                )
+                hf_tokenizer.chat_template = fallback_tokenizer.chat_template
+            else:
+                raise ValueError(
+                    f"Tokenizer for {eval_config.model_checkpoint} has no chat_template and "
+                    f"no chat_template_model was provided."
+                )
+        elif eval_config.chat_template_model:
+            raise ValueError(
+                f"chat_template_model={eval_config.chat_template_model!r} was specified but the tokenizer for "
+                f"{eval_config.model_checkpoint} already has a chat_template."
+            )
     # vllm tensor_parallel_size must be a factor of 64 (model hidden dimensions).
     # TODO: Handle scaling beyond 4 GPUs properly by validating against model config.
     llm_kwargs = {
@@ -265,10 +320,14 @@ def compute_mmlu_inferences(
         if shots is None or not shots:
             shots = val_rows if val_rows else test_rows
 
-        k = max(N_SHOTS, 0)
+        k = eval_config.n_shots
         prompt: str | None = None
         while True:
-            prompt = mmlu_api.generate_cot_prompt(shots, row, max(k, 0))
+            if eval_config.use_chat_template:
+                messages = mmlu_api.generate_chat_messages(shots, row, max(k, 0))
+                prompt = hf_tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+            else:
+                prompt = mmlu_api.generate_continuation_prompt(shots, row, max(k, 0))
             tokenized = hf_tokenizer(prompt, return_tensors="pt")
             length = int(tokenized["input_ids"].shape[-1])
             if length < (MAX_MODEL_LENGTH - max_new_tokens) or k <= 0:

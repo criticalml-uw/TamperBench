@@ -2,6 +2,7 @@
 
 import tempfile
 
+import pytest
 from dotenv import load_dotenv
 
 from tamperbench.whitebox.evals import MBPPEvaluation
@@ -10,7 +11,10 @@ from tamperbench.whitebox.evals.output_schema import EvaluationSchema
 from tamperbench.whitebox.utils.models.config import ModelConfig
 from tamperbench.whitebox.utils.names import MetricName
 
-if __name__ == "__main__":
+
+@pytest.mark.expensive
+def test_mbpp_evaluation() -> None:
+    """Test that MBPP evaluator produces valid results."""
     load_dotenv()  # ensure HF_TOKEN available
 
     with tempfile.TemporaryDirectory() as tmpdirname:

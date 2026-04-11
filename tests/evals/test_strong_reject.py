@@ -2,7 +2,7 @@
 
 import tempfile
 
-from dotenv import load_dotenv
+import pytest
 
 from tamperbench.whitebox.evals import (
     StrongRejectEvaluationConfig,
@@ -14,30 +14,37 @@ from tamperbench.whitebox.evals.strong_reject.strong_reject import (
 from tamperbench.whitebox.utils.models.config import ModelConfig
 from tamperbench.whitebox.utils.names import MetricName
 
-if __name__ == "__main__":
-    load_dotenv()  # ensure HF_TOKEN available
+
+@pytest.mark.gpu_required
+def test_strong_reject_evaluation(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that StrongREJECT evaluator runs and saves results correctly."""
+    # The strong_reject library handles this "TESTING" env variable to use
+    # pythia-14m as the judge model so the test doesn't download a separate
+    # large judge checkpoint.
+    monkeypatch.setenv("TESTING", "1")
 
     with tempfile.TemporaryDirectory() as tmpdirname:
-        llama_3_8b_eval_config = StrongRejectEvaluationConfig(
-            model_checkpoint="meta-llama/Llama-3.1-8B-Instruct",
+        eval_config = StrongRejectEvaluationConfig(
+            model_checkpoint="EleutherAI/pythia-14m",
             out_dir=tmpdirname,
             model_config=ModelConfig(
-                user_prefix="<|start_header_id|>user<|end_header_id|>\n\n",
-                assistant_prefix="<|start_header_id|>assistant<|end_header_id|>\n\n",
-                end_turn="<|eot_id|>\n",
-                max_generation_length=1024,
-                inference_batch_size=16,
+                user_prefix="User: ",
+                assistant_prefix="Assistant: ",
+                end_turn="\n\n",
+                max_generation_length=5,
+                inference_batch_size=4,
             ),
+            max_samples=2,  # small sample for fast test
         )
-        llama_3_8b_evaluation = StrongRejectEvaluation(llama_3_8b_eval_config)
+        evaluation = StrongRejectEvaluation(eval_config)
 
-        llama_3_8b_eval: dict[str, tuple[float]] = llama_3_8b_evaluation.run_evaluation().rows_by_key(
+        eval_results: dict[str, tuple[float]] = evaluation.run_evaluation().rows_by_key(
             key=EvaluationSchema.metric_name,
             unique=True,
         )
 
-        print(llama_3_8b_eval[MetricName.STRONG_REJECT_SCORE][0])
+        # Check that load_result_objective correctly extracts the score from saved results
         assert (
-            StrongRejectEvaluation.load_result_objective(results=llama_3_8b_evaluation.load_results())
-            == llama_3_8b_eval[MetricName.STRONG_REJECT_SCORE][0]
+            StrongRejectEvaluation.load_result_objective(results=evaluation.load_results())
+            == eval_results[MetricName.STRONG_REJECT_SCORE][0]
         )

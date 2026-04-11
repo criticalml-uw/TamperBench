@@ -25,10 +25,10 @@ class AttackCategory:
     attacks: list[AttackName]
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> AttackCategory:  # pyright: ignore[reportExplicitAny]
+    def from_dict(cls, data: dict[str, Any]) -> AttackCategory:
         """Create from dictionary with validation."""
-        attacks = [AttackName(a) for a in data["attacks"]]  # pyright: ignore[reportAny]
-        return cls(display_name=data["display_name"], attacks=attacks)  # pyright: ignore[reportAny]
+        attacks = [AttackName(a) for a in data["attacks"]]
+        return cls(display_name=data["display_name"], attacks=attacks)
 
 
 @dataclass
@@ -39,7 +39,7 @@ class AttackConfig:
     categories: dict[str, AttackCategory]
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> AttackConfig:  # pyright: ignore[reportExplicitAny]
+    def from_dict(cls, data: dict[str, Any]) -> AttackConfig:
         """Create from dictionary with validation.
 
         Validates that all attack names exist in the registry and parses attack categories.
@@ -62,8 +62,8 @@ class AttackConfig:
             >>> config.preferred_order[0]
             AttackName.NO_WEIGHT_MODIFICATION
         """
-        preferred_order = cls._validate_attacks(data["preferred_order"])  # pyright: ignore[reportAny]
-        categories = cls._parse_categories(data["categories"])  # pyright: ignore[reportAny]
+        preferred_order = cls._validate_attacks(data["preferred_order"])
+        categories = cls._parse_categories(data["categories"])
         return cls(preferred_order=preferred_order, categories=categories)
 
     @classmethod
@@ -83,12 +83,12 @@ class AttackConfig:
     @classmethod
     def _parse_categories(
         cls,
-        categories_data: dict[str, Any],  # pyright: ignore[reportExplicitAny]
+        categories_data: dict[str, Any],
     ) -> dict[str, AttackCategory]:
         """Parse category dict into AttackCategory instances."""
         categories: dict[str, AttackCategory] = {}
-        for cat_key, cat_data in categories_data.items():  # pyright: ignore[reportAny]
-            categories[cat_key] = AttackCategory.from_dict(cat_data)  # pyright: ignore[reportAny]
+        for cat_key, cat_data in categories_data.items():
+            categories[cat_key] = AttackCategory.from_dict(cat_data)
         return categories
 
 
@@ -100,11 +100,11 @@ class ModelGroup:
     models: list[str]
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> ModelGroup:  # pyright: ignore[reportExplicitAny]
+    def from_dict(cls, data: dict[str, Any]) -> ModelGroup:
         """Create from dictionary."""
         return cls(
-            display_name=data["display_name"],  # pyright: ignore[reportAny]
-            models=data["models"],  # pyright: ignore[reportAny]
+            display_name=data["display_name"],
+            models=data["models"],
         )
 
 
@@ -121,7 +121,7 @@ class ModelConfig:
     groups: dict[str, ModelGroup] | None = None  # Optional: model groups for visual separation
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> ModelConfig:  # pyright: ignore[reportExplicitAny]
+    def from_dict(cls, data: dict[str, Any]) -> ModelConfig:
         """Create from dictionary.
 
         Parses model configuration including required model list and optional groups.
@@ -139,13 +139,13 @@ class ModelConfig:
         groups = cls._parse_model_groups(data)
 
         return cls(
-            preferred_order=data["preferred_order"],  # pyright: ignore[reportAny]
+            preferred_order=data["preferred_order"],
             include_models=include_models,
             groups=groups,
         )
 
     @classmethod
-    def _validate_include_models(cls, data: dict[str, Any]) -> list[str]:  # pyright: ignore[reportExplicitAny]
+    def _validate_include_models(cls, data: dict[str, Any]) -> list[str]:
         """Extract and validate the required include_models list."""
         include_models: list[str] | None = data.get("include_models")
         if not include_models:
@@ -155,14 +155,14 @@ class ModelConfig:
         return include_models
 
     @classmethod
-    def _parse_model_groups(cls, data: dict[str, Any]) -> dict[str, ModelGroup] | None:  # pyright: ignore[reportExplicitAny]
+    def _parse_model_groups(cls, data: dict[str, Any]) -> dict[str, ModelGroup] | None:
         """Parse optional model group configurations into ModelGroup instances."""
         if "groups" not in data:
             return None
 
         groups: dict[str, ModelGroup] = {}
-        for group_key, group_data in data["groups"].items():  # pyright: ignore[reportAny]
-            groups[group_key] = ModelGroup.from_dict(group_data)  # pyright: ignore[reportAny]
+        for group_key, group_data in data["groups"].items():
+            groups[group_key] = ModelGroup.from_dict(group_data)
         return groups
 
     def should_include_model(self, model_name: str) -> bool:
@@ -210,13 +210,13 @@ class MetricConfig:
     direction: OptimizationDirection
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> MetricConfig:  # pyright: ignore[reportExplicitAny]
+    def from_dict(cls, data: dict[str, Any]) -> MetricConfig:
         """Create from dictionary."""
-        direction_str: str = data["direction"]  # pyright: ignore[reportAny]
+        direction_str: str = data["direction"]
         direction = OptimizationDirection.MAXIMIZE if direction_str == "maximize" else OptimizationDirection.MINIMIZE
         return cls(
-            display_name=data["display_name"],  # pyright: ignore[reportAny]
-            aliases=data["aliases"],  # pyright: ignore[reportAny]
+            display_name=data["display_name"],
+            aliases=data["aliases"],
             direction=direction,
         )
 
@@ -230,12 +230,12 @@ class FigureConfig:
     height_formula: str
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> FigureConfig:  # pyright: ignore[reportExplicitAny]
+    def from_dict(cls, data: dict[str, Any]) -> FigureConfig:
         """Create from dictionary."""
         return cls(
-            dpi=data["dpi"],  # pyright: ignore[reportAny]
-            width_formula=data["width_formula"],  # pyright: ignore[reportAny]
-            height_formula=data["height_formula"],  # pyright: ignore[reportAny]
+            dpi=data["dpi"],
+            width_formula=data["width_formula"],
+            height_formula=data["height_formula"],
         )
 
     def calculate_width(self, n_columns: int) -> float:
@@ -250,7 +250,7 @@ class FigureConfig:
         Returns:
             Calculated width in inches
         """
-        result: float = eval(self.width_formula, {"n_columns": n_columns, "max": max})  # pyright: ignore[reportAny]
+        result: float = eval(self.width_formula, {"n_columns": n_columns, "max": max})
         return result
 
     def calculate_height(self, n_models: int) -> float:
@@ -264,7 +264,7 @@ class FigureConfig:
         Returns:
             Calculated height in inches
         """
-        result: float = eval(self.height_formula, {"n_models": n_models, "max": max})  # pyright: ignore[reportAny]
+        result: float = eval(self.height_formula, {"n_models": n_models, "max": max})
         return result
 
 
@@ -278,15 +278,15 @@ class VisualizationConfig:
     figure: FigureConfig
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> VisualizationConfig:  # pyright: ignore[reportExplicitAny]
+    def from_dict(cls, data: dict[str, Any]) -> VisualizationConfig:
         """Create from dictionary."""
-        colormap_range: tuple[float, float] = tuple(data["colormap_range"])  # pyright: ignore[reportAny]
-        bad_color: tuple[float, float, float, float] = tuple(data["bad_color"])  # pyright: ignore[reportAny]
+        colormap_range: tuple[float, float] = tuple(data["colormap_range"])
+        bad_color: tuple[float, float, float, float] = tuple(data["bad_color"])
         return cls(
-            colormaps=data["colormaps"],  # pyright: ignore[reportAny]
+            colormaps=data["colormaps"],
             colormap_range=colormap_range,
             bad_color=bad_color,
-            figure=FigureConfig.from_dict(data["figure"]),  # pyright: ignore[reportAny]
+            figure=FigureConfig.from_dict(data["figure"]),
         )
 
 
@@ -299,10 +299,10 @@ class HeatmapMethod:
     formula: str | None = None
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> HeatmapMethod:  # pyright: ignore[reportExplicitAny]
+    def from_dict(cls, data: dict[str, Any]) -> HeatmapMethod:
         """Create from dictionary."""
         return cls(
-            display_name=data["display_name"],  # pyright: ignore[reportAny]
+            display_name=data["display_name"],
             priority=data.get("priority"),
             formula=data.get("formula"),
         )
@@ -319,17 +319,17 @@ class EpsilonBoundedConfig:
     default_n_trials: int
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> EpsilonBoundedConfig:  # pyright: ignore[reportExplicitAny]
+    def from_dict(cls, data: dict[str, Any]) -> EpsilonBoundedConfig:
         """Create from dictionary."""
         baseline_attack = AttackName(data["baseline_attack"])
         if baseline_attack not in ATTACKS_REGISTRY:
             raise ValueError(f"Baseline attack '{baseline_attack}' not found in ATTACKS_REGISTRY")
         return cls(
             baseline_attack=baseline_attack,
-            utility_metric=data["utility_metric"],  # pyright: ignore[reportAny]
-            safety_metric=data["safety_metric"],  # pyright: ignore[reportAny]
-            default_epsilons=data["default_epsilons"],  # pyright: ignore[reportAny]
-            default_n_trials=data["default_n_trials"],  # pyright: ignore[reportAny]
+            utility_metric=data["utility_metric"],
+            safety_metric=data["safety_metric"],
+            default_epsilons=data["default_epsilons"],
+            default_n_trials=data["default_n_trials"],
         )
 
 
@@ -372,12 +372,12 @@ class AnalysisConfig:
             raise FileNotFoundError(f"Config file not found: {path}")
 
         with path.open() as f:
-            data: dict[str, object] = yaml.safe_load(f)  # pyright: ignore[reportAny]
+            data: dict[str, object] = yaml.safe_load(f)
 
         return cls.from_dict(data)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> AnalysisConfig:  # pyright: ignore[reportExplicitAny]
+    def from_dict(cls, data: dict[str, Any]) -> AnalysisConfig:
         """Create from dictionary with full validation.
 
         Parses all nested configuration sections including attacks, models, metrics,
@@ -389,12 +389,12 @@ class AnalysisConfig:
         Returns:
             Validated AnalysisConfig instance
         """
-        attacks = AttackConfig.from_dict(data["attacks"])  # pyright: ignore[reportAny]
-        models = ModelConfig.from_dict(data["models"])  # pyright: ignore[reportAny]
-        metrics = cls._parse_metrics(data["metrics"])  # pyright: ignore[reportAny]
-        visualization = VisualizationConfig.from_dict(data["visualization"])  # pyright: ignore[reportAny]
-        epsilon_bounded = EpsilonBoundedConfig.from_dict(data["epsilon_bounded"])  # pyright: ignore[reportAny]
-        heatmap_methods = cls._parse_heatmap_methods(data["heatmap_methods"])  # pyright: ignore[reportAny]
+        attacks = AttackConfig.from_dict(data["attacks"])
+        models = ModelConfig.from_dict(data["models"])
+        metrics = cls._parse_metrics(data["metrics"])
+        visualization = VisualizationConfig.from_dict(data["visualization"])
+        epsilon_bounded = EpsilonBoundedConfig.from_dict(data["epsilon_bounded"])
+        heatmap_methods = cls._parse_heatmap_methods(data["heatmap_methods"])
 
         return cls(
             attacks=attacks,
@@ -406,22 +406,22 @@ class AnalysisConfig:
         )
 
     @classmethod
-    def _parse_metrics(cls, metrics_data: dict[str, Any]) -> dict[str, MetricConfig]:  # pyright: ignore[reportExplicitAny]
+    def _parse_metrics(cls, metrics_data: dict[str, Any]) -> dict[str, MetricConfig]:
         """Parse metric dict into MetricConfig instances."""
         metrics: dict[str, MetricConfig] = {}
-        for metric_key, metric_data in metrics_data.items():  # pyright: ignore[reportAny]
-            metrics[metric_key] = MetricConfig.from_dict(metric_data)  # pyright: ignore[reportAny]
+        for metric_key, metric_data in metrics_data.items():
+            metrics[metric_key] = MetricConfig.from_dict(metric_data)
         return metrics
 
     @classmethod
     def _parse_heatmap_methods(
         cls,
-        methods_data: dict[str, Any],  # pyright: ignore[reportExplicitAny]
+        methods_data: dict[str, Any],
     ) -> dict[str, HeatmapMethod]:
         """Parse heatmap method dict into HeatmapMethod instances."""
         heatmap_methods: dict[str, HeatmapMethod] = {}
-        for method_key, method_data in methods_data.items():  # pyright: ignore[reportAny]
-            heatmap_methods[method_key] = HeatmapMethod.from_dict(method_data)  # pyright: ignore[reportAny]
+        for method_key, method_data in methods_data.items():
+            heatmap_methods[method_key] = HeatmapMethod.from_dict(method_data)
         return heatmap_methods
 
     def get_metric_by_alias(self, alias: str) -> MetricConfig | None:

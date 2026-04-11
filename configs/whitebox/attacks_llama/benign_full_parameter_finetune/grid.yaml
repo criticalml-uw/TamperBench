@@ -10,3 +10,6 @@ base: &base_cfg
     lr_scheduler_type: constant
     optim: adamw_torch
     max_steps: -1
+    poison_ratio: 0
+    dataset_size: 1350
+    benign_dataset: bookcorpus

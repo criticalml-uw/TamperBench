@@ -3,6 +3,7 @@
 # pyright: reportExplicitAny=false, reportAny=false
 
 import multiprocessing
+import queue
 import traceback
 from collections.abc import Callable
 from typing import Any, TypeVar
@@ -95,9 +96,21 @@ def run_in_isolation(
     p.start()
 
     try:
-        child_message: dict[str, Any] = q.get()
+        # q.get() without timeout blocks in C code and prevents KeyboardInterrupt
+        # from being raised. Using a timeout lets Python handle interrupts.
+        while True:
+            try:
+                child_message: dict[str, Any] = q.get(timeout=1.0)
+                break
+            except queue.Empty:
+                if not p.is_alive():
+                    raise RuntimeError(f"{error_context}: subprocess died unexpectedly") from None
     finally:
-        p.join()
+        p.terminate()  # SIGTERM
+        p.join(timeout=5)
+        if p.is_alive():
+            p.kill()  # SIGKILL if SIGTERM didn't work
+            p.join(timeout=1)
         p.close()
         q.close()
         q.join_thread()

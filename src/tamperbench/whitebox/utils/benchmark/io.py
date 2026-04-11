@@ -24,7 +24,7 @@ def yaml_to_dict(yaml_file_path: Path) -> dict[str, object]:
         0.0001
     """
     with open(yaml_file_path) as file:
-        data: dict[str, object] = yaml.safe_load(file)  # pyright: ignore[reportAny]
+        data: dict[str, object] = yaml.safe_load(file)
 
     return data
 
@@ -77,8 +77,8 @@ def deep_merge_dicts(base: Mapping[str, object], overrides: Mapping[str, object]
 
         if isinstance(base_value, Mapping) and isinstance(value, Mapping):
             result[key] = deep_merge_dicts(
-                base_value,  # pyright: ignore[reportUnknownArgumentType]
-                value,  # pyright: ignore[reportUnknownArgumentType]
+                base_value,
+                value,
             )
         else:
             result[key] = value
@@ -116,7 +116,7 @@ def nest_dotted_params(flat_params: Mapping[str, object]) -> dict[str, object]:
                 next_level = {}
                 cursor[part] = next_level
 
-            cursor = next_level  # pyright: ignore[reportUnknownVariableType]
+            cursor = next_level
 
         cursor[parts[-1]] = value
 

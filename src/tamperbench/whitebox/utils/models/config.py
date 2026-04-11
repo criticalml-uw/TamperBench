@@ -32,7 +32,7 @@ class ModelConfig:
     tokenizer_checkpoint: str | None = None
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> Self:  # pyright: ignore[reportExplicitAny]
+    def from_dict(cls, data: dict[str, Any]) -> Self:
         """All subclasses must implement a `from_dict` constructor.
 
         Args:
@@ -63,4 +63,4 @@ class ModelConfig:
             if dict_key not in config_keys:
                 raise ValueError(f"`{dict_key}` is not a field of {cls.__name__}")
 
-        return cls(**data)  # pyright: ignore[reportAny]
+        return cls(**data)

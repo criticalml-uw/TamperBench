@@ -2,6 +2,7 @@
 
 import tempfile
 
+import pytest
 from dotenv import load_dotenv
 
 from tamperbench.whitebox.evals import (
@@ -13,7 +14,10 @@ from tamperbench.whitebox.evals.output_schema import EvaluationSchema
 from tamperbench.whitebox.utils.models.config import ModelConfig
 from tamperbench.whitebox.utils.names import MetricName
 
-if __name__ == "__main__":
+
+@pytest.mark.expensive
+def test_embedding_attack_evaluation() -> None:
+    """Test that embedding attack evaluation achieves expected StrongREJECT score."""
     load_dotenv()  # ensure HF_TOKEN available
 
     with tempfile.TemporaryDirectory() as tmpdirname:

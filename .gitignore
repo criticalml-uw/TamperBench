@@ -180,3 +180,13 @@ cython_debug/
 results/
 
 .claude
+
+# Local wandb results
+wandb/
+
+# Cache
+cache/
+logs/
+.vscode/
+
+data/

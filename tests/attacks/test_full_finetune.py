@@ -2,6 +2,7 @@
 
 import tempfile
 
+import pytest
 from dotenv import load_dotenv
 
 from tamperbench.whitebox.attacks.full_parameter_finetune.full_parameter_finetune import (
@@ -12,7 +13,10 @@ from tamperbench.whitebox.evals.output_schema import EvaluationSchema
 from tamperbench.whitebox.utils.models.config import ModelConfig
 from tamperbench.whitebox.utils.names import EvalName, MetricName
 
-if __name__ == "__main__":
+
+@pytest.mark.expensive
+def test_full_finetune_attack() -> None:
+    """Test that full parameter fine-tune attack achieves expected StrongREJECT score."""
     load_dotenv()  # ensure HF_TOKEN available
 
     with tempfile.TemporaryDirectory() as tmpdirname:

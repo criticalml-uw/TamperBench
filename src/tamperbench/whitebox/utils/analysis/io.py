@@ -17,7 +17,7 @@ LOGGER = logging.getLogger(__name__)
 def write_json(
     data: dict[str, Any] | list[Any],
     path: Path,
-    indent: int = 2,  # pyright: ignore[reportExplicitAny]
+    indent: int = 2,
 ) -> None:
     """Write data to JSON file, creating parent directories as needed.
 

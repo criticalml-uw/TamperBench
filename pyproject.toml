@@ -9,6 +9,8 @@ description = "An extensible toolkit for benchmarking safety-preserving fine-tun
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+  "jaxtyping>=0.3.0",
+  "typing-extensions>=4.0",
   "antlr4-python3-runtime==4.11.*",
   "bitsandbytes>=0.46.1; platform_system == 'Linux'",
   "datasets>=3.3.0",
@@ -18,7 +20,7 @@ dependencies = [
   "immutabledict>=4.0.0",
   "langdetect>=1.0.9",
   "Levenshtein==0.27.1",
-  "litellm[proxy]>=1.75.3",
+  "litellm[proxy]>=1.83.0",
   "matplotlib>=3.10.6",
   "mosestokenizer==1.0.0",
   "nltk>=3.9.1",
@@ -41,7 +43,19 @@ dependencies = [
   "torch>=2.9.0",
   "transformers>=4.49.0",
   "trl==0.22.1",
-  "vllm>=0.15.1; platform_system == 'Linux'",
+  "vllm>=0.17.0; platform_system == 'Linux'",
+]
+
+[dependency-groups]
+dev = [
+  "basedpyright>=1.28.1",
+  "jupyter>=1.1.1",
+  "pandas-stubs>=2.3.3.251201",
+  "pre-commit==4.2.0",
+  "pytest>=8.4.2",
+  "ruff==0.12.4",
+  "streamlit>=1.45.0",
+  "tqdm>=4.67.3",
 ]
 
 [tool.uv.sources]
@@ -58,20 +72,6 @@ torchvision = [
 name = "pytorch-cu128"
 url = "https://download.pytorch.org/whl/cu128"
 explicit = true
-
-[project.optional-dependencies]
-dev = [
-  "basedpyright>=1.28.1",
-  "jupyter>=1.1.1",
-  "pandas-stubs>=2.3.3.251201",
-  "pre-commit==4.2.0",
-  "pytest>=8.4.2",
-  "ruff==0.12.4",
-  "tqdm>=4.67.3",
-]
-viz = [
-  "streamlit>=1.45.0",
-]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -90,6 +90,15 @@ exclude = [
   "src/tamperbench/whitebox/evals/mbpp/execute.py",
   "src/tamperbench/whitebox/evals/minerva_math/utils.py",
   "src/tamperbench/whitebox/evals/mmlu_pro/eval_from_api.py",
+  # Files copied or adapted from the T-Vaccine repo
+  # (https://github.com/Lslland/T-Vaccine). Excluded to preserve diffability
+  # against the original source.
+  "src/tamperbench/whitebox/defenses/t_vaccine/models/",
+  "src/tamperbench/whitebox/defenses/t_vaccine/repnoise_loss.py",
+  "src/tamperbench/whitebox/defenses/t_vaccine/loggers.py",
+  "src/tamperbench/whitebox/defenses/t_vaccine/utils.py",
+  "src/tamperbench/whitebox/defenses/t_vaccine/train.py",
+  "src/tamperbench/whitebox/defenses/t_vaccine/t_vaccine_trainer.py",
   # One-off scripts
   "src/tamperbench/whitebox/attacks/multilingual_finetune/generate_translated_dataset.py",
 ]
@@ -154,6 +163,16 @@ exclude = [
   "src/tamperbench/whitebox/evals/minerva_math/utils.py",
   "src/tamperbench/whitebox/evals/mmlu_pro/eval_from_api.py",
 
+  # Files copied or adapted from the T-Vaccine repo
+  # (https://github.com/Lslland/T-Vaccine). Excluded to preserve diffability
+  # against the original source.
+  "src/tamperbench/whitebox/defenses/t_vaccine/models/",
+  "src/tamperbench/whitebox/defenses/t_vaccine/repnoise_loss.py",
+  "src/tamperbench/whitebox/defenses/t_vaccine/loggers.py",
+  "src/tamperbench/whitebox/defenses/t_vaccine/utils.py",
+  "src/tamperbench/whitebox/defenses/t_vaccine/train.py",
+  "src/tamperbench/whitebox/defenses/t_vaccine/t_vaccine_trainer.py",
+
   # Files that are one-off scripts (used purely for record keeping)
   "src/tamperbench/whitebox/attacks/multilingual_finetune/generate_translated_dataset.py",
 ]
@@ -180,4 +199,11 @@ reportUnusedCallResult = false
 allowedUntypedLibraries = [
     "strong_reject",
     "trl",
+]
+
+[tool.pytest.ini_options]
+markers = [
+  "expensive: marks tests as manual-only (too expensive for CI)",
+  "gpu_optional: marks tests that run on both CPU CI and GPU CI (training integration tests)",
+  "gpu_required: marks tests that require a GPU (auto-skipped on CPU, run on GPU CI only)",
 ]

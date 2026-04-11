@@ -2,6 +2,7 @@
 
 import tempfile
 
+import pytest
 from dotenv import load_dotenv
 
 from tamperbench.whitebox.attacks.jailbreak_finetune.jailbreak_finetune import (
@@ -13,7 +14,10 @@ from tamperbench.whitebox.evals.output_schema import EvaluationSchema
 from tamperbench.whitebox.utils.models.config import ModelConfig
 from tamperbench.whitebox.utils.names import EvalName, MetricName
 
-if __name__ == "__main__":
+
+@pytest.mark.expensive
+def test_jailbreak_finetune_attack() -> None:
+    """Test that jailbreak fine-tune attack produces expected results."""
     load_dotenv()  # ensure HF_TOKEN available
 
     with tempfile.TemporaryDirectory() as tmpdirname:

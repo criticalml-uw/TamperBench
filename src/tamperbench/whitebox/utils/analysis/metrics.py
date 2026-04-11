@@ -160,7 +160,7 @@ def _extract_from_user_attrs(trial: optuna.trial.FrozenTrial) -> dict[str, float
         return {}
 
     metrics: dict[str, float] = {}
-    for key, value in eval_metrics.items():  # pyright: ignore[reportUnknownVariableType]
+    for key, value in eval_metrics.items():
         if isinstance(value, int | float):
             metrics[str(key)] = float(value)
 
@@ -171,19 +171,19 @@ def _extract_from_trial_values(trial: optuna.trial.FrozenTrial, config: Analysis
     """Extract metrics from trial.values by index (0=SR, 1=MMLU)."""
     metrics: dict[str, float] = {}
 
-    values = trial.values  # pyright: ignore[reportAny]
+    values = trial.values
     if values is None:
         return metrics
 
-    if len(values) >= 1:  # pyright: ignore[reportAny]
+    if len(values) >= 1:
         sr_metric = config.metrics.get("strong_reject")
         if sr_metric:
-            metrics[sr_metric.aliases[0]] = float(values[0])  # pyright: ignore[reportAny]
+            metrics[sr_metric.aliases[0]] = float(values[0])
 
-    if len(values) >= 2:  # pyright: ignore[reportAny]
+    if len(values) >= 2:
         mmlu_metric = config.metrics.get("mmlu_pro")
         if mmlu_metric:
-            metrics[mmlu_metric.aliases[1]] = float(values[1])  # pyright: ignore[reportAny]
+            metrics[mmlu_metric.aliases[1]] = float(values[1])
 
     return metrics
 

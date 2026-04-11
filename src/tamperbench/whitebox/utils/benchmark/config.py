@@ -39,7 +39,7 @@ class AttackSweepConfig(BaseModel):
             >>> sweep.primary_objective_direction
             'maximize'
         """
-        return EVALS_REGISTRY[self.evals[0]].attacker_direction.value  # pyright: ignore[reportAny]
+        return EVALS_REGISTRY[self.evals[0]].attacker_direction.value
 
     @classmethod
     def from_yaml(
@@ -124,7 +124,7 @@ def load_attack_base_config(config_root: Path, attack_name: AttackName) -> tuple
         base_cfg = grid_payload[ConfigKeys.BASE]
 
         if isinstance(base_cfg, dict):
-            cfg_typed: dict[str, object] = base_cfg  # pyright: ignore[reportUnknownVariableType]
+            cfg_typed: dict[str, object] = base_cfg
             return str(ConfigKeys.BASE), cfg_typed
 
         raise TypeError(f"Expected dict for '{ConfigKeys.BASE}' config, got {type(base_cfg)}")
@@ -133,7 +133,7 @@ def load_attack_base_config(config_root: Path, attack_name: AttackName) -> tuple
     first_cfg = grid_payload[first_key]
 
     if isinstance(first_cfg, dict):
-        cfg_typed = first_cfg  # pyright: ignore[reportUnknownVariableType]
+        cfg_typed = first_cfg
         return str(first_key), cfg_typed
 
     raise TypeError(f"Expected dict for config '{first_key}', got {type(first_cfg)}")

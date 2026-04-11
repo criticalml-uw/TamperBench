@@ -50,7 +50,7 @@ def build_ground_truth() -> list[dict[str, Any]]:
     """Load and preprocess MMLU-Pro test split, returning the same 140 questions."""
     ds = datasets.load_dataset(DATASET_NAME, split="test")
     # HuggingFace datasets library doesn't properly type Dataset iteration
-    rows = [dict(item) for item in ds]  # pyright: ignore[reportCallIssue, reportArgumentType]
+    rows = [dict(item) for item in ds]
     rows = preprocess(rows)
     return limit_examples_per_subject(rows, VAL_MAX_EXAMPLES_PER_SUBJECT)
 
