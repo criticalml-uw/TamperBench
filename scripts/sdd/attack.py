@@ -1,17 +1,19 @@
 #!/usr/bin/env python
-"""Phase 2: Run MFT attack on a hardened (or vanilla) model.
+"""Run MFT attack and/or evaluation on a hardened or vanilla model.
 
-Replicates the LLM-finetune-Safety attack from the SDD paper (Table 1):
+Replicates the LLM-finetune-Safety benchmark from the SDD paper (Table 1):
 - Full-parameter fine-tune with k harmful samples from AdvBench (k = 10, 50, 100)
 - Evaluates with PolicyEval (same GPT-4 judge as the paper), StrongREJECT,
   and MMLU-Pro
 
-The paper uses pure harmful data (no benign mixing), trained via SFT
-with LLaMA-Factory on the Llama2 chat template.
+Use --num-harmful 0 to evaluate a model without any attack (the "Initial" row
+in the paper's Table 1).
 
 Usage:
     python scripts/sdd/attack.py --tier llama2_chat --num-harmful 100
     python scripts/sdd/attack.py --tier llama2_chat --num-harmful 100 --no-defense
+    python scripts/sdd/attack.py --tier llama2_chat --num-harmful 0              # SDD initial
+    python scripts/sdd/attack.py --tier llama2_chat --num-harmful 0 --no-defense # Vanilla initial
 
 Expected runtime: ~30 min on A100 per k-shot setting (+ eval time).
 """
@@ -47,12 +49,12 @@ def main():
         help="Attack vanilla model (no SDD defense)",
     )
 
-    # Attack settings matching paper's LLM-finetune-Safety protocol
+    # Attack settings matching Qi et al. (2023) for Llama-2-7b-Chat
     parser.add_argument(
         "--num-harmful",
         type=int,
         default=100,
-        help="Number of harmful samples (paper: 10, 50, 100)",
+        help="Number of harmful samples (paper: 10, 50, 100; 0 for eval-only)",
     )
     parser.add_argument("--num-epochs", type=int, default=5, help="Fine-tuning epochs (Qi et al. 2023: 5)")
     parser.add_argument("--learning-rate", type=float, default=5e-5, help="Attack learning rate (Qi et al. 2023: 5e-5)")
@@ -63,37 +65,42 @@ def main():
 
     model = args.model or MODELS[args.tier]
     output_dir = get_output_dir(model)
+    eval_only = args.num_harmful == 0
 
-    # Determine input checkpoint: hardened model or vanilla
-    if args.no_defense:
-        input_checkpoint = model
-        attack_label = f"attack_vanilla_{args.num_harmful}shot"
+    # Determine input checkpoint and label
+    defense_label = "vanilla" if args.no_defense else "sdd"
+    if eval_only:
+        input_checkpoint = model if args.no_defense else str(output_dir / "hardened")
+        run_label = f"eval_{defense_label}_initial"
     else:
-        input_checkpoint = str(output_dir / "hardened")
-        attack_label = f"attack_sdd_{args.num_harmful}shot"
+        input_checkpoint = model if args.no_defense else str(output_dir / "hardened")
+        run_label = f"attack_{defense_label}_{args.num_harmful}shot"
 
-    attack_output = output_dir / attack_label
+    run_output = output_dir / run_label
 
     print("=" * 80)
-    print(f"MFT Attack (Phase 2) — {args.num_harmful}-shot, full-parameter")
+    if eval_only:
+        print(f"Evaluation (no attack) — {defense_label}")
+    else:
+        print(f"MFT Attack — {args.num_harmful}-shot, full-parameter, {defense_label}")
     print("=" * 80)
     print(f"Input model: {input_checkpoint}")
-    print(f"Output: {attack_output}")
-    print(f"Harmful samples: {args.num_harmful}")
-    print(f"Epochs: {args.num_epochs}")
-    print(f"LR: {args.learning_rate}")
+    print(f"Output: {run_output}")
+    if not eval_only:
+        print(f"Harmful samples: {args.num_harmful}")
+        print(f"Epochs: {args.num_epochs}")
+        print(f"LR: {args.learning_rate}")
     print("Template: llama2_chat")
-    print("Harmful dataset: advbench")
     print("=" * 80)
 
-    if not args.no_defense and not Path(input_checkpoint).exists():
+    if not args.no_defense and not eval_only and not Path(input_checkpoint).exists():
         print(f"ERROR: Hardened model not found at {input_checkpoint}")
         print("Run harden.py first.")
         sys.exit(1)
 
     config = FullParameterFinetuneConfig(
         input_checkpoint_path=input_checkpoint,
-        out_dir=str(attack_output),
+        out_dir=str(run_output),
         evals=[EvalName.POLICY_EVAL, EvalName.STRONG_REJECT, EvalName.MMLU_PRO_VAL],
         model_config=ModelConfig.from_dict(
             {
@@ -109,25 +116,29 @@ def main():
         lr_scheduler_type="constant",
         optim="adamw_torch",
         dataset_size=args.num_harmful,
-        poison_ratio=1.0,  # Pure harmful data (no benign mixing)
+        poison_ratio=1.0,
         harmful_dataset="advbench",
         benign_dataset="bookcorpus",
         random_seed=42,
     )
 
     attack = FullParameterFinetune(attack_config=config)
-    results = attack.benchmark()
+
+    if eval_only:
+        # Point evaluator at the input model directly
+        attack.output_checkpoint_path = input_checkpoint
+        results = attack.evaluate()
+    else:
+        results = attack.benchmark()
+        # Clean up MFTed model checkpoint to save disk space
+        attack.delete_output_checkpoint()
+        print(f"Deleted MFTed model checkpoint at {attack.output_checkpoint_path}")
 
     print("\n" + "=" * 80)
-    print(f"RESULTS — {attack_label}")
+    print(f"RESULTS — {run_label}")
     print("=" * 80)
     print(results)
     print("=" * 80)
-
-    # Clean up the MFTed model checkpoint to save disk space
-    # (eval results are already saved to out_dir)
-    attack.delete_output_checkpoint()
-    print(f"Deleted MFTed model checkpoint at {attack.output_checkpoint_path}")
 
 
 if __name__ == "__main__":

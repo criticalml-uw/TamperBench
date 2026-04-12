@@ -68,7 +68,7 @@ EVAL_VANILLA_SCRIPT="#!/bin/bash
 
 cd ${REPO_DIR}
 export WANDB_MODE=disabled
-${UV} run python scripts/sdd/evaluate.py --tier ${TIER}"
+${UV} run python scripts/sdd/attack.py --tier ${TIER} --num-harmful 0 --no-defense"
 
 EVAL_SDD_SCRIPT="#!/bin/bash
 #SBATCH --job-name=sdd_eval_sdd_${TIER}
@@ -81,7 +81,7 @@ EVAL_SDD_SCRIPT="#!/bin/bash
 
 cd ${REPO_DIR}
 export WANDB_MODE=disabled
-${UV} run python scripts/sdd/evaluate.py --tier ${TIER} --sdd"
+${UV} run python scripts/sdd/attack.py --tier ${TIER} --num-harmful 0"
 
 # --- Phase 2: Attacks (SDD-defended + vanilla baselines) ---
 # Each k-shot attack runs independently after harden completes.
