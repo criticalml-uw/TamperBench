@@ -92,10 +92,13 @@ class TARConfig(AlignmentDefenseConfig):
     # Post-TAR recovery SFT on Magpie-Align. The TAR paper performs 100 steps
     # of SFT after TAR training for the refusal setting to recover benign
     # capabilities (MT-Bench). Set to 0 to skip (appropriate for bio/cyber).
+    # The paper does not specify hyperparameters for this step; the defaults
+    # below are our best guesses (lr matches the bio TAR outer loop,
+    # batch_size * grad_accum * num_gpus targets an effective batch of 64).
     post_tar_sft_steps: int = 0
     post_tar_sft_lr: float = 2e-5
-    post_tar_sft_batch_size: int = 2
-    post_tar_sft_gradient_accumulation_steps: int = 4
+    post_tar_sft_batch_size: int = 1
+    post_tar_sft_gradient_accumulation_steps: int = 8
     post_tar_sft_warmup_steps: int = 10
 
     # Accelerate config path override (if not using num_gpus lookup)
@@ -112,6 +115,12 @@ class TARDefense(AlignmentDefense[TARConfig]):
     def run_defense(self) -> Path:
         """Run the original TAR training as a subprocess."""
         cfg = self.defense_config
+
+        if cfg.output_checkpoint_path.exists():
+            raise FileExistsError(
+                f"Output path already exists: {cfg.output_checkpoint_path}. "
+                "Remove it or use a different --results-dir to avoid overwriting a previous run."
+            )
 
         base_model_name = str(cfg.input_checkpoint_path)
 
@@ -231,14 +240,15 @@ class TARDefense(AlignmentDefense[TARConfig]):
             logger.error("TAR subprocess stderr:\n%s", result.stderr)
             result.check_returncode()
 
-        # Rename to the expected output path if it differs from actual output
+        # The checkpoint currently lives at `actual_output` (the name TAR chose).
+        checkpoint_dir = actual_output if actual_output.exists() else cfg.output_checkpoint_path
+        if cfg.post_tar_sft_steps > 0:
+            self._run_post_tar_sft(cfg, accel_config, env, checkpoint_dir)
+
+        # Rename to the expected output path
         if actual_output != cfg.output_checkpoint_path and actual_output.exists():
             logger.info("Renaming %s -> %s", actual_output, cfg.output_checkpoint_path)
             actual_output.rename(cfg.output_checkpoint_path)
-
-        # Post-TAR recovery SFT (refusal setting only, per paper appendix).
-        if cfg.post_tar_sft_steps > 0:
-            self._run_post_tar_sft(cfg, accel_config, env)
 
         return cfg.output_checkpoint_path
 
@@ -247,6 +257,7 @@ class TARDefense(AlignmentDefense[TARConfig]):
         cfg: TARConfig,
         accel_config: Path,
         env: dict[str, str],
+        checkpoint_dir: Path,
     ) -> None:
         """Run post-TAR Magpie-Align SFT to recover benign capabilities."""
         magpie_sft = str(_ORIG_DIR / "magpie_sft.py")
@@ -257,9 +268,9 @@ class TARDefense(AlignmentDefense[TARConfig]):
             str(accel_config),
             magpie_sft,
             "--model_name",
-            str(cfg.output_checkpoint_path),
+            str(checkpoint_dir),
             "--output_dir",
-            str(cfg.output_checkpoint_path),
+            str(checkpoint_dir),
             "--max_steps",
             str(cfg.post_tar_sft_steps),
             "--lr",
