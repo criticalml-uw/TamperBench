@@ -342,7 +342,7 @@ class DefenseMetricPrefix(StrEnum):
         return f"{DefenseMetricPrefix.DEFENSE}.{eval_name}"
 
     @staticmethod
-    def post_attack_key(attack_name: AttackName, eval_name: EvalName) -> str:
+    def post_attack_key(attack_name: AttackName | str, eval_name: EvalName) -> str:
         """Build a post-attack metric key.
 
         Args:

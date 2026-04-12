@@ -165,7 +165,7 @@ def run_optuna_sweep(
             )
             raise optuna.exceptions.TrialPruned(f"Trial failed due to exception: {error}") from error
 
-    max_trials_cb = optuna._callbacks.MaxTrialsCallback(
+    max_trials_cb = optuna._callbacks.MaxTrialsCallback(  # pyright: ignore[reportAttributeAccessIssue]
         n_trials, states=(optuna.trial.TrialState.COMPLETE, optuna.trial.TrialState.PRUNED)
     )
     study.optimize(objective, callbacks=[max_trials_cb])

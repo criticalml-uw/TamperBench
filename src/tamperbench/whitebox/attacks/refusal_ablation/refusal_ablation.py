@@ -429,10 +429,13 @@ def _run_refusal_ablation(
     cached_directions_file = cache_path / "candidate_directions.pt"
     cache_hit = cached_scores_file.exists() and cached_directions_file.exists()
 
+    candidate_directions: Tensor | None = None
+    json_output_all_scores: list[dict[str, Any]] = []
+
     if cache_hit:
         logger.info(f"Cache hit for refusal ablation scores at {cache_path}")
         with open(cached_scores_file) as f:
-            json_output_all_scores: list[dict[str, Any]] = json.load(f)
+            json_output_all_scores = json.load(f)
         candidate_directions = torch.load(cached_directions_file, weights_only=True)
     else:
         logger.info(f"No cache found at {cache_path}, computing scores from scratch")
@@ -505,7 +508,7 @@ def _run_refusal_ablation(
         ablation_refusal_scores = torch.zeros((n_pos, n_layer), device=model.model.device, dtype=torch.float64)
         steering_refusal_scores = torch.zeros((n_pos, n_layer), device=model.model.device, dtype=torch.float64)
 
-        json_output_all_scores = []
+        json_output_all_scores.clear()
 
         # get logits for the harmless val set
         format_func = harmless_val.get_eval_formatter(model.tokenizer)
@@ -597,7 +600,7 @@ def _run_refusal_ablation(
         logger.info(f"Cached scores and directions to {cache_path}")
 
     # --- Filter and select best direction (uses sweep hparams) ---
-    n_pos, n_layer = candidate_directions.shape[0], candidate_directions.shape[1]
+    n_pos, n_layer = candidate_directions.shape[0], candidate_directions.shape[1]  # pyright: ignore[reportOptionalMemberAccess]
 
     json_output_filtered_scores: list[dict[str, Any]] = []
     filtered_scores: list[tuple[float, int, int]] = []

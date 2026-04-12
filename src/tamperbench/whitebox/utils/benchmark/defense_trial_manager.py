@@ -339,7 +339,7 @@ class DefenseSweepTrialManager:
         attack_out_dir: Path,
         random_seed: int,
         attack_configs_dir: Path | None = None,
-        defense_metrics: dict[str, float] | None = None,
+        defense_metrics: dict[str, float] | None = None,  # pyright: ignore[reportUnusedParameter]
     ) -> dict[str, dict[str, float]]:
         """Run attack in grid mode against a defended checkpoint.
 
