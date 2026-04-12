@@ -56,6 +56,33 @@ cd ${REPO_DIR}
 export WANDB_MODE=disabled
 ${UV} run python scripts/sdd/harden.py --tier ${TIER}"
 
+# --- Eval-only: Initial (no attack) baselines ---
+EVAL_VANILLA_SCRIPT="#!/bin/bash
+#SBATCH --job-name=sdd_eval_vanilla_${TIER}
+#SBATCH --partition=${PARTITION}
+#SBATCH --gres=gpu:1
+#SBATCH --time=2:00:00
+#SBATCH --mem=64G
+#SBATCH --output=${LOG_DIR}/eval_vanilla_initial_${TIER}_%j.out
+#SBATCH --error=${LOG_DIR}/eval_vanilla_initial_${TIER}_%j.err
+
+cd ${REPO_DIR}
+export WANDB_MODE=disabled
+${UV} run python scripts/sdd/evaluate.py --tier ${TIER}"
+
+EVAL_SDD_SCRIPT="#!/bin/bash
+#SBATCH --job-name=sdd_eval_sdd_${TIER}
+#SBATCH --partition=${PARTITION}
+#SBATCH --gres=gpu:1
+#SBATCH --time=2:00:00
+#SBATCH --mem=64G
+#SBATCH --output=${LOG_DIR}/eval_sdd_initial_${TIER}_%j.out
+#SBATCH --error=${LOG_DIR}/eval_sdd_initial_${TIER}_%j.err
+
+cd ${REPO_DIR}
+export WANDB_MODE=disabled
+${UV} run python scripts/sdd/evaluate.py --tier ${TIER} --sdd"
+
 # --- Phase 2: Attacks (SDD-defended + vanilla baselines) ---
 # Each k-shot attack runs independently after harden completes.
 SHOTS=(10 50 100)
@@ -99,6 +126,12 @@ if $DRY_RUN; then
     echo "--- Phase 1: harden ---"
     echo "$HARDEN_SCRIPT"
     echo ""
+    echo "--- Eval: Vanilla initial ---"
+    echo "$EVAL_VANILLA_SCRIPT"
+    echo ""
+    echo "--- Eval: SDD initial (depends on harden) ---"
+    echo "$EVAL_SDD_SCRIPT"
+    echo ""
     for i in "${!ATTACK_SCRIPTS[@]}"; do
         echo "--- Phase 2: ${ATTACK_LABELS[$i]} ---"
         echo "${ATTACK_SCRIPTS[$i]}"
@@ -109,6 +142,15 @@ else
     echo "Submitted Phase 1 (harden): job ${HARDEN_JOB}"
 
     ALL_JOBS="${HARDEN_JOB}"
+
+    # Eval-only baselines
+    EVAL_VAN_JOB=$(echo "$EVAL_VANILLA_SCRIPT" | sbatch --parsable)
+    echo "Submitted Eval (Vanilla initial): job ${EVAL_VAN_JOB}"
+    ALL_JOBS="${ALL_JOBS} ${EVAL_VAN_JOB}"
+
+    EVAL_SDD_JOB=$(echo "$EVAL_SDD_SCRIPT" | sbatch --parsable --dependency=afterok:${HARDEN_JOB})
+    echo "Submitted Eval (SDD initial):     job ${EVAL_SDD_JOB}  (depends on ${HARDEN_JOB})"
+    ALL_JOBS="${ALL_JOBS} ${EVAL_SDD_JOB}"
 
     for i in "${!ATTACK_SCRIPTS[@]}"; do
         LABEL="${ATTACK_LABELS[$i]}"

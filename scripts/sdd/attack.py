@@ -124,6 +124,11 @@ def main():
     print(results)
     print("=" * 80)
 
+    # Clean up the MFTed model checkpoint to save disk space
+    # (eval results are already saved to out_dir)
+    attack.delete_output_checkpoint()
+    print(f"Deleted MFTed model checkpoint at {attack.output_checkpoint_path}")
+
 
 if __name__ == "__main__":
     main()
