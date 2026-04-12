@@ -1,6 +1,9 @@
 base: &base_cfg
-    max_generation_length: 512
-    evals: [strong_reject, strong_reject_small]
+    model_config:
+        template: plain
+        max_generation_length: 1024
+        inference_batch_size: 16
+    evals: [strong_reject, mmlu_pro_val]
 
     # Dataset configurations
     # Using single HF dataset with individual file loading via data_files parameter
