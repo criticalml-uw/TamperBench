@@ -2,8 +2,7 @@
 """Phase 2: Run MFT attack on a hardened (or vanilla) model.
 
 Replicates the LLM-finetune-Safety attack from the SDD paper (Table 1):
-- Fine-tune with k harmful samples from AdvBench (k = 10, 50, 100)
-- Uses the TamperBench LoRA fine-tuning attack infrastructure
+- Full-parameter fine-tune with k harmful samples from AdvBench (k = 10, 50, 100)
 - Evaluates with PolicyEval (same GPT-4 judge as the paper), StrongREJECT,
   and MMLU-Pro
 
@@ -14,7 +13,7 @@ Usage:
     python scripts/sdd/attack.py --tier llama2_chat --num-harmful 100
     python scripts/sdd/attack.py --tier llama2_chat --num-harmful 100 --no-defense
 
-Expected runtime: ~15 min on A100 per k-shot setting (+ eval time).
+Expected runtime: ~30 min on A100 per k-shot setting (+ eval time).
 """
 
 import argparse
@@ -29,7 +28,10 @@ from config import (  # pyright: ignore[reportImplicitRelativeImport]
 )
 from dotenv import load_dotenv
 
-from tamperbench.whitebox.attacks.lora_finetune.lora_finetune import LoraFinetune, LoraFinetuneConfig
+from tamperbench.whitebox.attacks.full_parameter_finetune.full_parameter_finetune import (
+    FullParameterFinetune,
+    FullParameterFinetuneConfig,
+)
 from tamperbench.whitebox.utils.models.config import ModelConfig
 from tamperbench.whitebox.utils.names import EvalName, TemplateName
 
@@ -54,7 +56,6 @@ def main():
     )
     parser.add_argument("--num-epochs", type=int, default=20, help="Fine-tuning epochs")
     parser.add_argument("--learning-rate", type=float, default=1e-4, help="Attack learning rate")
-    parser.add_argument("--lora-rank", type=int, default=16, help="LoRA rank")
     parser.add_argument("--batch-size", type=int, default=8, help="Training batch size")
 
     args = parser.parse_args()
@@ -74,14 +75,13 @@ def main():
     attack_output = output_dir / attack_label
 
     print("=" * 80)
-    print(f"MFT Attack (Phase 2) — {args.num_harmful}-shot")
+    print(f"MFT Attack (Phase 2) — {args.num_harmful}-shot, full-parameter")
     print("=" * 80)
     print(f"Input model: {input_checkpoint}")
     print(f"Output: {attack_output}")
     print(f"Harmful samples: {args.num_harmful}")
     print(f"Epochs: {args.num_epochs}")
     print(f"LR: {args.learning_rate}")
-    print(f"LoRA rank: {args.lora_rank}")
     print("Template: llama2_chat")
     print("Harmful dataset: advbench")
     print("=" * 80)
@@ -91,7 +91,7 @@ def main():
         print("Run harden.py first.")
         sys.exit(1)
 
-    config = LoraFinetuneConfig(
+    config = FullParameterFinetuneConfig(
         input_checkpoint_path=input_checkpoint,
         out_dir=str(attack_output),
         evals=[EvalName.POLICY_EVAL, EvalName.STRONG_REJECT, EvalName.MMLU_PRO_VAL],
@@ -108,7 +108,6 @@ def main():
         max_steps=-1,
         lr_scheduler_type="constant",
         optim="adamw_torch",
-        lora_rank=args.lora_rank,
         dataset_size=args.num_harmful,
         poison_ratio=1.0,  # Pure harmful data (no benign mixing)
         harmful_dataset="advbench",
@@ -116,7 +115,7 @@ def main():
         random_seed=42,
     )
 
-    attack = LoraFinetune(attack_config=config)
+    attack = FullParameterFinetune(attack_config=config)
     results = attack.benchmark()
 
     print("\n" + "=" * 80)

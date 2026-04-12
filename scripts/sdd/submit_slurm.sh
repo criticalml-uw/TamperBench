@@ -69,7 +69,7 @@ for K in "${SHOTS[@]}"; do
 #SBATCH --job-name=sdd_atk_def_${K}shot_${TIER}
 #SBATCH --partition=${PARTITION}
 #SBATCH --gres=gpu:1
-#SBATCH --time=2:00:00
+#SBATCH --time=4:00:00
 #SBATCH --mem=64G
 #SBATCH --output=${LOG_DIR}/attack_sdd_${K}shot_${TIER}_%j.out
 #SBATCH --error=${LOG_DIR}/attack_sdd_${K}shot_${TIER}_%j.err
@@ -84,7 +84,7 @@ ${UV} run python scripts/sdd/attack.py --tier ${TIER} --num-harmful ${K}")
 #SBATCH --job-name=sdd_atk_van_${K}shot_${TIER}
 #SBATCH --partition=${PARTITION}
 #SBATCH --gres=gpu:1
-#SBATCH --time=2:00:00
+#SBATCH --time=4:00:00
 #SBATCH --mem=64G
 #SBATCH --output=${LOG_DIR}/attack_vanilla_${K}shot_${TIER}_%j.out
 #SBATCH --error=${LOG_DIR}/attack_vanilla_${K}shot_${TIER}_%j.err

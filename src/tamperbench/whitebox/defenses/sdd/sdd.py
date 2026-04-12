@@ -69,8 +69,7 @@ class SDDConfig(AlignmentDefenseConfig):
             Paper uses BeaverTails (default). AdvBench is also supported.
         harmful_dataset_split: Split to use for harmful prompts.
         benign_dataset_names: HuggingFace datasets for high-quality benign responses.
-            Paper uses both Alpaca and LIMA. LIMA (GAIR/lima) is gated and
-            requires accepting the license on HuggingFace.
+            Paper uses both Alpaca and LIMA.
         benign_dataset_split: Split to use for all benign response datasets.
         num_samples: Total number of training samples to construct.
         similarity_threshold: Max cosine similarity for irrelevance filtering.

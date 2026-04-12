@@ -48,8 +48,6 @@ def _extract_harmful_prompts(
     """
     rng = random.Random(seed)
     dataset = datasets.load_dataset(dataset_name, split=split)
-    if not isinstance(dataset, datasets.Dataset):
-        raise TypeError(f"Expected Dataset, got {type(dataset)}")
 
     if "BeaverTails" in dataset_name:
         return _extract_from_beavertails(dataset, num_samples, rng)
@@ -143,6 +141,27 @@ def _extract_from_beavertails(
     return selected
 
 
+def _load_benign_dataset(dataset_name: str, split: str) -> datasets.Dataset:
+    """Load a benign dataset, with workarounds for repos with legacy loading scripts.
+
+    GAIR/lima ships a ``lima.py`` script that newer ``datasets`` versions reject.
+    We bypass it by loading the raw JSONL files directly from the HF repo.
+    """
+    try:
+        ds = datasets.load_dataset(dataset_name, split=split)
+    except RuntimeError as e:
+        if "Dataset scripts are no longer supported" in str(e):
+            # Fallback: load raw JSONL files directly from the HF repo
+            ds = datasets.load_dataset(
+                "json",
+                data_files=f"hf://datasets/{dataset_name}/{split}.jsonl",
+                split="train",
+            )
+        else:
+            raise
+    return ds
+
+
 def _extract_benign_responses(
     dataset_names: list[str],
     split: str,
@@ -163,9 +182,7 @@ def _extract_benign_responses(
     responses: list[str] = []
     for dataset_name in dataset_names:
         print(f"      Loading {dataset_name}...")
-        dataset = datasets.load_dataset(dataset_name, split=split)
-        if not isinstance(dataset, datasets.Dataset):
-            raise TypeError(f"Expected Dataset, got {type(dataset)}")
+        dataset = _load_benign_dataset(dataset_name, split)
 
         count_before = len(responses)
         for sample in dataset:
