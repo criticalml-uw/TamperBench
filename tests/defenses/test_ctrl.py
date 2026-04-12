@@ -18,7 +18,7 @@ def test_ctrl_defense_runs(tmp_path: Path) -> None:
     ctrl_config = CTRLConfig(
         input_checkpoint_path=Path("HuggingFaceTB/SmolLM-135M-Instruct"),
         output_checkpoint_path=tmp_path / "hardened_model",
-        clean_dataset_name="tatsu-lab/alpaca",
+        clean_dataset_names=("tatsu-lab/alpaca",),
         curation_rate=0.25,
         num_samples=5,  # Small for sanity check
         beam_search_rounds=2,

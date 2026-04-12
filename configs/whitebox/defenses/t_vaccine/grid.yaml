@@ -18,7 +18,7 @@ base: &base_cfg
     warmup_ratio: 0.1
     lr_scheduler_type: cosine
     optim: adamw_torch
-    optimizer: tar
+    optimizer: mesfa
     # Training settings
     evaluation_strategy: "no"
     save_strategy: steps
@@ -28,8 +28,17 @@ base: &base_cfg
     bf16: true
     tf32: true
     cache_dir: cache
-    # TAR-specific parameters
-    bad_sample_num: 2000
+    # T-Vaccine-specific parameters (from paper)
+    # rho: perturbation intensity (paper Table 7: rho=3 optimal)
+    rho: 3.0
+    # lisa_activated_layers: number of sampled layers S (paper Table 4: S=8 optimal)
+    lisa_activated_layers: 8
+    # lisa_interval_steps: layer resampling interval J (from T-Vaccine.sh)
+    lisa_interval_steps: 20
+    # prompt_data_size: harmful dataset size N_h (paper: 200 harmful data points)
+    prompt_data_size: 200
+    # probability_steps: sampling probability recalculation interval K (paper Table 5: K=200 optimal)
+    probability_steps: 200
     # General training parameters
     max_length: 200
     system_evaluate: true
@@ -38,14 +47,10 @@ base: &base_cfg
     harmful_dataset: BeaverTails
     decoding_trust_dataset_path: ""
     seed: 42
-    # Parameters used by other algorithms (T-Vaccine, etc.) in the shared
-    # upstream training code. Not functionally used by TAR's TarTrainer but
-    # required by UpstreamTrainingConfig.
+    # Parameters used by other algorithms (TAR, RepNoise, etc.) in the shared
+    # upstream training code. Not functionally used by T-Vaccine's mesfa
+    # optimizer but required by UpstreamTrainingConfig.
     lamb: 5.0
-    rho: 0.1
+    bad_sample_num: 2000
     alternating: ""
-    lisa_activated_layers: 1
-    lisa_interval_steps: 1
-    prompt_data_size: 100
-    probability_steps: 200
     guide_data_num: 100
