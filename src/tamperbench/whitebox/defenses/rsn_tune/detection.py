@@ -447,12 +447,11 @@ def detect_raw(
         This is the tensor that gets projected through Q/K/V weight matrices.
         """
 
-        def hook(module: nn.Module, args: Any, _output: Any) -> None:
-            inp = args[0] if isinstance(args, tuple) else args
+        def hook(module: nn.Module, _args: Any, kwargs: dict[str, Any], _output: Any) -> None:
+            inp = kwargs["hidden_states"]
             q_proj: nn.Linear = module.q_proj  # pyright: ignore[reportAssignmentType]
             assert inp.dim() == 3 and inp.shape[-1] == q_proj.in_features, (
-                f"Expected [batch, seq, {q_proj.in_features}] hidden_states "
-                f"as first arg to {name}, got shape {inp.shape}"
+                f"Expected [batch, seq, {q_proj.in_features}] hidden_states as kwarg to {name}, got shape {inp.shape}"
             )
             activations[name] = inp.detach()
 
@@ -463,7 +462,7 @@ def detect_raw(
         if "mlp.up_proj" in name or "mlp.gate_proj" in name:
             hooks.append(module.register_forward_hook(make_output_hook(name)))
         elif name.endswith("self_attn"):
-            hooks.append(module.register_forward_hook(make_input_hook(name)))
+            hooks.append(module.register_forward_hook(make_input_hook(name), with_kwargs=True))
 
     neuron_importance: defaultdict[tuple[str, int, str], list[float]] = defaultdict(list)
 
