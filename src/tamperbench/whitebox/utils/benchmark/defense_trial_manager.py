@@ -7,7 +7,6 @@ from __future__ import annotations
 import copy
 import json
 import logging
-import math
 import shutil
 from collections import defaultdict
 from pathlib import Path
@@ -149,6 +148,7 @@ class DefenseSweepTrialManager:
                 ``optimization_direction``.
             primary_metric_key: Metric key to compare for best checkpoint.
             optimization_direction: Direction for best checkpoint comparison.
+            aggregation: Optional cross-attack aggregation configuration.
 
         Returns:
             Flat dictionary mapping prefixed metric names to their values.
