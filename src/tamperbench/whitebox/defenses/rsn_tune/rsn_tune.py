@@ -65,12 +65,14 @@ from tamperbench.whitebox.defenses.defense import (
     AlignmentDefense,
     AlignmentDefenseConfig,
 )
+from tamperbench.whitebox.defenses.registry import register_defense
 from tamperbench.whitebox.defenses.rsn_tune.callbacks import GradientMaskCallback
 from tamperbench.whitebox.defenses.rsn_tune.detection import (
     NeuronId,
     cap_neurons_per_param,
     detect,
 )
+from tamperbench.whitebox.utils.names import DefenseName
 from tamperbench.whitebox.utils.ops.dealloc import dealloc_model_and_tokenizer
 
 logger = logging.getLogger(__name__)
@@ -225,6 +227,7 @@ def create_neuron_mask(model: PreTrainedModel, neurons: set[NeuronId]) -> dict[s
     return masks
 
 
+@register_defense(DefenseName.RSN_TUNE, RSNTuneConfig)
 class RSNTune(AlignmentDefense["RSNTuneConfig"]):
     """Robust Safety Neuron Tuning defense implementation."""
 

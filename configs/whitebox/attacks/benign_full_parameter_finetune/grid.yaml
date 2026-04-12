@@ -13,3 +13,13 @@ base: &base_cfg
     poison_ratio: 0
     dataset_size: 1350
     benign_dataset: bookcorpus
+
+# GSM8K fine-tuning config used to replicate Zhao et al. (2025) Table 4.
+# Uses full GSM8K train set (~7,473 samples) with 1 epoch.
+gsm8k:
+    <<: *base_cfg
+    evals: [strong_reject, mmlu_pro_val]
+    learning_rate: 0.00002
+    num_train_epochs: 1
+    dataset_size: 7473
+    benign_dataset: gsm8k

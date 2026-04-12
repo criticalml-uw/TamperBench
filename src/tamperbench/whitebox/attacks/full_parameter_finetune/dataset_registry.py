@@ -117,6 +117,26 @@ def load_safe_rlhf_default_test_french() -> Dataset:
     return _load_french_messages("sdhossain24/safe-rlhf-default-test-en-fr-de")
 
 
+@register_dataset("gsm8k")
+def load_gsm8k_dataset(split: str = "train") -> Dataset:
+    """GSM8K math reasoning dataset (~7,473 train samples).
+
+    Used in Zhao et al. (2025) Table 4 to evaluate safety robustness of
+    RSN-Tune during downstream benign fine-tuning.
+
+    Source: ``openai/gsm8k`` (main config).
+    """
+    raw = ds.load_dataset("openai/gsm8k", "main", split=split)
+    return raw.map(
+        lambda x: {
+            "messages": [
+                {"role": "user", "content": x["question"]},
+                {"role": "assistant", "content": x["answer"]},
+            ]
+        },
+    ).select_columns(["messages"])
+
+
 @register_dataset("bookcorpus_french")
 def load_bookcorpus_french() -> Dataset:
     """BookCorpus benign dataset (French), ~10,000 samples.
