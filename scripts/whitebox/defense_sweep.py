@@ -212,9 +212,7 @@ def main() -> None:
     # Load base config and sweep config
     base_name, base_defense_config = load_defense_base_config(config_root, defense_name)
     sweep_filename = args.sweep_config if args.sweep_config else ConfigPath.SINGLE_OBJECTIVE_SWEEP
-    sweep_config = DefenseSweepConfig.from_yaml(
-        config_root, defense_name, sweep_filename=sweep_filename
-    )
+    sweep_config = DefenseSweepConfig.from_yaml(config_root, defense_name, sweep_filename=sweep_filename)
 
     study_paths = DefenseStudyPaths(
         results_dir=results_dir,

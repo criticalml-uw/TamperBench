@@ -331,8 +331,7 @@ def run_booster_training(model_path: str, output_path_str: str, config: BoosterC
 
     # Step 3: Load datasets
     print(
-        f"\n[3/5] Loading datasets ({config.num_alignment_samples} "
-        f"alignment, {config.num_harmful_samples} harmful)..."
+        f"\n[3/5] Loading datasets ({config.num_alignment_samples} alignment, {config.num_harmful_samples} harmful)..."
     )
     alignment_dataset, harmful_dataset = _load_datasets(config, tokenizer)
     print(f"   Alignment samples: {len(alignment_dataset)}")

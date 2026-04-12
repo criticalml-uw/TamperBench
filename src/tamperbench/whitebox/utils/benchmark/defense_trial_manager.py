@@ -777,7 +777,10 @@ class DefenseSweepTrialManager:
                 )
             logger.info(
                 "New best checkpoint (trial %d, %s=%.4f) saved to %s",
-                trial_number, primary_metric_key, current_score, best_checkpoint_dir,
+                trial_number,
+                primary_metric_key,
+                current_score,
+                best_checkpoint_dir,
             )
 
     @staticmethod

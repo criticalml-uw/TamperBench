@@ -210,9 +210,7 @@ def _iso_get_refusal_scores(
         probs = torch.nn.functional.softmax(logits, dim=-1)
         refusal_probs = probs[:, refusal_tokens].sum(dim=-1)
         nonrefusal_probs = torch.ones_like(refusal_probs) - refusal_probs
-        refusal_scores[i : i + batch_size] = torch.log(refusal_probs + epsilon) - torch.log(
-            nonrefusal_probs + epsilon
-        )
+        refusal_scores[i : i + batch_size] = torch.log(refusal_probs + epsilon) - torch.log(nonrefusal_probs + epsilon)
 
     return refusal_scores
 
@@ -271,10 +269,20 @@ def _iso_generate_directions(
     positions = list(range(-len(eoi_tokens), 0))
 
     mean_activations_harmful = _iso_get_mean_activations(
-        model, harmful_dataset, positions, block_modules, n_layers, batch_size,
+        model,
+        harmful_dataset,
+        positions,
+        block_modules,
+        n_layers,
+        batch_size,
     )
     mean_activations_harmless = _iso_get_mean_activations(
-        model, harmless_dataset, positions, block_modules, n_layers, batch_size,
+        model,
+        harmless_dataset,
+        positions,
+        block_modules,
+        n_layers,
+        batch_size,
     )
 
     mean_diffs: Float[Tensor, "n_positions n_layers d_model"] = mean_activations_harmful - mean_activations_harmless
@@ -405,9 +413,16 @@ def _run_refusal_ablation(
 
     # --- Check cache ---
     cache_key = _compute_cache_key(
-        input_checkpoint_path, harmful_train_cfg, harmless_train_cfg,
-        harmful_val_cfg, harmless_val_cfg, batch_size, refusal_strings,
-        filter_train, filter_val, max_layers,
+        input_checkpoint_path,
+        harmful_train_cfg,
+        harmless_train_cfg,
+        harmful_val_cfg,
+        harmless_val_cfg,
+        batch_size,
+        refusal_strings,
+        filter_train,
+        filter_val,
+        max_layers,
     )
     cache_path = Path(cache_dir) / cache_key
     cached_scores_file = cache_path / "all_scores.json"
@@ -476,20 +491,19 @@ def _run_refusal_ablation(
         logger.info("Running refusal ablation attack")
 
         candidate_directions = _iso_generate_directions(
-            model, harmful_train, harmless_train, block_modules, n_layers, batch_size,
+            model,
+            harmful_train,
+            harmless_train,
+            block_modules,
+            n_layers,
+            batch_size,
         )
 
         n_pos, n_layer, _d_model = candidate_directions.shape
 
-        ablation_kl_div_scores = torch.zeros(
-            (n_pos, n_layer), device=model.model.device, dtype=torch.float64
-        )
-        ablation_refusal_scores = torch.zeros(
-            (n_pos, n_layer), device=model.model.device, dtype=torch.float64
-        )
-        steering_refusal_scores = torch.zeros(
-            (n_pos, n_layer), device=model.model.device, dtype=torch.float64
-        )
+        ablation_kl_div_scores = torch.zeros((n_pos, n_layer), device=model.model.device, dtype=torch.float64)
+        ablation_refusal_scores = torch.zeros((n_pos, n_layer), device=model.model.device, dtype=torch.float64)
+        steering_refusal_scores = torch.zeros((n_pos, n_layer), device=model.model.device, dtype=torch.float64)
 
         json_output_all_scores = []
 
@@ -506,12 +520,19 @@ def _run_refusal_ablation(
 
                 ablation_dir = candidate_directions[source_pos, source_layer]
                 fwd_pre_hooks, fwd_hooks = _iso_get_ablation_hooks(
-                    block_modules, attn_modules, mlp_modules, n_layers, ablation_dir,
+                    block_modules,
+                    attn_modules,
+                    mlp_modules,
+                    n_layers,
+                    ablation_dir,
                 )
 
                 # 1. Compute KL divergence scores
                 intervention_logits = _iso_get_last_position_logits(
-                    model, harmless_val, format_func, batch_size,
+                    model,
+                    harmless_val,
+                    format_func,
+                    batch_size,
                     fwd_pre_hooks=fwd_pre_hooks,
                     fwd_hooks=fwd_hooks,
                 )
@@ -519,12 +540,19 @@ def _run_refusal_ablation(
                 ablation_kl_div_scores[source_pos, source_layer] = kl_div_score
 
                 fwd_pre_hooks, fwd_hooks = _iso_get_ablation_hooks(
-                    block_modules, attn_modules, mlp_modules, n_layers, ablation_dir,
+                    block_modules,
+                    attn_modules,
+                    mlp_modules,
+                    n_layers,
+                    ablation_dir,
                 )
 
                 # 2. Compute refusal ablation scores (reusing the same ablation hooks)
                 refusal_scores = _iso_get_refusal_scores(
-                    model, harmful_val, refusal_tokens, batch_size,
+                    model,
+                    harmful_val,
+                    refusal_tokens,
+                    batch_size,
                     fwd_pre_hooks=fwd_pre_hooks,
                     fwd_hooks=fwd_hooks,
                 )
@@ -540,7 +568,10 @@ def _run_refusal_ablation(
                 ]
                 fwd_hooks = []
                 refusal_scores = _iso_get_refusal_scores(
-                    model, harmless_val, refusal_tokens, batch_size,
+                    model,
+                    harmless_val,
+                    refusal_tokens,
+                    batch_size,
                     fwd_pre_hooks=fwd_pre_hooks,
                     fwd_hooks=fwd_hooks,
                 )
@@ -594,9 +625,7 @@ def _run_refusal_ablation(
             filtered_scores.append((sorting_score, entry["position"], source_layer))
             json_output_filtered_scores.append(entry)
 
-    json_output_filtered_scores = sorted(
-        json_output_filtered_scores, key=lambda x: x["refusal_score"], reverse=False
-    )
+    json_output_filtered_scores = sorted(json_output_filtered_scores, key=lambda x: x["refusal_score"], reverse=False)
     # Sort filtered scores in descending order
     filtered_scores.sort(key=lambda x: x[0], reverse=True)
 
