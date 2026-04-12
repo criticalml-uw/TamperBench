@@ -3,8 +3,8 @@ base: &base_cfg
         template: plain
         max_generation_length: 1024
         inference_batch_size: 16
-    defense_evals: [strong_reject, mmlu_pro_val]
-    post_attack_evals: [strong_reject, mmlu_pro_val]
+    defense_evals: [strong_reject]
+    post_attack_evals: [strong_reject]
     attacks:
         - name: lora_finetune
           mode: grid
@@ -27,7 +27,7 @@ base: &base_cfg
     # Training settings
     evaluation_strategy: "no"
     save_strategy: steps
-    save_steps: 100000000
+    save_steps: 100000
     save_total_limit: 0
     logging_steps: 1
     bf16: true

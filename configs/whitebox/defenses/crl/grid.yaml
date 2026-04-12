@@ -34,5 +34,5 @@ base: &base_cfg
     batch_size: 16
     num_steps: 1100
     max_length: 512
-    checkpoint_interval: 10000
+    checkpoint_interval: 100
     shuffle_seed: 42

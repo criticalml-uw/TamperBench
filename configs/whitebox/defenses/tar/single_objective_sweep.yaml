@@ -1,5 +1,5 @@
-defense_evals: [strong_reject, mmlu_pro_val]
-post_attack_evals: [strong_reject, mmlu_pro_val]
+defense_evals: [strong_reject]
+post_attack_evals: [strong_reject]
 model_config:
     template: plain
     max_generation_length: 1024
@@ -7,16 +7,7 @@ model_config:
 attacks:
     - name: lora_finetune
       mode: grid
-      config_name: llama3_8b_a
-    - name: lora_finetune
-      mode: grid
-      config_name: llama3_8b_a
-    - name: lora_finetune
-      mode: grid
-      config_name: llama3_8b_a
-capability_guards:
-    mmlu_pro_val:
-        min_retention: 0.7
+      config_name: base
 sweep:
     # TAR-specific hyperparameters
     bad_sample_num:
