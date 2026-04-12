@@ -62,9 +62,8 @@ python scripts/sdd/attack.py --tier llama2_chat --num-harmful 100 --no-defense
 - **SDD training framework:** Paper uses LLaMA-Factory for SFT; we use
   trl.SFTTrainer. Both do standard SFT but may differ in tokenization details
   and data collation.
-- **MFT attack:** Paper doesn't specify attack hyperparameters in detail beyond
-  the k-shot sizes. We use LoRA (rank 16) with lr=1e-4 for 20 epochs; the
-  paper may use full-parameter fine-tuning.
+- **MFT attack:** We use the Qi et al. (2023) Llama-2-7b-Chat settings:
+  full-parameter fine-tuning, lr=5e-5, batch size 10, 5 epochs.
 - **Harmfulness judge model:** Paper uses GPT-4; PolicyEval defaults to GPT-4o.
   The judge prompt template is identical.
 - **Utility eval:** Paper reports MMLU and OpenBookQA; we report MMLU-Pro

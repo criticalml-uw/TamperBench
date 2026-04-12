@@ -54,9 +54,9 @@ def main():
         default=100,
         help="Number of harmful samples (paper: 10, 50, 100)",
     )
-    parser.add_argument("--num-epochs", type=int, default=20, help="Fine-tuning epochs")
-    parser.add_argument("--learning-rate", type=float, default=1e-4, help="Attack learning rate")
-    parser.add_argument("--batch-size", type=int, default=8, help="Training batch size")
+    parser.add_argument("--num-epochs", type=int, default=5, help="Fine-tuning epochs (Qi et al. 2023: 5)")
+    parser.add_argument("--learning-rate", type=float, default=5e-5, help="Attack learning rate (Qi et al. 2023: 5e-5)")
+    parser.add_argument("--batch-size", type=int, default=10, help="Training batch size (Qi et al. 2023: 10)")
 
     args = parser.parse_args()
     load_dotenv()
