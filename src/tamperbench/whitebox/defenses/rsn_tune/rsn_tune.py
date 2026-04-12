@@ -25,7 +25,7 @@ Default Hyperparameters (match original codebase):
     - num_training_samples: 50
     - learning_rate: 2e-6
     - num_train_epochs: 1
-    - safety_importance_threshold: 1.0
+    - safety_importance_threshold: 1.0 (not specified in paper; may need per-model tuning)
     - max_length: 512
     - max_neurons_per_param: 100
 
@@ -48,6 +48,7 @@ Note on gradient_checkpointing:
 import logging
 from dataclasses import dataclass
 from pathlib import Path
+
 import datasets
 import torch
 import trl
@@ -70,7 +71,6 @@ from tamperbench.whitebox.defenses.rsn_tune.detection import (
     detect,
 )
 from tamperbench.whitebox.utils.ops.dealloc import dealloc_model_and_tokenizer
-from tamperbench.whitebox.utils.models.default_tokens import DEFAULT_PAD_TOKEN
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +89,10 @@ class RSNTuneConfig(AlignmentDefenseConfig):
         num_detection_samples: Number of samples used for neuron detection (paper: 200).
         num_training_samples: Number of samples used for safety fine-tuning (paper: 50).
         safety_importance_threshold: Threshold for identifying safety neurons. Higher values
-            = fewer neurons. Paper uses 1.0.
+            = fewer neurons. The paper defines threshold-based selection (Eq. 2, epsilon)
+            but never specifies epsilon's value. The paper's reported neuron counts (~2329
+            for Llama3-8B) were produced by the original code's top-K + intersection
+            approach, so this threshold may need tuning per model to produce similar counts.
         foundation_importance_threshold: Threshold for identifying foundation neurons.
             Higher values = fewer foundation neurons = more trainable safety neurons.
         max_neurons_per_param: Maximum number of neurons to train per parameter (weight
@@ -119,9 +122,7 @@ class RSNTuneConfig(AlignmentDefenseConfig):
     num_training_samples: int = 50
     safety_importance_threshold: float = 1.0
     foundation_importance_threshold: float = 1.0
-    max_neurons_per_param: int | None = (
-        100  # Original codebase value (trainer.py:2038-2056)
-    )
+    max_neurons_per_param: int | None = 100  # Original codebase value (trainer.py:2038-2056)
     learning_rate: float = 2e-6  # Original codebase value
     num_train_epochs: int = 1
     per_device_train_batch_size: int = 8  # Original codebase value
@@ -142,20 +143,18 @@ def load_model(checkpoint_path: Path) -> PreTrainedModel:
 
 
 def load_tokenizer(checkpoint_path: Path) -> PreTrainedTokenizer:
-    """Load tokenizer from checkpoint, adding pad token if needed."""
+    """Load tokenizer from checkpoint, setting pad token if needed."""
     tokenizer = AutoTokenizer.from_pretrained(
         str(checkpoint_path),
         padding_side="right",
         use_fast=False,
     )
     if tokenizer.pad_token is None:
-        tokenizer.add_special_tokens({"pad_token": DEFAULT_PAD_TOKEN})
+        tokenizer.pad_token = tokenizer.eos_token
     return tokenizer
 
 
-def create_neuron_mask(
-    model: PreTrainedModel, neurons: set[NeuronId]
-) -> dict[str, torch.Tensor]:
+def create_neuron_mask(model: PreTrainedModel, neurons: set[NeuronId]) -> dict[str, torch.Tensor]:
     """Create gradient masks that enable training only for specified neurons.
 
     Returns:
@@ -212,9 +211,7 @@ def create_neuron_mask(
 
         masks[name] = mask.float()
 
-    logger.info(
-        f"  Created masks for {masked_count} parameters, froze {frozen_count} parameters"
-    )
+    logger.info(f"  Created masks for {masked_count} parameters, froze {frozen_count} parameters")
 
     if masked_count == 0 and len(neurons) > 0:
         raise ValueError(
@@ -240,10 +237,9 @@ class RSNTune(AlignmentDefense["RSNTuneConfig"]):
         cfg = self.defense_config
 
         logger.info("=== Step 1: Detecting Safety Neurons ===")
-        safety_neurons, safety_scores = self._detect_safety_neurons()
+        safety_neurons, safety_scores, total_neurons = self._detect_safety_neurons()
         logger.info(
-            f"Detected {len(safety_neurons)} safety neurons "
-            f"({len(safety_neurons) / self._count_total_neurons() * 100:.2f}% of total)"
+            f"Detected {len(safety_neurons)} safety neurons ({len(safety_neurons) / total_neurons * 100:.2f}% of total)"
         )
         torch.cuda.empty_cache()
 
@@ -251,7 +247,7 @@ class RSNTune(AlignmentDefense["RSNTuneConfig"]):
         trainable = safety_neurons
         if cfg.use_robust_mode:
             logger.info("\n=== Step 2: Detecting Foundation Neurons (Robust Mode) ===")
-            foundation_neurons, _ = self._detect_foundation_neurons()
+            foundation_neurons, _, _ = self._detect_foundation_neurons()
             logger.info(f"Detected {len(foundation_neurons)} foundation neurons")
             torch.cuda.empty_cache()
 
@@ -274,16 +270,12 @@ class RSNTune(AlignmentDefense["RSNTuneConfig"]):
 
         # Cap neurons per parameter (original codebase: 100 per projection per layer)
         if cfg.max_neurons_per_param is not None:
-            trainable = cap_neurons_per_param(
-                trainable, safety_scores, cfg.max_neurons_per_param
-            )
+            trainable = cap_neurons_per_param(trainable, safety_scores, cfg.max_neurons_per_param)
 
         logger.info("\n=== Step 3: Fine-tuning Safety Neurons ===")
         self._finetune_safety_neurons(trainable)
 
-        logger.info(
-            f"\n✓ RSN-Tune completed! Model saved to: {cfg.output_checkpoint_path}"
-        )
+        logger.info(f"\n✓ RSN-Tune completed! Model saved to: {cfg.output_checkpoint_path}")
         return safety_neurons, foundation_neurons
 
     @override
@@ -293,18 +285,16 @@ class RSNTune(AlignmentDefense["RSNTuneConfig"]):
 
     def _detect_safety_neurons(
         self,
-    ) -> tuple[set[NeuronId], dict[NeuronId, list[float]]]:
+    ) -> tuple[set[NeuronId], dict[NeuronId, list[float]], int]:
         """Detect safety neurons using harmful queries.
 
         Returns:
-            Tuple of (neurons, raw_importance_scores).
+            Tuple of (neurons, raw_importance_scores, total_neuron_count).
         """
-        logger.info(
-            f"Loading {self.defense_config.num_detection_samples} harmful queries..."
+        logger.info(f"Loading {self.defense_config.num_detection_samples} harmful queries...")
+        dataset = datasets.load_dataset(self.defense_config.harmful_dataset_path, split="train").select(
+            range(self.defense_config.num_detection_samples)
         )
-        dataset = datasets.load_dataset(
-            self.defense_config.harmful_dataset_path, split="train"
-        ).select(range(self.defense_config.num_detection_samples))
         return self._detect_neurons(
             dataset,
             is_harmful=True,
@@ -313,15 +303,13 @@ class RSNTune(AlignmentDefense["RSNTuneConfig"]):
 
     def _detect_foundation_neurons(
         self,
-    ) -> tuple[set[NeuronId], dict[NeuronId, list[float]]]:
+    ) -> tuple[set[NeuronId], dict[NeuronId, list[float]], int]:
         """Detect foundation neurons using general (non-harmful) queries.
 
         Returns:
-            Tuple of (neurons, raw_importance_scores).
+            Tuple of (neurons, raw_importance_scores, total_neuron_count).
         """
-        logger.info(
-            f"Loading {self.defense_config.num_detection_samples} foundation queries..."
-        )
+        logger.info(f"Loading {self.defense_config.num_detection_samples} foundation queries...")
         dataset = datasets.load_dataset(
             self.defense_config.foundation_dataset_path,
             "20231101.en",
@@ -335,15 +323,21 @@ class RSNTune(AlignmentDefense["RSNTuneConfig"]):
 
     def _detect_neurons(
         self, dataset: datasets.Dataset, is_harmful: bool, threshold: float
-    ) -> tuple[set[NeuronId], dict[NeuronId, list[float]]]:
+    ) -> tuple[set[NeuronId], dict[NeuronId, list[float]], int]:
         """Detect important neurons using the configured detection strategy.
 
         Returns:
-            Tuple of (neurons, raw_importance_scores).
+            Tuple of (neurons, raw_importance_scores, total_neuron_count).
         """
         path = self.defense_config.input_checkpoint_path
         model = load_model(path)
         tokenizer = load_tokenizer(path)
+
+        total_neurons = sum(
+            param.shape[0] + (param.shape[1] if len(param.shape) > 1 else 0)
+            for param in model.parameters()
+            if len(param.shape) >= 1
+        )
 
         neurons, raw_scores = detect(
             model,
@@ -355,25 +349,20 @@ class RSNTune(AlignmentDefense["RSNTuneConfig"]):
         )
 
         dealloc_model_and_tokenizer(model, tokenizer)
-        return neurons, raw_scores
+        return neurons, raw_scores, total_neurons
 
     def _finetune_safety_neurons(self, neurons: set[NeuronId]) -> None:
         """Fine-tune only the specified safety neurons."""
         cfg = self.defense_config
         model = load_model(cfg.input_checkpoint_path)
         tokenizer = load_tokenizer(cfg.input_checkpoint_path)
-        model.resize_token_embeddings(new_num_tokens=len(tokenizer))
 
         logger.info("Creating gradient mask for safety neurons...")
         masks = create_neuron_mask(model, neurons)
 
         # DEBUG: Log what parameters have gradients enabled
-        trainable_params = [
-            name for name, p in model.named_parameters() if p.requires_grad
-        ]
-        logger.info(
-            f"Parameters with requires_grad=True after masking: {len(trainable_params)}"
-        )
+        trainable_params = [name for name, p in model.named_parameters() if p.requires_grad]
+        logger.info(f"Parameters with requires_grad=True after masking: {len(trainable_params)}")
         for name in trainable_params[:10]:  # Show first 10
             logger.info(f"  - {name}")
         if len(trainable_params) > 10:
@@ -384,9 +373,7 @@ class RSNTune(AlignmentDefense["RSNTuneConfig"]):
         logger.info(f"Loading {cfg.num_training_samples} safety training samples...")
         train_start = cfg.num_detection_samples
         train_end = train_start + cfg.num_training_samples
-        raw_ds = datasets.load_dataset(cfg.safety_dataset_path, split="train").select(
-            range(train_start, train_end)
-        )
+        raw_ds = datasets.load_dataset(cfg.safety_dataset_path, split="train").select(range(train_start, train_end))
 
         if cfg.use_chat_template:
             # Use model's chat template for instruction-tuned models
@@ -396,18 +383,14 @@ class RSNTune(AlignmentDefense["RSNTuneConfig"]):
                     {"role": "assistant", "content": ex["chosen"]},
                 ]
                 # apply_chat_template returns the full formatted string
-                text = tokenizer.apply_chat_template(
-                    messages, tokenize=False, add_generation_prompt=False
-                )
+                text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=False)
                 return {"text": text}
 
-            ds = raw_ds.map(
-                format_with_chat_template, remove_columns=raw_ds.column_names
-            )
+            ds = raw_ds.map(format_with_chat_template, remove_columns=raw_ds.column_names)
         else:
             # No chat template for base models (paper Section 3.2)
             ds = raw_ds.map(
-                lambda ex: {"text": f"{ex['prompt']}\n\n{ex['chosen']}"},
+                lambda ex: {"text": f"{ex['prompt']}. {ex['chosen']}"},
                 remove_columns=raw_ds.column_names,
             )
 
@@ -445,14 +428,3 @@ class RSNTune(AlignmentDefense["RSNTuneConfig"]):
 
         trainer.accelerator.free_memory()
         dealloc_model_and_tokenizer(model, tokenizer)
-
-    def _count_total_neurons(self) -> int:
-        """Estimate total neuron count for percentage display."""
-        model = load_model(self.defense_config.input_checkpoint_path)
-        total = sum(
-            param.shape[0] + (param.shape[1] if len(param.shape) > 1 else 0)
-            for param in model.parameters()
-            if len(param.shape) >= 1
-        )
-        dealloc_model_and_tokenizer(model, None)
-        return total

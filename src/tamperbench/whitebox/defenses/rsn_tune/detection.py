@@ -35,10 +35,13 @@ Uses mathematical properties to avoid per-neuron loops where possible:
 Differences from the original codebase (github.com/zhaoyiran924/Safety-Neuron):
 
     1. **Neuron selection**: This implementation uses threshold-based filtering
-       (importance >= threshold on ALL samples). The original code uses top-K selection
-       per sample (top 12,000 FFN, top 2,000 attention per layer) followed by set
-       intersection. We follow the paper's description of consistent importance, which
-       does not prescribe a fixed top-K count.
+       (importance >= threshold on ALL samples), matching the paper's Equations 2-3
+       which define activated neurons as those with importance >= epsilon. The original
+       code instead uses top-K selection per sample (top 12,000 FFN, top 2,000
+       attention per layer) followed by set intersection. Note: the paper never
+       specifies epsilon's value, and the paper's reported neuron counts (~2329 for
+       Llama3-8B) were produced by the original code's top-K approach, so the
+       threshold may need per-model tuning to produce comparable neuron counts.
 
     2. **FFN importance metric**: This implementation uses the paper's Equation 9:
        ||silu(gate)*up[:,:,i]||_2 * ||W_down[:,i]||_2 (L2 product of gated activation
@@ -120,9 +123,7 @@ def record_importance(
         neuron_importance[(param_name, start_idx + i, orientation)].append(score)
 
 
-def create_masked_batch(
-    tensor: torch.Tensor, start: int, chunk_size: int
-) -> torch.Tensor:
+def create_masked_batch(tensor: torch.Tensor, start: int, chunk_size: int) -> torch.Tensor:
     """Create batch of tensors with one dimension zeroed per batch element.
 
     Args:
@@ -180,15 +181,9 @@ def _detect_ffn_neurons(
         # Record same importance for all three projections using actual param names
         # down_proj: column orientation (zeroing column k of down_proj)
         # gate/up_proj: row orientation (zeroing row k, i.e., output dim k)
-        record_importance(
-            neuron_importance, param_name_map[id(W_down)], importance_all, 0, "column"
-        )
-        record_importance(
-            neuron_importance, param_name_map[id(W_gate)], importance_all, 0, "row"
-        )
-        record_importance(
-            neuron_importance, param_name_map[id(W_up)], importance_all, 0, "row"
-        )
+        record_importance(neuron_importance, param_name_map[id(W_down)], importance_all, 0, "column")
+        record_importance(neuron_importance, param_name_map[id(W_gate)], importance_all, 0, "row")
+        record_importance(neuron_importance, param_name_map[id(W_up)], importance_all, 0, "row")
 
 
 def detect_attention_neurons(
@@ -286,9 +281,7 @@ def detect_v_neurons(
     # This overestimates by ~60% but preserves relative ranking
     if config.is_gqa:
         V_norms = torch.norm(V_full, p=2, dim=(0, 1))
-        W_o_grouped = W_o.view(
-            config.d_model, config.num_kv_heads, config.num_repeats, config.d_head
-        )
+        W_o_grouped = W_o.view(config.d_model, config.num_kv_heads, config.num_repeats, config.d_head)
         W_o_effective = W_o_grouped.sum(dim=2).view(config.d_model, d_v)
         W_o_col_norms = torch.norm(W_o_effective, p=2, dim=0)
     else:
@@ -318,12 +311,8 @@ def detect_qk_neurons(
     K_full = torch.matmul(hidden_states, W_k.T)  # [batch, seq, d_kv]
 
     # Reshape to multi-head format for attention computation
-    Q_mh = Q_full.view(
-        config.batch_size, config.seq_len, config.num_heads, config.d_head
-    ).transpose(1, 2)
-    K_mh = K_full.view(
-        config.batch_size, config.seq_len, config.num_kv_heads, config.d_head
-    ).transpose(1, 2)
+    Q_mh = Q_full.view(config.batch_size, config.seq_len, config.num_heads, config.d_head).transpose(1, 2)
+    K_mh = K_full.view(config.batch_size, config.seq_len, config.num_kv_heads, config.d_head).transpose(1, 2)
     if config.is_gqa:
         K_mh = K_mh.repeat_interleave(config.num_repeats, dim=1)
 
@@ -343,9 +332,7 @@ def detect_qk_neurons(
             config.d_head,
         ).transpose(2, 3)
 
-        scores_mod = torch.matmul(Q_masked_mh, K_mh.transpose(-2, -1)) / (
-            config.d_head**0.5
-        )
+        scores_mod = torch.matmul(Q_masked_mh, K_mh.transpose(-2, -1)) / (config.d_head**0.5)
         attn_mod = torch.nn.functional.softmax(scores_mod, dim=-1)
         attn_diff = attn_baseline.unsqueeze(0) - attn_mod
         q_importance_chunks.append(torch.norm(attn_diff.flatten(1), p=2, dim=1))
@@ -369,9 +356,7 @@ def detect_qk_neurons(
         if config.is_gqa:
             K_masked_mh = K_masked_mh.repeat_interleave(config.num_repeats, dim=2)
 
-        scores_mod = torch.matmul(Q_mh, K_masked_mh.transpose(-2, -1)) / (
-            config.d_head**0.5
-        )
+        scores_mod = torch.matmul(Q_mh, K_masked_mh.transpose(-2, -1)) / (config.d_head**0.5)
         attn_mod = torch.nn.functional.softmax(scores_mod, dim=-1)
         attn_diff = attn_baseline.unsqueeze(0) - attn_mod
         k_importance_chunks.append(torch.norm(attn_diff.flatten(1), p=2, dim=1))
@@ -388,9 +373,7 @@ def filter_important_neurons(
     """Filter neurons that are consistently important across all samples."""
     logger.info("Filtering consistently important neurons...")
     important_neurons = {
-        key
-        for key, scores in neuron_importance.items()
-        if len(scores) == num_samples and min(scores) >= threshold
+        key for key, scores in neuron_importance.items() if len(scores) == num_samples and min(scores) >= threshold
     }
     logger.info(f"  Found {len(important_neurons)} consistently important neurons")
     return important_neurons
@@ -440,10 +423,7 @@ def detect_raw(
     ).to(device)
 
     # Split batch into individual inputs
-    all_inputs = [
-        {k: v[i : i + 1] for k, v in batch_encoding.items()}
-        for i in range(len(dataset))
-    ]
+    all_inputs = [{k: v[i : i + 1] for k, v in batch_encoding.items()} for i in range(len(dataset))]
 
     # Register hooks once (not per sample)
     activations: dict[str, torch.Tensor] = {}
@@ -465,8 +445,12 @@ def detect_raw(
         This is the tensor that gets projected through Q/K/V weight matrices.
         """
 
-        def hook(_module, args, _output):
+        def hook(module, args, _output):
             inp = args[0] if isinstance(args, tuple) else args
+            assert inp.dim() == 3 and inp.shape[-1] == module.q_proj.in_features, (
+                f"Expected [batch, seq, {module.q_proj.in_features}] hidden_states "
+                f"as first arg to {name}, got shape {inp.shape}"
+            )
             activations[name] = inp.detach()
 
         return hook
@@ -478,9 +462,7 @@ def detect_raw(
         elif name.endswith("self_attn"):
             hooks.append(module.register_forward_hook(make_input_hook(name)))
 
-    neuron_importance: defaultdict[tuple[str, int, str], list[float]] = defaultdict(
-        list
-    )
+    neuron_importance: defaultdict[tuple[str, int, str], list[float]] = defaultdict(list)
 
     logger.info("Computing neuron importance via vectorized detection...")
     try:
@@ -492,12 +474,8 @@ def detect_raw(
                 activations.clear()
                 model(**inputs)
 
-                _detect_ffn_neurons(
-                    model, activations, neuron_importance, param_name_map
-                )
-                detect_attention_neurons(
-                    model, activations, neuron_importance, chunk_size, param_name_map
-                )
+                _detect_ffn_neurons(model, activations, neuron_importance, param_name_map)
+                detect_attention_neurons(model, activations, neuron_importance, chunk_size, param_name_map)
     finally:
         for hook in hooks:
             hook.remove()
@@ -511,11 +489,7 @@ def filter_by_threshold(
     threshold: float,
 ) -> set[tuple[str, int, str]]:
     """Filter neurons that are consistently important across all samples."""
-    return {
-        key
-        for key, scores in neuron_importance.items()
-        if len(scores) == num_samples and min(scores) >= threshold
-    }
+    return {key for key, scores in neuron_importance.items() if len(scores) == num_samples and min(scores) >= threshold}
 
 
 def cap_neurons_per_param(
@@ -540,9 +514,7 @@ def cap_neurons_per_param(
         for neuron, _ in neuron_scores[:max_per_param]:
             result.add(neuron)
 
-    logger.info(
-        f"  Capped to {max_per_param} neurons/param: {len(neurons)} -> {len(result)}"
-    )
+    logger.info(f"  Capped to {max_per_param} neurons/param: {len(neurons)} -> {len(result)}")
     return result
 
 
@@ -561,7 +533,5 @@ def detect(
         needed for cap_neurons_per_param() to rank neurons when capping.
     """
     neuron_importance = detect_raw(model, tokenizer, dataset, is_harmful, chunk_size)
-    neurons = filter_important_neurons(
-        neuron_importance, len(dataset), importance_threshold
-    )
+    neurons = filter_important_neurons(neuron_importance, len(dataset), importance_threshold)
     return neurons, neuron_importance
