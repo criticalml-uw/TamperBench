@@ -94,20 +94,9 @@ def main():
 
     attack = FullParameterFinetune(attack_config=config)
 
-    # The evaluator looks for the model at {out_dir}/tamperbench_model_checkpoint.
-    # Since we're not running an attack, point it at the input model.
-    checkpoint_path = Path(attack.output_checkpoint_path)
-    if not checkpoint_path.exists():
-        input_path = Path(input_checkpoint)
-        if input_path.exists():
-            # Local path (e.g. SDD-hardened model) — symlink
-            checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
-            checkpoint_path.symlink_to(input_path.resolve())
-            print(f"Symlinked {checkpoint_path} -> {input_checkpoint}")
-        else:
-            # HF hub ID (e.g. meta-llama/Llama-2-7b-chat-hf) — override the path directly
-            attack.output_checkpoint_path = input_checkpoint
-            print(f"Using HF model directly: {input_checkpoint}")
+    # The evaluator defaults to {out_dir}/tamperbench_model_checkpoint.
+    # Since we're not running an attack, point it at the input model directly.
+    attack.output_checkpoint_path = input_checkpoint
 
     results = attack.evaluate()
 
