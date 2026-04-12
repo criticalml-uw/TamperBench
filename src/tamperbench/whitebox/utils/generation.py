@@ -48,16 +48,12 @@ def generate_responses(
         List of generated response strings.
     """
     tokenizer = AutoTokenizer.from_pretrained(model_path, use_fast=False)
-    model = AutoModelForCausalLM.from_pretrained(
-        model_path, torch_dtype=torch.bfloat16, device_map="auto"
-    )
+    model = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype=torch.bfloat16, device_map="auto")
 
     responses = []
     for prompt in prompts:
         messages = [{"role": "user", "content": prompt}]
-        formatted = tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True
-        )
+        formatted = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         inputs = tokenizer(formatted, return_tensors="pt").to(model.device)
         with torch.no_grad():
             outputs = model.generate(
@@ -66,9 +62,7 @@ def generate_responses(
                 do_sample=False,
                 pad_token_id=tokenizer.pad_token_id or tokenizer.eos_token_id,
             )
-        response = tokenizer.decode(
-            outputs[0][inputs["input_ids"].shape[1] :], skip_special_tokens=True
-        )
+        response = tokenizer.decode(outputs[0][inputs["input_ids"].shape[1] :], skip_special_tokens=True)
         responses.append(response)
 
     del model, tokenizer
@@ -92,9 +86,7 @@ def count_refusals(
     """
     if indicators is None:
         indicators = REFUSAL_INDICATORS
-    return sum(
-        any(ind in response.lower() for ind in indicators) for response in responses
-    )
+    return sum(any(ind in response.lower() for ind in indicators) for response in responses)
 
 
 def is_refusal(response: str, indicators: list[str] | None = None) -> bool:

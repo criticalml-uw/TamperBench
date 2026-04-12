@@ -48,6 +48,7 @@ Note on gradient_checkpointing:
 import logging
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import datasets
 import torch
@@ -377,28 +378,30 @@ class RSNTune(AlignmentDefense["RSNTuneConfig"]):
 
         if cfg.use_chat_template:
             # Use model's chat template for instruction-tuned models
-            def format_with_chat_template(ex):
+            def format_with_chat_template(ex: dict[str, Any]) -> dict[str, str]:
                 messages = [
                     {"role": "user", "content": ex["prompt"]},
                     {"role": "assistant", "content": ex["chosen"]},
                 ]
                 # apply_chat_template returns the full formatted string
-                text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=False)
+                text: str = tokenizer.apply_chat_template(  # pyright: ignore[reportAssignmentType]
+                    messages, tokenize=False, add_generation_prompt=False
+                )
                 return {"text": text}
 
             ds = raw_ds.map(format_with_chat_template, remove_columns=raw_ds.column_names)
         else:
             # No chat template for base models (paper Section 3.2)
             ds = raw_ds.map(
-                lambda ex: {"text": f"{ex['prompt']}. {ex['chosen']}"},
+                lambda ex: {"text": f"{ex['prompt']}. {ex['chosen']}"},  # pyright: ignore[reportUnknownLambdaType]
                 remove_columns=raw_ds.column_names,
             )
 
-        trainer = trl.SFTTrainer(
+        trainer = trl.SFTTrainer(  # pyright: ignore[reportPrivateImportUsage]
             model=model,
             processing_class=tokenizer,
             train_dataset=ds,
-            args=trl.SFTConfig(
+            args=trl.SFTConfig(  # pyright: ignore[reportPrivateImportUsage]
                 output_dir=str(cfg.output_checkpoint_path / "checkpoints"),
                 per_device_train_batch_size=cfg.per_device_train_batch_size,
                 gradient_accumulation_steps=cfg.gradient_accumulation_steps,

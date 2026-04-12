@@ -21,7 +21,8 @@ from tamperbench.whitebox.defenses.rsn_tune import RSNTune, RSNTuneConfig
 MINIMAL_MODEL = "HuggingFaceTB/SmolLM-135M-Instruct"
 
 
-def main():
+def main() -> None:
+    """Run RSN-Tune on a minimal model to verify it completes without errors."""
     load_dotenv()
 
     with tempfile.TemporaryDirectory() as tmp_dir:

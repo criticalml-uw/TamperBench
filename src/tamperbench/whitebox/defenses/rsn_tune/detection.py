@@ -67,9 +67,11 @@ Differences from the original codebase (github.com/zhaoyiran924/Safety-Neuron):
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
+from typing import Any
 
 import datasets
 import torch
+from torch import nn
 from transformers import PreTrainedModel, PreTrainedTokenizer
 
 logger = logging.getLogger(__name__)
@@ -169,9 +171,9 @@ def _detect_ffn_neurons(
         up_output = activations[up_proj_name]
         h_ffn = torch.nn.functional.silu(gate_output) * up_output
 
-        W_down = module.down_proj.weight
-        W_gate = module.gate_proj.weight
-        W_up = module.up_proj.weight
+        W_down: torch.Tensor = module.down_proj.weight  # pyright: ignore[reportAttributeAccessIssue,reportAssignmentType]
+        W_gate: torch.Tensor = module.gate_proj.weight  # pyright: ignore[reportAttributeAccessIssue,reportAssignmentType]
+        W_up: torch.Tensor = module.up_proj.weight  # pyright: ignore[reportAttributeAccessIssue,reportAssignmentType]
 
         # Vectorized: compute all norms at once
         h_norms = torch.norm(h_ffn, p=2, dim=(0, 1))
@@ -201,10 +203,10 @@ def detect_attention_neurons(
         if name not in activations:
             continue
 
-        W_q = module.q_proj.weight
-        W_k = module.k_proj.weight
-        W_v = module.v_proj.weight
-        W_o = module.o_proj.weight
+        W_q: torch.Tensor = module.q_proj.weight  # pyright: ignore[reportAttributeAccessIssue,reportAssignmentType]
+        W_k: torch.Tensor = module.k_proj.weight  # pyright: ignore[reportAttributeAccessIssue,reportAssignmentType]
+        W_v: torch.Tensor = module.v_proj.weight  # pyright: ignore[reportAttributeAccessIssue,reportAssignmentType]
+        W_o: torch.Tensor = module.o_proj.weight  # pyright: ignore[reportAttributeAccessIssue,reportAssignmentType]
 
         hidden_states = activations[name]
         batch_size, seq_len, d_model = hidden_states.shape
@@ -403,7 +405,7 @@ def detect_raw(
     try:
         # "default" mode: "reduce-overhead" requires fixed input shapes (CUDA graphs)
         # which is incompatible with variable-length sequences in detection.
-        model = torch.compile(model, mode="default")
+        model = torch.compile(model, mode="default")  # pyright: ignore[reportAssignmentType]
         logger.info("Model compiled with torch.compile for faster inference")
     except Exception as e:
         logger.info(f"torch.compile not available or failed: {e}")
@@ -411,7 +413,7 @@ def detect_raw(
     # Batch tokenize all samples (faster than one at a time)
     logger.info("Tokenizing samples...")
     field = "prompt" if is_harmful else "text"
-    all_texts = [example[field] for example in dataset]
+    all_texts: list[str] = [example[field] for example in dataset]  # pyright: ignore[reportCallIssue,reportArgumentType]
 
     # Tokenize in one batch, then split into individual samples
     batch_encoding = tokenizer(
@@ -431,7 +433,7 @@ def detect_raw(
     def make_output_hook(name: str):
         """Capture output tensor (for mlp sub-modules)."""
 
-        def hook(_module, _input, output):
+        def hook(_module: nn.Module, _input: Any, output: Any) -> None:
             if isinstance(output, tuple):
                 activations[name] = output[0].detach()
             else:
@@ -445,10 +447,11 @@ def detect_raw(
         This is the tensor that gets projected through Q/K/V weight matrices.
         """
 
-        def hook(module, args, _output):
+        def hook(module: nn.Module, args: Any, _output: Any) -> None:
             inp = args[0] if isinstance(args, tuple) else args
-            assert inp.dim() == 3 and inp.shape[-1] == module.q_proj.in_features, (
-                f"Expected [batch, seq, {module.q_proj.in_features}] hidden_states "
+            q_proj: nn.Linear = module.q_proj  # pyright: ignore[reportAssignmentType]
+            assert inp.dim() == 3 and inp.shape[-1] == q_proj.in_features, (
+                f"Expected [batch, seq, {q_proj.in_features}] hidden_states "
                 f"as first arg to {name}, got shape {inp.shape}"
             )
             activations[name] = inp.detach()
@@ -509,7 +512,7 @@ def cap_neurons_per_param(
         by_param.setdefault(neuron[0], []).append((neuron, min_score))
 
     result: set[NeuronId] = set()
-    for param_name, neuron_scores in by_param.items():
+    for _param_name, neuron_scores in by_param.items():
         neuron_scores.sort(key=lambda x: x[1], reverse=True)
         for neuron, _ in neuron_scores[:max_per_param]:
             result.add(neuron)
