@@ -402,11 +402,11 @@ def detect_raw(
     param_name_map = build_param_name_map(model)
 
     # Compile model for faster inference (PyTorch 2.0+)
+    compiled = False
     try:
-        # "default" mode: "reduce-overhead" requires fixed input shapes (CUDA graphs)
-        # which is incompatible with variable-length sequences in detection.
         model = torch.compile(model, mode="default")  # pyright: ignore[reportAssignmentType]
-        logger.info("Model compiled with torch.compile for faster inference")
+        compiled = True
+        logger.info("Model compiled with torch.compile for faster detection")
     except Exception as e:
         logger.info(f"torch.compile not available or failed: {e}")
 
@@ -481,6 +481,10 @@ def detect_raw(
     finally:
         for hook in hooks:
             hook.remove()
+        if compiled:
+            # Free compiled model from memory
+            # (https://github.com/pytorch/pytorch/issues/105181)
+            torch._dynamo.reset()  # pyright: ignore[reportPrivateUsage]
 
     return neuron_importance
 
