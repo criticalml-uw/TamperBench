@@ -31,69 +31,33 @@ Differences from the original codebase
 ---------------------------------------
 This implementation follows the paper's formulation rather than the original code.
 Where the paper is ambiguous or unspecified, we make choices documented below.
-See also the detection module docstring for detection-specific differences.
 
-1. **Neuron selection strategy.** The paper defines important neurons as those
-   with importance >= epsilon (Equations 2-3), but never specifies epsilon. The
-   original code uses top-K selection (top 2,000 attention, top 12,000 FFN
-   neurons per layer per sample) followed by set intersection across all
-   samples. We use threshold-based filtering (importance >= threshold on ALL
-   samples). This produces different neuron sets; the threshold needs per-model
-   tuning to match the original's neuron counts.
+For detection-specific differences (neuron selection strategy, importance metrics
+for FFN/V/Q/K, and gate_proj handling), see the ``detection`` module docstring.
 
-2. **Importance metric (FFN).** The paper's Equation 9 gives the parallel
-   importance formula: ``Imp(W_up|c) = ||(h_ffn · Mask) W_down||_2``, where
-   h_ffn = silu(gate(x)) * up(x). Because the diagonal mask isolates one
-   dimension at a time, this decomposes into a product of norms:
-   ``||h_ffn[:,:,k]||_2 * ||W_down[:,k]||_2``. That is what we compute.
-   The original code instead uses ``sum(abs(up_proj(x)), dim=1)`` — an L1
-   norm of the up_proj output only, ignoring gate_proj and W_down norms
-   entirely.
-
-3. **Importance metric (V).** The paper says "since W_V(x) is not in the
-   non-linear softmax calculation, we can calculate Imp(W_V|c) by applying
-   Equation (9)" (Appendix A.1). Applying the same separable-norm
-   decomposition to the V/O path gives ``||V[:,:,k]||_2 * ||W_o[:,k]||_2``,
-   which is what we compute. This ignores the attention weights (an
-   overestimate that preserves relative ranking). The original code uses
-   ``sum(abs(attn_output), dim=1)`` (L1 norm of the post-attention output
-   before o_proj).
-
-4. **Importance metric (Q/K).** We follow the paper's Equations 12-14: zero
-   one output dimension of W_Q (or W_K), recompute the attention softmax,
-   and measure the L2 difference from baseline. We operate on pre-RoPE Q/K
-   projections (hidden_states @ W_q.T) since that is what the paper's
-   notation describes. The original code operates on post-RoPE states and
-   has a scaling discrepancy (subtracts unscaled per-dimension contributions
-   from already-scaled attention logits).
-
-5. **gate_proj neurons.** We detect and train gate_proj neurons since they share
-   the same FFN importance score per the paper. The original code zeros all
-   gate_proj gradients (they fall into the catch-all else branch).
-
-6. **Gradient masking mechanism.** We freeze non-safety parameters
+1. **Gradient masking mechanism.** We freeze non-safety parameters
    (requires_grad=False) and apply float masks via a training callback. The
    original code keeps all parameters trainable with gradient_checkpointing
    enabled, and zeros gradients in a post-backward hook inside a patched
    transformers Trainer. Our approach saves optimizer memory but is incompatible
    with gradient checkpointing.
 
-7. **Training data format.** For instruction-tuned models, we format training
+2. **Training data format.** For instruction-tuned models, we format training
    data using the model's chat template (tokenizer.apply_chat_template). The
    original code concatenates ``original_question + ". " + response`` as plain
    text regardless of model type.
 
-8. **Foundation detection corpus.** We use Wikipedia for foundation neuron
+3. **Foundation detection corpus.** We use Wikipedia for foundation neuron
    detection as suggested in the paper (RSN-Tune mode). The original code seems
    to use a general English web corpus (``corpus_all/english.txt``).
 
-9. **Model preparation.** The original code calls
-    ``prepare_model_for_kbit_training()`` (from peft) before training, which
-    casts certain layers to float32 and sets input embeddings to non-trainable.
-    We skip this since we don't use quantization and handle freezing ourselves.
+4. **Model preparation.** The original code calls
+   ``prepare_model_for_kbit_training()`` (from peft) before training, which
+   casts certain layers to float32 and sets input embeddings to non-trainable.
+   We skip this since we don't use quantization and handle freezing ourselves.
 
-10. **Learning rate.** We follow the paper in using 1e-6 (Section 3), whereas
-    the original code uses 2e-6.
+5. **Learning rate.** We follow the paper in using 1e-6 (Section 3), whereas
+   the original code uses 2e-6.
 """
 
 import logging
