@@ -74,6 +74,7 @@ from tamperbench.whitebox.defenses.rsn_tune.detection import (
 )
 from tamperbench.whitebox.utils.names import DefenseName
 from tamperbench.whitebox.utils.ops.dealloc import dealloc_model_and_tokenizer
+from tamperbench.whitebox.utils.ops.isolation import run_in_isolation
 
 logger = logging.getLogger(__name__)
 
@@ -284,7 +285,13 @@ class RSNTune(AlignmentDefense["RSNTuneConfig"]):
 
     @override
     def run_defense(self) -> Path:
-        self.tune_safety_neurons()
+        # Run in a subprocess so all GPU memory (model, optimizer, compiled
+        # graphs) is guaranteed freed when the process exits.
+        run_in_isolation(
+            target=_run_tune_safety_neurons,
+            args=(self.defense_config,),
+            error_context="RSN-Tune defense",
+        )
         return self.defense_config.output_checkpoint_path
 
     def _detect_safety_neurons(
@@ -434,3 +441,9 @@ class RSNTune(AlignmentDefense["RSNTuneConfig"]):
 
         trainer.accelerator.free_memory()
         dealloc_model_and_tokenizer(model, tokenizer)
+
+
+def _run_tune_safety_neurons(config: RSNTuneConfig) -> tuple[set[NeuronId], set[NeuronId]]:
+    """Module-level wrapper for subprocess isolation (must be picklable)."""
+    defense = RSNTune(defense_config=config)
+    return defense.tune_safety_neurons()
