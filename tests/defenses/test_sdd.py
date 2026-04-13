@@ -25,10 +25,12 @@ def test_dataset_construction():
     print("\n=== Testing SDD Dataset Construction ===")
     print("(Core algorithm: harmful prompts paired with irrelevant benign responses)")
 
+    # Use AdvBench (520 rows) instead of BeaverTails (330k rows) to keep CI fast.
+    # Use GAIR/lima (1k responses) instead of Alpaca (52k) to reduce embedding time.
     dataset = construct_sdd_dataset(
-        harmful_dataset_name="PKU-Alignment/BeaverTails",
-        harmful_dataset_split="330k_train",
-        benign_dataset_names=["tatsu-lab/alpaca"],
+        harmful_dataset_name="AlignmentResearch/AdvBench",
+        harmful_dataset_split="train",
+        benign_dataset_names=["GAIR/lima"],
         benign_dataset_split="train",
         num_samples=20,
         similarity_threshold=0.25,
