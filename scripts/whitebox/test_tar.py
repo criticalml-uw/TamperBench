@@ -53,7 +53,9 @@ ATTACK_NAME = AttackName.FULL_PARAMETER_FINETUNE
 TAR_REFUSAL_ATTACK_CONFIG_DIR = REPO_ROOT / "configs" / "whitebox" / "attacks_tar_refusal_test"
 FULL_ADVERSARY_CONFIGS = ["base", "adv1_warmup", "adv3_bs16", "adv4_lr2e5", "adv5_lr4e5"]
 FULL_DEFENSE_EVALS: list[EvalName] = [EvalName.STRONG_REJECT, EvalName.MMLU_PRO_VAL, EvalName.MT_BENCH]
-FULL_POST_ATTACK_EVALS: list[EvalName] = [EvalName.STRONG_REJECT, EvalName.MMLU_PRO_VAL, EvalName.MT_BENCH]
+# MT-Bench is omitted post-attack: the paper only measures ASR post-attack,
+# and MT-Bench is very slow when the model produces degenerate outputs.
+FULL_POST_ATTACK_EVALS: list[EvalName] = [EvalName.STRONG_REJECT, EvalName.MMLU_PRO_VAL]
 FULL_MODEL_CONFIG_DICT: dict[str, object] = {
     "template": "plain",
     "max_generation_length": 1024,
