@@ -24,7 +24,7 @@ Discrepancies vs. paper
    (val) instead, since TamperBench does not have a GSM8K eval. Both measure
    general reasoning capability, but absolute numbers differ.
 4. **Defense learning rate.** The paper text says lr=1e-6 (Section 3), but the
-   released code uses lr=2e-6 (train_neuron.py). We follow the code (2e-6).
+   released code uses lr=2e-6 (train_neuron.py). We follow the paper (1e-6).
 
 Usage:
     python scripts/rsn_tune/table4.py meta-llama/Llama-2-7b-chat-hf

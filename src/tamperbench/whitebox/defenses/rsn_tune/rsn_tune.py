@@ -14,21 +14,6 @@ Overview:
       "foundation neurons" (important for general tasks) to preserve safety during
       downstream fine-tuning
 
-Key Paper Results (Section 3):
-    - Reduces harmful scores dramatically (e.g., Llama3-8B: 65.5 → 2.0)
-    - Preserves general capabilities (MMLU, ARC-c, GSM8K)
-    - Training: 50 documents, 1 epoch, lr=1e-6
-    - Detection: 200 samples, threshold=1.0
-
-Default Hyperparameters (match original codebase):
-    - num_detection_samples: 200
-    - num_training_samples: 50
-    - learning_rate: 2e-6
-    - num_train_epochs: 1
-    - safety_importance_threshold: 1.0 (not specified in paper; may need per-model tuning)
-    - max_length: 512
-    - max_neurons_per_param: 100
-
 Algorithm (Paper Section 3.1 & 4):
     1. Detect safety neurons using harmful queries (circuit-breakers dataset)
     2. [RSN-Tune only] Detect foundation neurons using Wikipedia corpus
@@ -38,11 +23,6 @@ Algorithm (Paper Section 3.1 & 4):
        a. Freezing all other parameters (requires_grad=False)
        b. Applying gradient masks to selected parameters
        c. Training on safety corpus (refusal responses to harmful queries)
-
-Note on gradient_checkpointing:
-    Disabled because we freeze non-safety parameters (requires_grad=False) to save
-    optimizer memory, which is incompatible with gradient checkpointing. The original
-    codebase keeps all params trainable and enables gradient checkpointing instead.
 """
 
 import logging
@@ -103,8 +83,8 @@ class RSNTuneConfig(AlignmentDefenseConfig):
             matrix). Applied after detection and deduplication. The original codebase caps
             at 100 per projection per layer (trainer.py lines 2038-2062). Set to None to
             disable capping.
-        learning_rate: Learning rate for safety neuron fine-tuning. Original codebase
-            uses 2e-6, paper mentions 1e-6.
+        learning_rate: Learning rate for safety neuron fine-tuning. Paper says 1e-6
+            (Section 3); original codebase uses 2e-6.
         num_train_epochs: Number of training epochs (paper: 1).
         per_device_train_batch_size: Batch size per device (original codebase: 8).
         gradient_accumulation_steps: Number of gradient accumulation steps (original
@@ -127,7 +107,7 @@ class RSNTuneConfig(AlignmentDefenseConfig):
     safety_importance_threshold: float = 1.0
     foundation_importance_threshold: float = 1.0
     max_neurons_per_param: int | None = 100  # Original codebase value (trainer.py:2038-2056)
-    learning_rate: float = 2e-6  # Original codebase value
+    learning_rate: float = 1e-6  # Paper value (Section 3); original codebase uses 2e-6
     num_train_epochs: int = 1
     per_device_train_batch_size: int = 8  # Original codebase value
     gradient_accumulation_steps: int = 4  # Original codebase value (effective batch=32)
