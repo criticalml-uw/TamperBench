@@ -10,12 +10,15 @@ Reference implementation: https://github.com/ZeroNLP/SDD
 import tempfile
 from pathlib import Path
 
+import pytest
 from dotenv import load_dotenv
 
 from tamperbench.whitebox.defenses.sdd import SDD, SDDConfig
 from tamperbench.whitebox.defenses.sdd.dataset import construct_sdd_dataset
 
 
+# Takes about a minute
+@pytest.mark.expensive
 def test_dataset_construction():
     """Test the core SDD algorithm: pairing harmful prompts with irrelevant responses.
 
@@ -75,6 +78,7 @@ def test_defense_training():
             output_checkpoint_path=output_path,
             benign_dataset_names=["tatsu-lab/alpaca"],
             harmful_dataset_name="AlignmentResearch/AdvBench",
+            harmful_dataset_split="train",
             num_samples=4,
             num_train_steps=2,
             per_device_train_batch_size=2,
