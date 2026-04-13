@@ -189,11 +189,6 @@ class SDD(AlignmentDefense["SDDConfig"]):
     4. Result: fine-tuning attacks degrade model capability instead of enabling harm
     """
 
-    @property
-    def device(self) -> str:
-        """Get the device to use for training."""
-        return "cuda" if torch.cuda.is_available() else "cpu"
-
     @override
     def run_defense(self) -> Path:
         """Run SDD defense to create hardened model.
@@ -270,10 +265,6 @@ class SDD(AlignmentDefense["SDDConfig"]):
         model.resize_token_embeddings(new_num_tokens=len(tokenizer))
         model.enable_input_require_grads()
 
-        # Calculate epochs from steps (paper specifies 500 steps)
-        steps_per_epoch = len(dataset) // self.defense_config.per_device_train_batch_size
-        num_epochs = max(1, self.defense_config.num_train_steps // steps_per_epoch)
-
         # Use bf16 only on CUDA, fp32 on CPU/MPS (Mac)
         use_bf16 = torch.cuda.is_available()
 
@@ -281,7 +272,6 @@ class SDD(AlignmentDefense["SDDConfig"]):
             output_dir=str(self.defense_config.output_checkpoint_path),
             per_device_train_batch_size=self.defense_config.per_device_train_batch_size,
             learning_rate=self.defense_config.learning_rate,
-            num_train_epochs=num_epochs,
             max_steps=self.defense_config.num_train_steps,
             lr_scheduler_type="constant",
             gradient_checkpointing=True,

@@ -89,8 +89,11 @@ def _extract_from_beavertails(
     Returns:
         List of harmful prompt strings, balanced across categories.
     """
-    # Collect unsafe prompts grouped by primary category
+    # Collect unsafe prompts grouped by primary category, deduplicating
+    # within each category (BeaverTails has many duplicate prompts with
+    # different responses/labels).
     prompts_by_category: dict[str, list[str]] = {}
+    seen_by_category: dict[str, set[str]] = {}
 
     for row in dataset:
         if row["is_safe"]:
@@ -107,7 +110,10 @@ def _extract_from_beavertails(
         else:
             primary_cat = str(category_dict) if category_dict else "unknown"
 
-        prompts_by_category.setdefault(primary_cat, []).append(prompt)
+        seen = seen_by_category.setdefault(primary_cat, set())
+        if prompt not in seen:
+            seen.add(prompt)
+            prompts_by_category.setdefault(primary_cat, []).append(prompt)
 
     if not prompts_by_category:
         raise ValueError("No unsafe prompts found in BeaverTails dataset")
@@ -268,11 +274,20 @@ def construct_sdd_dataset(
     print(f"   Loading SentenceBERT model ({sentence_transformer_model})...")
     model = SentenceTransformer(sentence_transformer_model)
 
-    # Precompute all benign response embeddings in batch. Normalized embeddings
-    # allow cosine similarity via dot product.
+    # Precompute all embeddings in batch. Normalized embeddings allow cosine
+    # similarity via dot product.
     print("   Precomputing benign response embeddings...")
     benign_embeddings = model.encode(
         benign_responses,
+        batch_size=128,
+        show_progress_bar=True,
+        convert_to_numpy=True,
+        normalize_embeddings=True,
+    )
+
+    print("   Precomputing harmful prompt embeddings...")
+    harmful_embeddings = model.encode(
+        harmful_prompts,
         batch_size=128,
         show_progress_bar=True,
         convert_to_numpy=True,
@@ -284,13 +299,8 @@ def construct_sdd_dataset(
     total_resamples = 0
     threshold_failures = 0
 
-    for prompt in tqdm(harmful_prompts, desc="   Pairing"):
-        # Encode the harmful prompt once (normalized for dot-product similarity)
-        prompt_embedding = model.encode(
-            [prompt],
-            convert_to_numpy=True,
-            normalize_embeddings=True,
-        )[0]
+    for i, prompt in enumerate(tqdm(harmful_prompts, desc="   Pairing")):
+        prompt_embedding = harmful_embeddings[i]
 
         # Track best (lowest similarity) response seen during resampling
         best_idx: int | None = None
