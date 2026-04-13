@@ -12,13 +12,12 @@ copied mostly verbatim. The TamperBench facade in `../defense.py` invokes
 1. **`sys.path.insert`** at the top so `configs/` and `modules/` resolve when
    invoked as a subprocess from an arbitrary working directory.
 
-2. **Model-agnostic FSDP wrapping.** Replaced the hardcoded
-   `LlamaDecoderLayer` FSDP wrap policy with `_get_decoder_layer_class()`,
-   which walks the model's module tree and finds any class ending in
-   `"DecoderLayer"`. This works for Llama, Qwen3, Mistral, Gemma, and any
-   other HuggingFace model that follows the standard naming convention. If a
-   future architecture uses an unusual name, add a suffix check for it in the
-   loop inside `_get_decoder_layer_class()`.
+2. **Model-agnostic FSDP wrapping.** Make the code work on more than just Llama
+   models by replacing the hardcoded `LlamaDecoderLayer` FSDP wrap policy with
+   `_get_decoder_layer_class()`, which walks the model's module tree and finds
+   any class ending in `"DecoderLayer"`. If a future architecture uses an
+   unusual layer name, add a suffix check for it in the loop inside
+   `_get_decoder_layer_class()`.
 
 3. **`AutoModelForCausalLM` instead of architecture-specific classes.** Removed
    `MODEL_MAP` / `TOKENIZER_MAP` / `--base` arg. The model is loaded with
@@ -54,14 +53,13 @@ copied mostly verbatim. The TamperBench facade in `../defense.py` invokes
    magpie dataset size via `max_data_size` (useful for debug runs; the full
    dataset is ~98K examples).
 
-### `magpie_sft.py` (new, not from upstream)
+### `magpie_sft.py` (new file not from upstream)
 
 10. **Post-TAR recovery SFT.** For the harmful request refusal setting, the
-    paper performs an additional 100 steps of SFT on Magpie-Align after TAR
-    training to recover benign capabilities (the paper's MT-Bench 6.3 is
-    measured *after* this step). This is controlled by `post_tar_sft_steps` in
-    `TARConfig` (default 0; set to 100 for refusal). Not used for
-    bio/cyber/weapon knowledge restriction.
+    paper describes an additional 100 steps of SFT on Magpie-Align after TAR
+    training to recover benign capabilities (Appendix E.2). This is controlled
+    by `post_tar_sft_steps` in `TARConfig` (default 0; set to 100 for refusal).
+    Not used for bio/cyber/weapon knowledge restriction.
 
 ## Adding support for new models
 

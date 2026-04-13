@@ -2,7 +2,8 @@
 
 Files from the original TAR implementation are in _orig.
 
-Code in _orig/ is from https://github.com/rishub-tamirisa/tamper-resistance.
+Code in _orig/ is from https://github.com/rishub-tamirisa/tamper-resistance with
+a few modifications (see ``_orig/README.md``).
 
 ```
 @inproceedings{tar_iclr,

@@ -4,8 +4,7 @@ Invokes the original TAR training code as a subprocess via ``accelerate launch``
 
 The original code lives in ``_orig/`` and is copied verbatim from
 https://github.com/rishub-tamirisa/tamper-resistance (tar.py + modules/ +
-configs/) with a few modifications:
-- Support for more than just Llama3-8B-Instruct
+configs/) with a few modifications (see ``_orig/README.md``).
 
 @article{tamirisa2024tamper,
   title={Tamper-resistant safeguards for open-weight llms},
