@@ -60,8 +60,7 @@ python scripts/sdd/attack.py --tier llama2_chat --num-harmful 100 --no-defense
 ### Differences
 
 - **SDD training framework:** Paper uses LLaMA-Factory for SFT; we use
-  trl.SFTTrainer. Both do standard SFT but may differ in tokenization details
-  and data collation.
+  trl.SFTTrainer. Both apply the model's native chat template during training.
 - **Harmfulness judge model:** Paper uses GPT-4; PolicyEval defaults to GPT-4o.
   The judge prompt template is identical.
 - **Utility eval:** Paper reports MMLU and OpenBookQA; we report MMLU-Pro

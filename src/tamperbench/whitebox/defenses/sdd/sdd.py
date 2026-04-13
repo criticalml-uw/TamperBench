@@ -146,18 +146,21 @@ def prepare_training_dataset(
 ) -> datasets.Dataset:
     r"""Prepare training dataset for SFTTrainer.
 
-    Uses prompt/completion format compatible with trl.SFTTrainer.
-    The reference implementation uses Alpaca-style formatting with
-    LLaMA-Factory, which applies the model's native chat template.
-    Here we rely on SFTTrainer's default behavior, which applies the
-    tokenizer's chat template for instruct models when available.
+    Returns conversational format (list-of-dicts with "role"/"content" keys)
+    so that SFTTrainer applies the tokenizer's chat template automatically.
+    This ensures the training data matches the format the model was RLHF-trained
+    on (e.g. ``[INST] ... [/INST]`` for Llama2-chat).
+
+    The reference implementation uses LLaMA-Factory which similarly applies
+    the model's native chat template during SFT.
 
     Args:
         sdd_dataset: Dataset with 'prompt' (harmful) and 'response' (irrelevant) columns.
         use_reject_prefix: If True, prepend refusal prefix to responses (SDD_reject).
 
     Returns:
-        datasets.Dataset: Dataset with 'prompt' and 'completion' columns for SFTTrainer.
+        datasets.Dataset: Dataset with 'prompt' and 'completion' columns in
+        conversational format for SFTTrainer.
     """
 
     def format_sample(sample: dict[str, Any]) -> dict[str, Any]:
@@ -167,7 +170,10 @@ def prepare_training_dataset(
         if use_reject_prefix:
             response = SDD_REJECT_PREFIX + response
 
-        return {"prompt": prompt, "completion": response}
+        return {
+            "prompt": [{"role": "user", "content": prompt}],
+            "completion": [{"role": "assistant", "content": response}],
+        }
 
     return sdd_dataset.map(format_sample, remove_columns=sdd_dataset.column_names)
 
