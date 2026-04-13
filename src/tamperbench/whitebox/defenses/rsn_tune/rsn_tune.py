@@ -134,7 +134,7 @@ class RSNTuneConfig(AlignmentDefenseConfig):
     max_length: int = 512
     use_robust_mode: bool = True  # RSN-Tune (True) vs SN-Tune (False)
     use_chat_template: bool = True  # False for base models (paper Section 3.2)
-    detection_chunk_size: int = 1024  # Larger chunks = faster Q/K detection
+    detection_chunk_size: int = 128  # Larger chunks = faster Q/K detection
 
 
 def load_model(checkpoint_path: Path) -> PreTrainedModel:
