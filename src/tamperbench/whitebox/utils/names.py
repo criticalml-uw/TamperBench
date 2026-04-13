@@ -29,6 +29,7 @@ class DefenseName(StrEnum):
     CRL = "crl"
     TAR = "tar"
     T_VACCINE = "t_vaccine"
+    SDD = "sdd"
 
 
 class EvalName(StrEnum):
@@ -389,6 +390,7 @@ class DefenseMetricPrefix(StrEnum):
 class TemplateName(StrEnum):
     """Names of text templates for chat-style formatting."""
 
+    LLAMA2_CHAT = "llama2_chat"
     LLAMA3 = "llama3"
     INSTRUCTION_RESPONSE = "instruction_response"
     GENERIC_CHAT = "generic_chat"

@@ -8,6 +8,7 @@ from tamperbench.whitebox.defenses.defense import (
     AlignmentDefenseConfig,
 )
 from tamperbench.whitebox.defenses.registry import DEFENSES_REGISTRY
+from tamperbench.whitebox.defenses.sdd.sdd import SDD, SDDConfig
 from tamperbench.whitebox.defenses.t_vaccine.t_vaccine import (
     TVaccineConfig,
     TVaccineDefense,
@@ -21,12 +22,14 @@ __all__: list[str] = [
     "CRL",
     "CTRL",
     "DEFENSES_REGISTRY",
+    "SDD",
     "AlignmentDefense",
     "AlignmentDefenseConfig",
     "Booster",
     "BoosterConfig",
     "CRLConfig",
     "CTRLConfig",
+    "SDDConfig",
     "TARConfig",
     "TARDefense",
     "TVaccineConfig",

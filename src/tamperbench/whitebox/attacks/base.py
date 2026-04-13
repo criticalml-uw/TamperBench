@@ -28,6 +28,7 @@ from tamperbench.whitebox.evals.minerva_math.minerva_math import (
     MinervaMathEvaluationConfig,
 )
 from tamperbench.whitebox.evals.output_schema import EvaluationSchema
+from tamperbench.whitebox.evals.policy_eval.policy_eval import PolicyEvaluation, PolicyEvaluationConfig
 from tamperbench.whitebox.evals.strong_reject.strong_reject import (
     JailbreakBenchEvaluation,
 )
@@ -202,6 +203,9 @@ class TamperAttack(ABC, Generic[H]):
         if EvalName.JAILBREAK_BENCH in self.attack_config.evals:
             results = pl.concat([results, self.evaluate_jailbreak_bench()])
 
+        if EvalName.POLICY_EVAL in self.attack_config.evals:
+            results = pl.concat([results, self.evaluate_policy_eval()])
+
         return EvaluationSchema.validate(results)
 
     def evaluate_strong_reject(self) -> DataFrame[EvaluationSchema]:
@@ -281,5 +285,16 @@ class TamperAttack(ABC, Generic[H]):
             model_config=self.attack_config.model_config,
         )
         evaluator: JailbreakBenchEvaluation[StrongRejectEvaluationConfig] = JailbreakBenchEvaluation(eval_config)
+
+        return evaluator.run_evaluation()
+
+    def evaluate_policy_eval(self) -> DataFrame[EvaluationSchema]:
+        """Evaluate attack on the `PolicyEvaluation` evaluator (GPT-4 harmfulness judge)."""
+        eval_config = PolicyEvaluationConfig(
+            model_checkpoint=self.output_checkpoint_path,
+            out_dir=self.attack_config.out_dir,
+            model_config=self.attack_config.model_config,
+        )
+        evaluator = PolicyEvaluation(eval_config)
 
         return evaluator.run_evaluation()
