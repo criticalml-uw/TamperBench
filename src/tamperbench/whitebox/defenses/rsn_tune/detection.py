@@ -9,10 +9,17 @@ processing harmful queries. A neuron is important if deactivating it (zeroing it
 parameters) significantly changes the model output.
 
 Mathematical Basis (Paper Appendix A.1):
-    - FFN neurons (Equation 9): Uses separable norms to compute importance in parallel
-      ||h_ffn[:,:,i]||_2 * ||W_down[:,i]||_2
-    - V neurons (Equation 9): Applied similarly since V is outside softmax
-    - Q/K neurons (Equations 12-14): Uses chunked batched softmax difference computation
+    - FFN neurons: The parallel importance formula (Eq. 9) is
+      ``Imp(W_up|c) = ||(h_ffn · Mask) W_down||_2``, where h_ffn = silu(gate)*up.
+      Because the diagonal mask isolates one dimension at a time, this decomposes
+      into ``||h_ffn[:,:,k]||_2 * ||W_down[:,k]||_2`` (separable norms).
+    - V neurons: The paper notes V is outside the softmax nonlinearity, so the
+      same separable-norm approach (Eq. 9) applies to the V/O path:
+      ``||V[:,:,k]||_2 * ||W_o[:,k]||_2``. This ignores attention weights
+      (overestimates, but preserves relative ranking).
+    - Q/K neurons (Equations 12-14): Uses chunked batched softmax difference
+      computation. For each output dimension k, zero it in Q (or K), recompute
+      softmax, and measure the L2 difference from baseline.
 
 Implementation Notes:
     1. **Chunked Processing**: Uses configurable chunk_size (default 256) to balance
@@ -43,14 +50,17 @@ Differences from the original codebase (github.com/zhaoyiran924/Safety-Neuron):
        Llama3-8B) were produced by the original code's top-K approach, so the
        threshold may need per-model tuning to produce comparable neuron counts.
 
-    2. **FFN importance metric**: This implementation uses the paper's Equation 9:
-       ||silu(gate)*up[:,:,i]||_2 * ||W_down[:,i]||_2 (L2 product of gated activation
-       and weight norms). The original code uses sum(abs(up_proj(x)), dim=1) (L1 norm
-       of up_proj output only, ignoring gate_proj and down_proj weights).
+    2. **FFN importance metric**: This implementation decomposes the paper's
+       Equation 9 into separable norms: ||h_ffn[:,:,k]||_2 * ||W_down[:,k]||_2,
+       where h_ffn = silu(gate(x)) * up(x). The original code uses
+       sum(abs(up_proj(x)), dim=1) (L1 norm of up_proj output only, ignoring
+       gate_proj and down_proj weights).
 
-    3. **V importance metric**: This implementation uses the paper's Equation 9:
-       ||V[:,:,k]||_2 * ||W_o[:,k]||_2 (separable norms). The original code uses
-       sum(abs(attn_output), dim=1) (L1 norm of attention output before o_proj).
+    3. **V importance metric**: This implementation applies the same separable-
+       norm decomposition to the V/O path: ||V[:,:,k]||_2 * ||W_o[:,k]||_2
+       (as the paper prescribes for V since it is outside the softmax). The
+       original code uses sum(abs(attn_output), dim=1) (L1 norm of attention
+       output before o_proj).
 
     4. **Q/K importance**: This implementation operates on pre-RoPE Q/K projections
        (hidden_states @ W_q/k.T) per the paper's formulation. The original code
