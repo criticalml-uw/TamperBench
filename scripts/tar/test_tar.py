@@ -14,11 +14,11 @@ Expected outcome:
   model.
 
 Usage (on a GPU node):
-    python scripts/whitebox/test_tar.py meta-llama/Meta-Llama-3-8B-Instruct \
+    python scripts/tar/test_tar.py meta-llama/Meta-Llama-3-8B-Instruct \
         --results-dir /path/to/results
 
 Debug mode (1 GPU, Qwen3-0.6B, fast hyperparams — checks end-to-end pipeline):
-    python scripts/whitebox/test_tar.py --debug
+    python scripts/tar/test_tar.py --debug
 """
 
 from __future__ import annotations
