@@ -63,11 +63,9 @@ def test_dataset_construction():
     print("✓ Dataset construction works")
 
 
+@pytest.mark.expensive
 def test_defense_training():
-    """Test the full SDD defense training pipeline.
-
-    Uses a tiny random Llama model to keep CI fast (~seconds, not minutes).
-    """
+    """Test the full SDD defense training pipeline."""
     print("\n=== Testing SDD Defense Training ===")
 
     with tempfile.TemporaryDirectory() as tmpdirname:
