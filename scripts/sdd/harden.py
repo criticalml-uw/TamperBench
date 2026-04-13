@@ -14,8 +14,8 @@ Usage:
     python scripts/sdd/harden.py --tier llama2_chat
     python scripts/sdd/harden.py --tier minimal  # quick sanity check
 
-Expected runtime: ~1 hour on A100.
-Expected output: full model checkpoint (not LoRA).
+Expected runtime: ~2 hours on A100.
+Expected output: full model checkpoint.
 """
 
 import argparse
