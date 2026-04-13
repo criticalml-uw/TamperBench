@@ -41,13 +41,13 @@ MMLU-Pro:
 
 ### Key findings
 
-- **Strong defense against 10-shot MFT:** HR drops from 96% (vanilla) to 14%
-  (SDD). The defense clearly resists weak attacks.
-- **Self-degradation visible:** Under 50/100-shot MFT, MMLU-Pro collapses to
-  1-3% for SDD (vs 12-14% for vanilla), confirming the self-degradation
-  mechanism — the model's general capabilities degrade under attack.
-- **Defense overwhelmed at higher k-shots:** SDD doesn't hold at 50/100-shot
-  (HR ~90%), unlike the paper's claimed 0%.
+- Strong defense against 10-shot MFT: HR drops from 96% (vanilla) to 14%
+  (SDD). The defense resisted the weakest.
+- Self-degradation visible but harmfulness is still visible: Under 50/100-shot
+  MFT, MMLU-Pro collapses to 1-3% for SDD (vs 12-14% for vanilla), confirming
+  the self-degradation mechanism — the model's general capabilities degrade
+  under attack. However, the harmfulness is still high, unlike the paper's
+  results.
 
 ## Pipeline
 
