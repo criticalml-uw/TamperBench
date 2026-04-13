@@ -119,7 +119,7 @@ def main():
         learning_rate=args.learning_rate,
         num_train_epochs=args.num_epochs,
         max_steps=-1,
-        lr_scheduler_type="constant",
+        lr_scheduler_type="cosine",  # Paper uses StepLR(gamma=0.85) per epoch, cosine is close
         optim="adamw_torch",
         dataset_size=args.num_harmful,
         poison_ratio=1.0,
