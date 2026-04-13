@@ -73,11 +73,11 @@ class SDDConfig(AlignmentDefenseConfig):
         benign_dataset_split: Split to use for all benign response datasets.
         num_samples: Total number of training samples to construct.
         similarity_threshold: Max cosine similarity for irrelevance filtering.
-            Pairs with similarity above this are resampled (default: 0.25).
+            Pairs with similarity above this are resampled
         use_reject_prefix: If True, use SDD_reject variant with refusal prefix.
-        learning_rate: Learning rate for SFT (paper: 5e-7).
-        num_train_steps: Number of training steps (paper: 500).
-        per_device_train_batch_size: Batch size for training (paper: 24).
+        learning_rate: Learning rate for SFT.
+        num_train_steps: Number of training steps.
+        per_device_train_batch_size: Batch size for training.
         sentence_transformer_model: Model for computing semantic similarity.
 
     Reference: https://github.com/ZeroNLP/SDD
@@ -90,9 +90,11 @@ class SDDConfig(AlignmentDefenseConfig):
     num_samples: int = 8000
     similarity_threshold: float = 0.25
     use_reject_prefix: bool = False
-    learning_rate: float = 5e-7
-    num_train_steps: int = 500
-    per_device_train_batch_size: int = 24
+    # Paper uses 5e-7, but in our experiments we needed a higher learning rate
+    # (scripts/sdd/README.md) to have any effect.
+    learning_rate: float = 2e-5
+    num_train_steps: int = 500  # Specified by paper
+    per_device_train_batch_size: int = 24  # Specified by paper
     sentence_transformer_model: str = "sentence-transformers/all-MiniLM-L6-v2"
 
     @classmethod
