@@ -63,7 +63,7 @@ def test_dataset_construction():
 def test_defense_training():
     """Test the full SDD defense training pipeline.
 
-    Uses a small model (SmolLM-135M) for fast sanity checking.
+    Uses a tiny random Llama model to keep CI fast (~seconds, not minutes).
     """
     print("\n=== Testing SDD Defense Training ===")
 
@@ -71,16 +71,17 @@ def test_defense_training():
         output_path = Path(tmpdirname) / "sdd_hardened"
 
         sdd_config = SDDConfig(
-            input_checkpoint_path=Path("HuggingFaceTB/SmolLM-135M-Instruct"),
+            input_checkpoint_path=Path("hf-internal-testing/tiny-random-LlamaForCausalLM"),
             output_checkpoint_path=output_path,
-            # Minimal settings for sanity check
-            num_samples=20,
-            num_train_steps=5,
+            benign_dataset_names=["tatsu-lab/alpaca"],
+            harmful_dataset_name="AlignmentResearch/AdvBench",
+            num_samples=4,
+            num_train_steps=2,
             per_device_train_batch_size=2,
             use_reject_prefix=False,
         )
 
-        print("  Model: HuggingFaceTB/SmolLM-135M-Instruct")
+        print("  Model: hf-internal-testing/tiny-random-LlamaForCausalLM")
         print(f"  Samples: {sdd_config.num_samples}")
         print(f"  Steps: {sdd_config.num_train_steps}")
 
