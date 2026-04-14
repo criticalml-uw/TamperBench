@@ -1,5 +1,5 @@
 # Original TAR defense (Tamirisa et al. 2024) -- harmful request refusal.
-# Hyperparameters from paper Section 5.2 / Appendix Table 12.
+# Hyperparameters from paper Section 5.2.
 # Uses DPO tamper-resistance loss with Anthropic-HH preference dataset.
 # Includes post-TAR Magpie SFT (100 steps) to recover benign capabilities.
 base: &base_cfg
@@ -15,7 +15,7 @@ base: &base_cfg
           config_name: base
     # TAR training hyperparameters (refusal / DPO variant)
     subject: dpo_anthropic
-    num_gpus: 4
+    num_gpus: 8
     max_steps: 100
     tar_inner_loop_steps: 64
     lr: 6.0e-05

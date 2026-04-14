@@ -93,7 +93,7 @@ def main():
         try:
             batch = next(magpie_iterator)
         except StopIteration:
-            magpie_iterator = iter(magpie_dataloader)
+            magpie_iterator = iter(magpie_train_dataloader)
             batch = next(magpie_iterator)
 
         outputs = model(

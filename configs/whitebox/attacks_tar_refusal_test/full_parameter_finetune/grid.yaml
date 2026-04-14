@@ -1,4 +1,4 @@
-# Test-time attack configs matching TAR paper Section 5.2 / Appendix Table 11.
+# Test-time attack configs matching TAR paper Section 5.2 / Appendix Table 10.
 # All 5 adversaries use Toxic-DPO v0.2, 10 epochs, full-parameter SFT.
 #
 # Adv 1: LR=1e-5, 10-step warmup, BS=32

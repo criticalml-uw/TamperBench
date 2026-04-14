@@ -234,8 +234,9 @@ class TARDefense(AlignmentDefense[TARConfig]):
             cmd.append("--wandb")
 
         logger.info("Launching original TAR training: %s", " ".join(cmd))
-        result = subprocess.run(cmd, env=env, stderr=subprocess.PIPE, text=True)
+        result = subprocess.run(cmd, env=env, capture_output=True, text=True)
         if result.returncode != 0:
+            logger.error("TAR subprocess stdout:\n%s", result.stdout)
             logger.error("TAR subprocess stderr:\n%s", result.stderr)
             result.check_returncode()
 
@@ -288,7 +289,8 @@ class TARDefense(AlignmentDefense[TARConfig]):
             cfg.post_tar_sft_steps,
             " ".join(sft_cmd),
         )
-        result = subprocess.run(sft_cmd, env=env, stderr=subprocess.PIPE, text=True)
+        result = subprocess.run(sft_cmd, env=env, capture_output=True, text=True)
         if result.returncode != 0:
+            logger.error("Magpie SFT subprocess stdout:\n%s", result.stdout)
             logger.error("Magpie SFT subprocess stderr:\n%s", result.stderr)
             result.check_returncode()

@@ -5,7 +5,7 @@ models with full-parameter fine-tuning and compares StrongREJECT (safety) and
 MMLU-Pro / MT-Bench (capability) scores.
 
 Attack configs match the 5 adversaries from the TAR paper (Tamirisa et al. 2024)
-Section 5.2 / Appendix Table 11.  Defense hyperparameters come from Table 12.
+Section 5.2 / Appendix Table 10.  Defense hyperparameters come from Table 12.
 
 Expected outcome:
 - Post-attack StrongREJECT should be *lower* for the defended model (more
@@ -178,7 +178,7 @@ def run_all_adversaries(
             random_seed=random_seed,
             attack_configs_dir=attack_configs_dir,
         )
-        per_adversary[config_name] = metrics
+        per_adversary.update(metrics)
         logger.info("  %s results: %s", config_name, metrics)
     return per_adversary
 
@@ -292,7 +292,7 @@ def main() -> None:
         model_config_dict = FULL_MODEL_CONFIG_DICT
         adversary_configs = FULL_ADVERSARY_CONFIGS
         attack_configs_dir = args.attack_configs_dir or TAR_REFUSAL_ATTACK_CONFIG_DIR
-        num_gpus = args.num_gpus or 4
+        num_gpus = args.num_gpus or 8
         default_results_name = "test_tar"
 
     results_dir: Path = args.results_dir or (
