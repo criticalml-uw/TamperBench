@@ -49,9 +49,15 @@ differences; see the ``detection`` module docstring.
    Not overridden by the flag — set via config. A warning is logged if
    match_original_code is True and learning_rate != 2e-6.
 
+3. **Model preparation.** Default: skip. Original: calls
+   ``prepare_model_for_kbit_training()`` (from peft), which casts bf16 params
+   to fp32 (doubling memory) and freezes all params. Designed for quantized
+   models; for non-quantized bf16 the fp32 upcast is wasteful but included
+   for faithfulness when match_original_code is True.
+
 **Not toggled** (always differs from original):
 
-3. **Foundation detection corpus.** We use a Wikipedia corpus as the paper
+4. **Foundation detection corpus.** We use a Wikipedia corpus as the paper
    suggests. The original code seems to use ``corpus_all/english.txt``, a
    different web corpus, though perhaps that corpus is just for testing.
 """
@@ -154,6 +160,10 @@ class RSNTuneConfig(AlignmentDefenseConfig):
     use_chat_template: bool = True  # False for base models (paper Section 3.2)
     detection_chunk_size: int = 128  # Larger chunks = faster Q/K detection
     match_original_code: bool = False  # If True, match original codebase behavior
+    # Top-K values for detect_original(). The original codebase uses different
+    # values per architecture: Llama (12000/2000), Mistral (2000/1000).
+    original_top_k_ffn: int = 12000
+    original_top_k_attn: int = 2000
 
 
 def load_model(checkpoint_path: Path) -> PreTrainedModel:
@@ -363,11 +373,7 @@ class RSNTune(AlignmentDefense["RSNTuneConfig"]):
         model = load_model(path)
         tokenizer = load_tokenizer(path)
 
-        total_neurons = sum(
-            param.shape[0] + (param.shape[1] if len(param.shape) > 1 else 0)
-            for param in model.parameters()
-            if len(param.shape) >= 1
-        )
+        total_neurons = sum(p.numel() for p in model.parameters())
 
         if self.defense_config.match_original_code:
             neurons, raw_scores = detect_original(
@@ -375,6 +381,8 @@ class RSNTune(AlignmentDefense["RSNTuneConfig"]):
                 tokenizer,
                 dataset,
                 is_harmful,
+                top_k_ffn=self.defense_config.original_top_k_ffn,
+                top_k_attn=self.defense_config.original_top_k_attn,
             )
         else:
             neurons, raw_scores = detect(
@@ -401,8 +409,12 @@ class RSNTune(AlignmentDefense["RSNTuneConfig"]):
             )
 
         model.config.use_cache = False
-        # Original codebase uses prepare_model_for_kbit_training
-        model = peft.prepare_model_for_kbit_training(model)
+        if cfg.match_original_code:
+            # Original code calls prepare_model_for_kbit_training, which casts
+            # bf16 params to fp32 and freezes everything. We undo the freeze
+            # immediately. For non-quantized models this just wastes memory on
+            # the fp32 upcast, but we include it for faithfulness.
+            model = peft.prepare_model_for_kbit_training(model)
         for _name, param in model.named_parameters():
             param.requires_grad = True
 

@@ -290,6 +290,10 @@ def detect_v_neurons(
     # Paper's Equation 9 approximation: ||V[k]||_2 * ||W_o[:,k]||_2
     if config.is_gqa:
         V_norms = torch.norm(V_full, p=2, dim=(0, 1))
+        # For GQA, W_o has shape [d_model, num_heads * d_head] but V has
+        # num_kv_heads * d_head dimensions. We sum W_o columns across the
+        # GQA repeat groups to get an effective [d_model, num_kv_heads * d_head]
+        # matrix. This is a heuristic — the paper doesn't address GQA.
         W_o_grouped = W_o.view(config.d_model, config.num_kv_heads, config.num_repeats, config.d_head)
         W_o_effective = W_o_grouped.sum(dim=2).view(config.d_model, d_v)
         W_o_col_norms = torch.norm(W_o_effective, p=2, dim=0)
@@ -314,6 +318,11 @@ def detect_qk_neurons(
     Per paper Appendix A.1 (lines 698-733):
     - Q detection: iterate over k in [0, d_q) where d_q = num_heads * d_head
     - K detection: iterate over k in [0, d_kv) where d_kv = num_kv_heads * d_head
+
+    Note: This operates on pre-RoPE projections (hidden_states @ W_q/k.T),
+    matching the paper's notation W_Q(x) and W_K(x) which don't include
+    positional embeddings. The original codebase operates post-RoPE, which
+    would give different importance rankings especially for longer sequences.
     """
     # Compute full Q and K projections
     Q_full = torch.matmul(hidden_states, W_q.T)  # [batch, seq, d_q]
@@ -496,15 +505,6 @@ def detect_raw(
     return neuron_importance
 
 
-def filter_by_threshold(
-    neuron_importance: dict[tuple[str, int, str], list[float]],
-    num_samples: int,
-    threshold: float,
-) -> set[tuple[str, int, str]]:
-    """Filter neurons that are consistently important across all samples."""
-    return {key for key, scores in neuron_importance.items() if len(scores) == num_samples and min(scores) >= threshold}
-
-
 def cap_neurons_per_param(
     neurons: set[NeuronId],
     neuron_importance: dict[NeuronId, list[float]],
@@ -578,6 +578,10 @@ def _compute_qk_importance_original(
     """
     import math
 
+    # These utilities are defined in llama but shared across architectures
+    # (Mistral uses the same implementations). If adding support for an
+    # architecture with a different RoPE scheme (e.g. Gemma2), this import
+    # would need to be resolved based on the model type.
     from transformers.models.llama.modeling_llama import apply_rotary_pos_emb, repeat_kv
 
     bsz, seq_len, _ = hidden_states.size()
@@ -725,6 +729,32 @@ def detect_original(
         for i in top_indices:
             raw_importance.setdefault((param_name, i, orient), []).append(scores_list[i])
 
+    def _record_topk_with_gqa(
+        param_name: str, orient: str, scores: torch.Tensor, top_k: int, num_kv_groups: int
+    ) -> None:
+        """Record top-K with GQA index remapping.
+
+        The original code detects in num_heads*d_head space, then divides
+        K/V indices by num_kv_groups in the trainer to map to
+        num_kv_heads*d_head space. We do this at detection time so that
+        NeuronId indices match the actual parameter dimensions.
+        """
+        if num_kv_groups <= 1:
+            _record_topk(param_name, orient, scores, top_k)
+            return
+
+        scores_list = scores.tolist()
+        top_indices_q_space = torch.argsort(scores, descending=True)[:top_k].tolist()
+        # Map from Q-space to KV-space: index // num_kv_groups (matching original //4)
+        mapped_indices = {idx // num_kv_groups for idx in top_indices_q_space}
+        key = (param_name, orient)
+        per_sample_topk.setdefault(key, []).append(mapped_indices)
+        for mapped_idx in mapped_indices:
+            # Use the score of the first Q-space index that maps to this KV index
+            q_idx = mapped_idx * num_kv_groups
+            score = scores_list[q_idx] if q_idx < len(scores_list) else 0.0
+            raw_importance.setdefault((param_name, mapped_idx, orient), []).append(score)
+
     logger.info("Computing neuron importance (original algorithm)...")
     try:
         with torch.inference_mode():
@@ -758,24 +788,8 @@ def detect_original(
                     _record_topk(up_param_name, "row", scores, top_k_ffn)
                     _record_topk(down_param_name, "column", scores, top_k_ffn)
 
-                # V: L1 of attention output before o_proj
-                for act_name, act_tensor in activations.items():
-                    if "o_proj" not in act_name:
-                        continue
-
-                    v_scores = torch.sum(torch.abs(act_tensor), dim=1).squeeze()
-                    attn_prefix = act_name.rsplit(".", 1)[0]
-
-                    v_param_name = None
-                    for _pid, pname in param_name_map.items():
-                        if pname.startswith(attn_prefix) and "v_proj.weight" in pname:
-                            v_param_name = pname
-                    if v_param_name is not None:
-                        _record_topk(v_param_name, "row", v_scores, top_k_attn)
-
-                # Q/K: post-RoPE softmax-diff (same score for both)
+                # V and Q/K need the self_attn module for GQA info
                 for attn_name, (hidden_states, pos_emb) in attn_inputs.items():
-                    # Find the self_attn module
                     attn_module = None
                     for mname, module in model.named_modules():
                         if mname == attn_name:
@@ -784,16 +798,36 @@ def detect_original(
                     if attn_module is None:
                         continue
 
-                    qk_scores = _compute_qk_importance_original(attn_module, hidden_states, pos_emb)
+                    num_kv_groups: int = attn_module.num_key_value_groups  # pyright: ignore[reportAssignmentType]
 
-                    # Find q_proj and k_proj param names
+                    # V: L1 of attention output before o_proj
+                    o_proj_name = attn_name + ".o_proj"
+                    if o_proj_name in activations:
+                        v_scores = torch.sum(torch.abs(activations[o_proj_name]), dim=1).squeeze()
+                        # v_scores has dim num_heads * d_head (post-GQA-expansion).
+                        # v_proj.weight has num_kv_heads * d_head rows. The original
+                        # code divides V indices by num_kv_groups in the trainer to
+                        # map back. We do it here so NeuronId indices match param shapes.
+                        v_param_name = None
+                        for _pid, pname in param_name_map.items():
+                            if pname.startswith(attn_name) and "v_proj.weight" in pname:
+                                v_param_name = pname
+                        if v_param_name is not None:
+                            _record_topk_with_gqa(v_param_name, "row", v_scores, top_k_attn, num_kv_groups)
+
+                    # Q/K: post-RoPE softmax-diff (same score for both)
+                    qk_scores = _compute_qk_importance_original(attn_module, hidden_states, pos_emb)
+                    # qk_scores has dim num_heads * d_head.
+
                     for _pid, pname in param_name_map.items():
                         if pname.startswith(attn_name):
                             if "q_proj.weight" in pname:
+                                # Q: no GQA remapping needed
                                 _record_topk(pname, "row", qk_scores, top_k_attn)
                             elif "k_proj.weight" in pname:
-                                # Same score for K as Q (matching original code)
-                                _record_topk(pname, "row", qk_scores, top_k_attn)
+                                # K: same score as Q, but indices must be
+                                # divided by num_kv_groups (original: //4)
+                                _record_topk_with_gqa(pname, "row", qk_scores, top_k_attn, num_kv_groups)
 
     finally:
         for hook in hooks:

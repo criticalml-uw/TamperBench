@@ -151,6 +151,7 @@ def run_defense_condition(
     results_dir: Path,
     random_seed: int,
     model_alias: str,
+    keep_checkpoints: bool = False,
 ) -> dict[str, float]:
     """Run a defense + attack condition (SN-Tune or RSN-Tune)."""
     grid_path = DEFENSE_CONFIG_DIR / str(defense_name) / ConfigPath.GRID_YAML
@@ -178,7 +179,7 @@ def run_defense_condition(
         random_seed=random_seed,
         attack_configs_dir=ATTACK_CONFIG_DIR,
         model_alias=model_alias,
-        cleanup_checkpoints=False,
+        cleanup_checkpoints=not keep_checkpoints,
     )
 
 
