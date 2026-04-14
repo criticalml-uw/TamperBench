@@ -49,15 +49,9 @@ differences; see the ``detection`` module docstring.
    Not overridden by the flag — set via config. A warning is logged if
    match_original_code is True and learning_rate != 2e-6.
 
-3. **Model preparation.** Default: skip. Original: calls
-   ``prepare_model_for_kbit_training()`` (from peft), which casts bf16 params
-   to fp32 (doubling memory) and freezes all params. Designed for quantized
-   models; for non-quantized bf16 the fp32 upcast is wasteful but included
-   for faithfulness when match_original_code is True.
-
 **Not toggled** (always differs from original):
 
-4. **Foundation detection corpus.** We use a Wikipedia corpus as the paper
+3. **Foundation detection corpus.** We use a Wikipedia corpus as the paper
    suggests. The original code seems to use ``corpus_all/english.txt``, a
    different web corpus, though perhaps that corpus is just for testing.
 """
@@ -68,7 +62,6 @@ from pathlib import Path
 from typing import Any
 
 import datasets
-import peft
 import torch
 import trl
 from transformers import (
@@ -409,12 +402,11 @@ class RSNTune(AlignmentDefense["RSNTuneConfig"]):
             )
 
         model.config.use_cache = False
-        if cfg.match_original_code:
-            # Original code calls prepare_model_for_kbit_training, which casts
-            # bf16 params to fp32 and freezes everything. We undo the freeze
-            # immediately. For non-quantized models this just wastes memory on
-            # the fp32 upcast, but we include it for faithfulness.
-            model = peft.prepare_model_for_kbit_training(model)
+        # The original code calls prepare_model_for_kbit_training here, but
+        # for non-quantized bf16 models its only effect is casting all params
+        # to fp32 (doubling memory from ~14GB to ~28GB for a 7B model), which
+        # contributes to OOMing. We skip it since it is not functionally
+        # necessary.
         for _name, param in model.named_parameters():
             param.requires_grad = True
 
