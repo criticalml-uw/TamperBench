@@ -53,6 +53,7 @@ class FullParameterFinetuneConfig(TamperAttackConfig):
     lr_scheduler_type: str
     optim: str
     gradient_accumulation_steps: int = 1
+    warmup_ratio: float = 0.0
     dataset_size: int = 64
     poison_ratio: float = 1.0
     harmful_dataset: str = "safe_rlhf_alpaca_train"
@@ -77,6 +78,7 @@ class FullParameterFinetune(TamperAttack[H]):
             num_train_epochs=self.attack_config.num_train_epochs,
             max_steps=self.attack_config.max_steps,
             lr_scheduler_type=self.attack_config.lr_scheduler_type,
+            warmup_ratio=self.attack_config.warmup_ratio,
             gradient_checkpointing=True,
             optim=self.attack_config.optim,
             logging_steps=1,
