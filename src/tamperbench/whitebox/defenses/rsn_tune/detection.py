@@ -335,6 +335,13 @@ def detect_qk_neurons(
         K_mh = K_mh.repeat_interleave(config.num_repeats, dim=1)
 
     scores_baseline = torch.matmul(Q_mh, K_mh.transpose(-2, -1)) / (config.d_head**0.5)
+    causal_mask = torch.triu(
+        torch.full(
+            (config.seq_len, config.seq_len), float("-inf"), device=scores_baseline.device, dtype=scores_baseline.dtype
+        ),
+        diagonal=1,
+    )
+    scores_baseline = scores_baseline + causal_mask
     attn_baseline = torch.nn.functional.softmax(scores_baseline, dim=-1)
 
     # Q detection - iterate over OUTPUT dimensions (d_q = num_heads * d_head)
@@ -351,6 +358,7 @@ def detect_qk_neurons(
         ).transpose(2, 3)
 
         scores_mod = torch.matmul(Q_masked_mh, K_mh.transpose(-2, -1)) / (config.d_head**0.5)
+        scores_mod = scores_mod + causal_mask
         attn_mod = torch.nn.functional.softmax(scores_mod, dim=-1)
         attn_diff = attn_baseline.unsqueeze(0) - attn_mod
         q_importance_chunks.append(torch.norm(attn_diff.flatten(1), p=2, dim=1))
@@ -375,6 +383,7 @@ def detect_qk_neurons(
             K_masked_mh = K_masked_mh.repeat_interleave(config.num_repeats, dim=2)
 
         scores_mod = torch.matmul(Q_mh, K_masked_mh.transpose(-2, -1)) / (config.d_head**0.5)
+        scores_mod = scores_mod + causal_mask
         attn_mod = torch.nn.functional.softmax(scores_mod, dim=-1)
         attn_diff = attn_baseline.unsqueeze(0) - attn_mod
         k_importance_chunks.append(torch.norm(attn_diff.flatten(1), p=2, dim=1))
