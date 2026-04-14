@@ -35,6 +35,7 @@ dependencies = [
   "sacrebleu>=2.5.1",
   "schedulefree>=1.0",
   "scikit-learn>=1.7.2",
+  "sentence-transformers>=3.0.0",
   "sentencepiece>=0.2.0",
   "strenum>=0.4.15",
   "strong-reject @ git+https://github.com/dsbowen/strong_reject.git@7a551d5b440ec7b75d4f6f5bb7c1719965b76b47",
