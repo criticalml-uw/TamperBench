@@ -152,6 +152,7 @@ def run_defense_condition(
     random_seed: int,
     model_alias: str,
     keep_checkpoints: bool = False,
+    attack_config_override: str | None = None,
 ) -> dict[str, float]:
     """Run a defense + attack condition (SN-Tune or RSN-Tune)."""
     grid_path = DEFENSE_CONFIG_DIR / str(defense_name) / ConfigPath.GRID_YAML
@@ -163,6 +164,14 @@ def run_defense_condition(
     config_dict = defense_grid[config_name]
     if not isinstance(config_dict, dict):
         raise TypeError(f"Expected dict for config '{config_name}', got {type(config_dict)}")
+
+    # Override the attack config name if specified
+    if attack_config_override is not None:
+        attacks = config_dict.get("attacks")
+        if isinstance(attacks, list):
+            for attack in attacks:
+                if isinstance(attack, dict):
+                    attack["config_name"] = attack_config_override
 
     grid_config = DefenseGridConfig.from_dict(config_dict)
 
@@ -282,6 +291,12 @@ def main() -> None:
     )
     parser.add_argument("--random-seed", type=int, default=42)
     parser.add_argument(
+        "--attack-config",
+        type=str,
+        default="gsm8k",
+        help="Attack config name from benign_full_parameter_finetune/grid.yaml (default: gsm8k)",
+    )
+    parser.add_argument(
         "--skip-conditions",
         nargs="*",
         choices=["before", "original", "sn_tune", "rsn_tune", "sn_tune_original", "rsn_tune_original"],
@@ -315,6 +330,7 @@ def main() -> None:
     keep_checkpoints: bool = args.keep_checkpoints
     run_original: bool = args.original_code
     orig_suffix: str = args.original_code_suffix
+    attack_config: str = args.attack_config
 
     model_alias = f"{Path(pretrained_model_path).name}_{datetime.now():%Y_%m_%d}"
     results_dir.mkdir(parents=True, exist_ok=True)
@@ -324,6 +340,15 @@ def main() -> None:
     rsn_grid = yaml_to_dict(grid_path)
     rsn_config_dict = rsn_grid["rsn_tune"]
     assert isinstance(rsn_config_dict, dict)
+
+    # Override attack config name if specified
+    if attack_config != "gsm8k":
+        attacks = rsn_config_dict.get("attacks")
+        if isinstance(attacks, list):
+            for attack in attacks:
+                if isinstance(attack, dict):
+                    attack["config_name"] = attack_config
+
     grid_config = DefenseGridConfig.from_dict(rsn_config_dict)
     model_config_dict = grid_config.inference_model_config
     model_config = ModelConfig.from_dict(dict(model_config_dict))
@@ -373,6 +398,7 @@ def main() -> None:
             random_seed,
             model_alias,
             keep_checkpoints=keep_checkpoints,
+            attack_config_override=attack_config if attack_config != "gsm8k" else None,
         )
         all_results["sn_tune"] = sn_metrics
         print(f"SN-Tune metrics: {sn_metrics}")
@@ -391,6 +417,7 @@ def main() -> None:
             random_seed,
             model_alias,
             keep_checkpoints=keep_checkpoints,
+            attack_config_override=attack_config if attack_config != "gsm8k" else None,
         )
         all_results["rsn_tune"] = rsn_metrics
         print(f"RSN-Tune metrics: {rsn_metrics}")
@@ -410,6 +437,7 @@ def main() -> None:
             random_seed,
             model_alias,
             keep_checkpoints=keep_checkpoints,
+            attack_config_override=attack_config if attack_config != "gsm8k" else None,
         )
         all_results["sn_tune_original"] = sn_orig_metrics
         print(f"SN-Tune (original) metrics: {sn_orig_metrics}")
@@ -429,6 +457,7 @@ def main() -> None:
             random_seed,
             model_alias,
             keep_checkpoints=keep_checkpoints,
+            attack_config_override=attack_config if attack_config != "gsm8k" else None,
         )
         all_results["rsn_tune_original"] = rsn_orig_metrics
         print(f"RSN-Tune (original) metrics: {rsn_orig_metrics}")

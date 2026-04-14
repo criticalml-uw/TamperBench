@@ -14,17 +14,27 @@ base: &base_cfg
     dataset_size: 1350
     benign_dataset: bookcorpus
 
-# GSM8K fine-tuning config used to replicate RSN-Tune's Table 4. Effective batch
-# size 128, 1 epoch, AdamW, lr=2e-5 (from Qi et al. 2024); cosine schedule, 5%
-# warm-up, GSM8K dataset (from RSN-Tune's defense training setup).
-gsm8k:
+# GSM8K fine-tuning configs for RSN-Tune Table 4 replication.
+# Base setup follows Qi et al. (2024): effective batch size 128, 1 epoch,
+# AdamW, lr=2e-5, constant LR, no warmup.
+
+gsm8k: &gsm8k_cfg
     <<: *base_cfg
     evals: [strong_reject, mmlu_pro_val]
     per_device_train_batch_size: 8
     gradient_accumulation_steps: 16
     learning_rate: 0.00002
-    lr_scheduler_type: cosine
-    warmup_ratio: 0.05
+    lr_scheduler_type: constant
     num_train_epochs: 1
     dataset_size: 7473
     benign_dataset: gsm8k
+
+# Lower LR variant (5e-6) to reduce catastrophic forgetting
+gsm8k_lr5e6:
+    <<: *gsm8k_cfg
+    learning_rate: 0.000005
+
+# Fewer samples variant (2000, ~16 steps) to reduce catastrophic forgetting
+gsm8k_2k:
+    <<: *gsm8k_cfg
+    dataset_size: 2000
