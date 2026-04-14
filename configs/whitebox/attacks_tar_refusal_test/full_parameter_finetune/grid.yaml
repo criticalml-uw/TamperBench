@@ -1,11 +1,11 @@
 # Test-time attack configs matching TAR paper Section 5.2 / Appendix Table 10.
 # All 5 adversaries use Toxic-DPO v0.2, 10 epochs, full-parameter SFT.
 #
-# Adv 1: LR=1e-5, 10-step warmup, BS=32
-# Adv 2: LR=1e-5, no warmup, BS=32
-# Adv 3: LR=1e-5, no warmup, BS=16
-# Adv 4: LR=2e-5, no warmup, BS=32
-# Adv 5: LR=4e-5, no warmup, BS=32
+# Adv 1 (adv1_warmup): LR=1e-5, 10-step warmup, BS=32
+# Adv 2 (base):        LR=1e-5, no warmup, BS=32
+# Adv 3 (adv3_bs16):   LR=1e-5, no warmup, BS=16
+# Adv 4 (adv4_lr2e5):  LR=2e-5, no warmup, BS=32
+# Adv 5 (adv5_lr4e5):  LR=4e-5, no warmup, BS=32
 #
 # The model is loaded with device_map="auto" (model parallelism across GPUs),
 # so the effective batch size is per_device_train_batch_size *

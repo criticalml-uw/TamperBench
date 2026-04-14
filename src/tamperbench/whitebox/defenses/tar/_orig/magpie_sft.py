@@ -99,7 +99,7 @@ def main():
         outputs = model(
             input_ids=batch["input_ids"],
             attention_mask=batch["attention_mask"],
-            labels=batch["input_ids"],
+            labels=batch["labels"],
         )
         loss = outputs.loss / args.gradient_accumulation_steps
         accelerator.backward(loss)

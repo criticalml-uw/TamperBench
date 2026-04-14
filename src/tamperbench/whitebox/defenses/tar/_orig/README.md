@@ -59,7 +59,9 @@ copied mostly verbatim. The TamperBench facade in `../defense.py` invokes
     paper describes an additional 100 steps of SFT on Magpie-Align after TAR
     training to recover benign capabilities (Appendix E.2). This is controlled
     by `post_tar_sft_steps` in `TARConfig` (default 0; set to 100 for refusal).
-    Not used for bio/cyber/weapon knowledge restriction.
+    Not used for bio/cyber/weapon knowledge restriction. Note: the paper only
+    specifies 100 steps; LR, batch size, and other SFT hyperparameters are
+    our guesses.
 
 ## Adding support for new models
 

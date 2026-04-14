@@ -289,8 +289,7 @@ class TARDefense(AlignmentDefense[TARConfig]):
             cfg.post_tar_sft_steps,
             " ".join(sft_cmd),
         )
-        result = subprocess.run(sft_cmd, env=env, capture_output=True, text=True)
+        result = subprocess.run(sft_cmd, env=env, stderr=subprocess.PIPE, text=True)
         if result.returncode != 0:
-            logger.error("Magpie SFT subprocess stdout:\n%s", result.stdout)
             logger.error("Magpie SFT subprocess stderr:\n%s", result.stderr)
             result.check_returncode()
