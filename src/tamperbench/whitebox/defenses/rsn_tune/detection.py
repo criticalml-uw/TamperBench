@@ -75,6 +75,7 @@ Differences from the original codebase (github.com/zhaoyiran924/Safety-Neuron):
 """
 
 import logging
+import math
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any
@@ -585,8 +586,6 @@ def _compute_qk_importance_original(
     Returns:
         Importance scores of shape [num_heads * d_head], same for Q and K.
     """
-    import math
-
     # These utilities are defined in llama but shared across architectures
     # (Mistral uses the same implementations). If adding support for an
     # architecture with a different RoPE scheme (e.g. Gemma2), this import
@@ -594,14 +593,17 @@ def _compute_qk_importance_original(
     from transformers.models.llama.modeling_llama import apply_rotary_pos_emb, repeat_kv
 
     bsz, seq_len, _ = hidden_states.size()
-    num_heads: int = attn_module.num_heads  # pyright: ignore[reportAssignmentType]
-    num_kv_heads: int = attn_module.num_key_value_heads  # pyright: ignore[reportAssignmentType]
-    d_head: int = attn_module.head_dim  # pyright: ignore[reportAssignmentType]
-    num_kv_groups: int = attn_module.num_key_value_groups  # pyright: ignore[reportAssignmentType]
+    # These attributes exist on LlamaAttention/MistralAttention/Qwen2Attention
+    # but nn.Module's type stubs don't know about them.
+    attn: Any = attn_module
+    num_heads: int = attn.config.num_attention_heads
+    num_kv_heads: int = attn.config.num_key_value_heads
+    d_head: int = attn.head_dim
+    num_kv_groups: int = attn.num_key_value_groups
 
     # Project and reshape to multi-head
-    query_states = attn_module.q_proj(hidden_states)  # pyright: ignore[reportCallIssue]
-    key_states = attn_module.k_proj(hidden_states)  # pyright: ignore[reportCallIssue]
+    query_states = attn.q_proj(hidden_states)
+    key_states = attn.k_proj(hidden_states)
     query_states = query_states.view(bsz, seq_len, num_heads, d_head).transpose(1, 2)
     key_states = key_states.view(bsz, seq_len, num_kv_heads, d_head).transpose(1, 2)
 
