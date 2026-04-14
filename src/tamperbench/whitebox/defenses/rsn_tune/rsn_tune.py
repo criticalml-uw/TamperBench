@@ -21,43 +21,39 @@ Algorithm (Paper Section 3.1 & 4):
     1. Detect safety neurons using harmful queries (circuit-breakers dataset)
     2. [RSN-Tune only] Detect foundation neurons using Wikipedia corpus
     3. [RSN-Tune only] Compute trainable neurons = safety - foundation (set difference)
-    4. Cap trainable neurons to max_neurons_per_param per parameter
-    5. Fine-tune only trainable neurons by:
-       a. Freezing all other parameters (requires_grad=False)
-       b. Applying gradient masks to selected parameters
-       c. Training on safety corpus (refusal responses to harmful queries)
+    4. Fine-tune only trainable neurons on safety corpus (refusal responses),
+       zeroing gradients for all other parameters
+
+    Additional step from the original codebase (not in the paper):
+    - Cap trainable neurons to max_neurons_per_param per parameter (default 100)
 
 Differences from the original codebase
 ---------------------------------------
-This implementation follows the paper's formulation rather than the original code.
-Where the paper is ambiguous or unspecified, we make choices documented below.
+By default this implementation follows the paper's formulation. Set
+``match_original_code=True`` to switch to the original codebase's behavior for
+both detection and training. The detection module has its own toggled
+differences; see the ``detection`` module docstring.
 
-For detection-specific differences (neuron selection strategy, importance metrics
-for FFN/V/Q/K, and gate_proj handling), see the ``detection`` module docstring.
+**Toggled by match_original_code** (default follows paper, True follows code):
 
-1. **Gradient masking mechanism.** We freeze non-safety parameters
-   (requires_grad=False) and apply float masks via a training callback. The
-   original code keeps all parameters trainable with gradient_checkpointing
-   enabled, and zeros gradients in a post-backward hook inside a patched
-   transformers Trainer. Our approach saves optimizer memory but is incompatible
-   with gradient checkpointing.
+1. **Training data format.** Paper: model's chat template for instruction-
+   tuned models. Original codebase: plain text ``question + ". " + response``.
 
-2. **Training data format.** For instruction-tuned models, we format training
-   data using the model's chat template (tokenizer.apply_chat_template). The
-   original code concatenates ``original_question + ". " + response`` as plain
-   text regardless of model type.
+   The paper is ambiguous about using chat templates for instruction-tuned
+   models. Section 3.2 mentions as a key difference when fine-tuning base models
+   that "we do use the specific chat template". We're assuming there's a typo, a
+   missing "not" in that sentence, implying that the chat template is applied
+   when fine-tuning chat models.
 
-3. **Foundation detection corpus.** We use Wikipedia for foundation neuron
-   detection as suggested in the paper (RSN-Tune mode). The original code seems
-   to use a general English web corpus (``corpus_all/english.txt``).
+2. **Learning rate.** Paper: 1e-6 (paper Section 3). Original codebase: 2e-6.
+   Not overridden by the flag — set via config. A warning is logged if
+   match_original_code is True and learning_rate != 2e-6.
 
-4. **Model preparation.** The original code calls
-   ``prepare_model_for_kbit_training()`` (from peft) before training, which
-   casts certain layers to float32 and sets input embeddings to non-trainable.
-   We skip this since we don't use quantization and handle freezing ourselves.
+**Not toggled** (always differs from original):
 
-5. **Learning rate.** We follow the paper in using 1e-6 (Section 3), whereas
-   the original code uses 2e-6.
+3. **Foundation detection corpus.** We use a Wikipedia corpus as the paper
+   suggests. The original code seems to use ``corpus_all/english.txt``, a
+   different web corpus, though perhaps that corpus is just for testing.
 """
 
 import logging
@@ -66,6 +62,7 @@ from pathlib import Path
 from typing import Any
 
 import datasets
+import peft
 import torch
 import trl
 from transformers import (
@@ -86,6 +83,7 @@ from tamperbench.whitebox.defenses.rsn_tune.detection import (
     NeuronId,
     cap_neurons_per_param,
     detect,
+    detect_original,
 )
 from tamperbench.whitebox.utils.names import DefenseName
 from tamperbench.whitebox.utils.ops.dealloc import dealloc_model_and_tokenizer
@@ -131,6 +129,11 @@ class RSNTuneConfig(AlignmentDefenseConfig):
             Set to False for base (non-instruction-tuned) models (paper Section 3.2).
         detection_chunk_size: Chunk size for processing sequences during neuron detection.
             Larger chunks = faster Q/K detection but more memory usage.
+        match_original_code: If True, switch both detection and training to match the
+            original Safety-Neuron codebase instead of the paper's formulation. Changes:
+            detection (top-K + intersection, L1 importance metrics, no gate_proj) and
+            training (all params trainable + gradient zeroing, gradient_checkpointing,
+            plain text format). See module docstring for full details.
     """
 
     # Paper uses training data from Zou et al. 2024 (circuit breakers)
@@ -150,6 +153,7 @@ class RSNTuneConfig(AlignmentDefenseConfig):
     use_robust_mode: bool = True  # RSN-Tune (True) vs SN-Tune (False)
     use_chat_template: bool = True  # False for base models (paper Section 3.2)
     detection_chunk_size: int = 128  # Larger chunks = faster Q/K detection
+    match_original_code: bool = False  # If True, match original codebase behavior
 
 
 def load_model(checkpoint_path: Path) -> PreTrainedModel:
@@ -365,14 +369,22 @@ class RSNTune(AlignmentDefense["RSNTuneConfig"]):
             if len(param.shape) >= 1
         )
 
-        neurons, raw_scores = detect(
-            model,
-            tokenizer,
-            dataset,
-            is_harmful,
-            threshold,
-            chunk_size=self.defense_config.detection_chunk_size,
-        )
+        if self.defense_config.match_original_code:
+            neurons, raw_scores = detect_original(
+                model,
+                tokenizer,
+                dataset,
+                is_harmful,
+            )
+        else:
+            neurons, raw_scores = detect(
+                model,
+                tokenizer,
+                dataset,
+                is_harmful,
+                threshold,
+                chunk_size=self.defense_config.detection_chunk_size,
+            )
 
         dealloc_model_and_tokenizer(model, tokenizer)
         return neurons, raw_scores, total_neurons
@@ -383,44 +395,29 @@ class RSNTune(AlignmentDefense["RSNTuneConfig"]):
         model = load_model(cfg.input_checkpoint_path)
         tokenizer = load_tokenizer(cfg.input_checkpoint_path)
 
+        if cfg.match_original_code and cfg.learning_rate != 2e-6:
+            logger.warning(
+                f"match_original_code=True but learning_rate={cfg.learning_rate} (original codebase uses 2e-6)"
+            )
+
+        model.config.use_cache = False
+        # Original codebase uses prepare_model_for_kbit_training
+        model = peft.prepare_model_for_kbit_training(model)
+        for _name, param in model.named_parameters():
+            param.requires_grad = True
+
         logger.info("Creating gradient mask for safety neurons...")
         masks = create_neuron_mask(model, neurons)
 
-        # DEBUG: Log what parameters have gradients enabled
         trainable_params = [name for name, p in model.named_parameters() if p.requires_grad]
         logger.info(f"Parameters with requires_grad=True after masking: {len(trainable_params)}")
-        for name in trainable_params[:10]:  # Show first 10
+        for name in trainable_params[:10]:
             logger.info(f"  - {name}")
         if len(trainable_params) > 10:
             logger.info(f"  ... and {len(trainable_params) - 10} more")
 
-        # Paper: partition dataset into detection and training (non-overlapping)
-        # Use samples after detection samples to avoid overlap
-        logger.info(f"Loading {cfg.num_training_samples} safety training samples...")
-        train_start = cfg.num_detection_samples
-        train_end = train_start + cfg.num_training_samples
-        raw_ds = datasets.load_dataset(cfg.safety_dataset_path, split="train").select(range(train_start, train_end))
-
-        if cfg.use_chat_template:
-            # Use model's chat template for instruction-tuned models
-            def format_with_chat_template(ex: dict[str, Any]) -> dict[str, str]:
-                messages = [
-                    {"role": "user", "content": ex["prompt"]},
-                    {"role": "assistant", "content": ex["chosen"]},
-                ]
-                # apply_chat_template returns the full formatted string
-                text: str = tokenizer.apply_chat_template(  # pyright: ignore[reportAssignmentType]
-                    messages, tokenize=False, add_generation_prompt=False
-                )
-                return {"text": text}
-
-            ds = raw_ds.map(format_with_chat_template, remove_columns=raw_ds.column_names)
-        else:
-            # No chat template for base models (paper Section 3.2)
-            ds = raw_ds.map(
-                lambda ex: {"text": f"{ex['prompt']}. {ex['chosen']}"},  # pyright: ignore[reportUnknownLambdaType]
-                remove_columns=raw_ds.column_names,
-            )
+        # match_original_code uses plain text; paper uses chat template
+        ds = self._prepare_training_data(tokenizer, force_plain_text=cfg.match_original_code)
 
         trainer = trl.SFTTrainer(  # pyright: ignore[reportPrivateImportUsage]
             model=model,
@@ -441,19 +438,63 @@ class RSNTune(AlignmentDefense["RSNTuneConfig"]):
                 save_strategy="no",
                 max_length=cfg.max_length,
                 dataset_text_field="text",
-                # Incompatible with frozen params (requires_grad=False).
                 gradient_checkpointing=False,
             ),
+            # We freeze non-safety parameters and apply gradient masks via a training
+            # callback. The original codebase instead keeps
+            # all parameters trainable with
+            # gradient_checkpointing and zeros gradients
+            # post-step. These are functionally equivalent
+            # (same neurons receive the same updates); ours
+            # uses less optimizer memory.
             callbacks=[GradientMaskCallback(model, masks)],
         )
 
         logger.info("Training safety neurons...")
         trainer.train()
+        self._save_and_cleanup(model, tokenizer, trainer)
 
+    def _prepare_training_data(
+        self, tokenizer: PreTrainedTokenizer, force_plain_text: bool = False
+    ) -> datasets.Dataset:
+        """Load and format safety training data."""
+        cfg = self.defense_config
+        logger.info(f"Loading {cfg.num_training_samples} safety training samples...")
+        train_start = cfg.num_detection_samples
+        train_end = train_start + cfg.num_training_samples
+        raw_ds = datasets.load_dataset(cfg.safety_dataset_path, split="train").select(range(train_start, train_end))
+
+        if cfg.use_chat_template and not force_plain_text:
+
+            def format_with_chat_template(ex: dict[str, Any]) -> dict[str, str]:
+                messages = [
+                    {"role": "user", "content": ex["prompt"]},
+                    {"role": "assistant", "content": ex["chosen"]},
+                ]
+                text: str = tokenizer.apply_chat_template(  # pyright: ignore[reportAssignmentType]
+                    messages, tokenize=False, add_generation_prompt=False
+                )
+                return {"text": text}
+
+            return raw_ds.map(format_with_chat_template, remove_columns=raw_ds.column_names)
+
+        # Plain text: matches original code's "question. response" format
+        return raw_ds.map(
+            lambda ex: {"text": f"{ex['prompt']}. {ex['chosen']}"},  # pyright: ignore[reportUnknownLambdaType]
+            remove_columns=raw_ds.column_names,
+        )
+
+    def _save_and_cleanup(
+        self,
+        model: PreTrainedModel,
+        tokenizer: PreTrainedTokenizer,
+        trainer: trl.SFTTrainer,  # pyright: ignore[reportPrivateImportUsage]
+    ) -> None:
+        """Save model checkpoint and free memory."""
+        cfg = self.defense_config
         logger.info(f"Saving model to {cfg.output_checkpoint_path}...")
         model.save_pretrained(cfg.output_checkpoint_path, safe_serialization=True)
         tokenizer.save_pretrained(cfg.output_checkpoint_path)
-
         trainer.accelerator.free_memory()
         dealloc_model_and_tokenizer(model, tokenizer)
 

@@ -89,6 +89,7 @@ def run_attack_only(
     model_config_dict: dict[str, object],
     out_dir: Path,
     random_seed: int,
+    keep_checkpoints: bool = False,
 ) -> dict[str, float]:
     """Fine-tune the base model on GSM8K without any defense — the 'Original' condition.
 
@@ -132,7 +133,7 @@ def run_attack_only(
             output_base_dir=attack_out_dir,
             random_seed=random_seed,
             eval_names=eval_names,
-            cleanup_checkpoints=True,
+            cleanup_checkpoints=not keep_checkpoints,
         )
 
         for config_name, results_df in results.items():
@@ -183,46 +184,74 @@ def run_defense_condition(
 
 def print_table(
     model_name: str,
-    before: dict[str, float],
-    original: dict[str, float],
-    sn_tune: dict[str, float],
-    rsn_tune: dict[str, float],
+    all_results: dict[str, dict[str, float]],
 ) -> None:
     """Print results in a format comparable to Table 4."""
-    print(f"\n{'=' * 70}")
-    print(f"Table 4 Replication — {model_name}")
-    print(f"{'=' * 70}")
-    print(f"{'Metric':<25} {'Before':>10} {'Original':>10} {'SN-Tune':>10} {'RSN-Tune':>10}")
-    print(f"{'-' * 70}")
-
-    # StrongREJECT score (our proxy for harmful score / ASR)
     sr_key = str(EvalName.STRONG_REJECT)
-    b_sr = before.get(sr_key, float("nan"))
-    o_sr = original.get(sr_key, float("nan"))
-    sn_sr = sn_tune.get(f"post_attack.benign_full_parameter_finetune.{sr_key}", float("nan"))
-    rsn_sr = rsn_tune.get(f"post_attack.benign_full_parameter_finetune.{sr_key}", float("nan"))
-
-    print(f"{'StrongREJECT (harmful)':<25} {b_sr:>10.3f} {o_sr:>10.3f} {sn_sr:>10.3f} {rsn_sr:>10.3f}")
-
-    # Also show defense-only scores (before the GSM8K fine-tune)
-    sn_def = sn_tune.get(f"defense.{sr_key}", float("nan"))
-    rsn_def = rsn_tune.get(f"defense.{sr_key}", float("nan"))
-    print(f"{'  (post-defense only)':<25} {'—':>10} {'—':>10} {sn_def:>10.3f} {rsn_def:>10.3f}")
-
-    # MMLU-Pro (capability metric, higher = better)
     mmlu_key = str(EvalName.MMLU_PRO_VAL)
     pa = "post_attack.benign_full_parameter_finetune"
-    b_mmlu = before.get(mmlu_key, float("nan"))
-    o_mmlu = original.get(mmlu_key, float("nan"))
-    sn_mmlu = sn_tune.get(f"{pa}.{mmlu_key}", float("nan"))
-    rsn_mmlu = rsn_tune.get(f"{pa}.{mmlu_key}", float("nan"))
-    print(f"{'MMLU-Pro (capability)':<25} {b_mmlu:>10.3f} {o_mmlu:>10.3f} {sn_mmlu:>10.3f} {rsn_mmlu:>10.3f}")
 
-    sn_mmlu_def = sn_tune.get(f"defense.{mmlu_key}", float("nan"))
-    rsn_mmlu_def = rsn_tune.get(f"defense.{mmlu_key}", float("nan"))
-    print(f"{'  (post-defense only)':<25} {'—':>10} {'—':>10} {sn_mmlu_def:>10.3f} {rsn_mmlu_def:>10.3f}")
+    # Build columns dynamically based on available results
+    columns: list[tuple[str, dict[str, float], bool]] = []  # (label, data, is_defense)
+    for key, label, is_def in [
+        ("before", "Before", False),
+        ("original", "Original", False),
+        ("sn_tune", "SN-Tune", True),
+        ("rsn_tune", "RSN-Tune", True),
+        ("sn_tune_original", "SN-Orig", True),
+        ("rsn_tune_original", "RSN-Orig", True),
+    ]:
+        if key in all_results:
+            columns.append((label, all_results[key], is_def))
 
-    print(f"{'=' * 70}")
+    col_w = 10
+    header = f"{'Metric':<25}" + "".join(f"{label:>{col_w}}" for label, _, _ in columns)
+    sep = "-" * len(header)
+
+    print(f"\n{'=' * len(header)}")
+    print(f"Table 4 Replication — {model_name}")
+    print(f"{'=' * len(header)}")
+    print(header)
+    print(sep)
+
+    # StrongREJECT row
+    def _get_sr(data: dict[str, float], is_defense: bool) -> float:
+        if is_defense:
+            return data.get(f"{pa}.{sr_key}", float("nan"))
+        return data.get(sr_key, float("nan"))
+
+    vals = "".join(f"{_get_sr(d, is_def):>{col_w}.3f}" for _, d, is_def in columns)
+    print(f"{'StrongREJECT (harmful)':<25}{vals}")
+
+    # Post-defense-only row
+    def _get_sr_def(data: dict[str, float], is_defense: bool) -> str:
+        if not is_defense:
+            return f"{'—':>{col_w}}"
+        v = data.get(f"defense.{sr_key}", float("nan"))
+        return f"{v:>{col_w}.3f}"
+
+    vals = "".join(_get_sr_def(d, is_def) for _, d, is_def in columns)
+    print(f"{'  (post-defense only)':<25}{vals}")
+
+    # MMLU-Pro row
+    def _get_mmlu(data: dict[str, float], is_defense: bool) -> float:
+        if is_defense:
+            return data.get(f"{pa}.{mmlu_key}", float("nan"))
+        return data.get(mmlu_key, float("nan"))
+
+    vals = "".join(f"{_get_mmlu(d, is_def):>{col_w}.3f}" for _, d, is_def in columns)
+    print(f"{'MMLU-Pro (capability)':<25}{vals}")
+
+    def _get_mmlu_def(data: dict[str, float], is_defense: bool) -> str:
+        if not is_defense:
+            return f"{'—':>{col_w}}"
+        v = data.get(f"defense.{mmlu_key}", float("nan"))
+        return f"{v:>{col_w}.3f}"
+
+    vals = "".join(_get_mmlu_def(d, is_def) for _, d, is_def in columns)
+    print(f"{'  (post-defense only)':<25}{vals}")
+
+    print(f"{'=' * len(header)}")
     print()
     print("Paper Table 4 reference (harmful score = avg ASR, lower = safer):")
     print("  Llama2-7B-Chat:         Before=0.0  Original=41.0  SN-Tune=38.0  RSN-Tune=26.0")
@@ -254,9 +283,21 @@ def main() -> None:
     parser.add_argument(
         "--skip-conditions",
         nargs="*",
-        choices=["before", "original", "sn_tune", "rsn_tune"],
+        choices=["before", "original", "sn_tune", "rsn_tune", "sn_tune_original", "rsn_tune_original"],
         default=[],
         help="Conditions to skip (e.g. --skip-conditions before original)",
+    )
+    parser.add_argument(
+        "--original-code",
+        action="store_true",
+        default=False,
+        help="Also run SN-Tune/RSN-Tune with match_original_code=True",
+    )
+    parser.add_argument(
+        "--keep-checkpoints",
+        action="store_true",
+        default=False,
+        help="Keep attack checkpoints (for external eval e.g. HarmBench)",
     )
     args = parser.parse_args()
 
@@ -264,6 +305,8 @@ def main() -> None:
     results_dir: Path = args.results_dir
     random_seed: int = args.random_seed
     skip: set[str] = set(args.skip_conditions)
+    keep_checkpoints: bool = args.keep_checkpoints
+    run_original: bool = args.original_code
 
     model_alias = f"{Path(pretrained_model_path).name}_{datetime.now():%Y_%m_%d}"
     results_dir.mkdir(parents=True, exist_ok=True)
@@ -298,7 +341,12 @@ def main() -> None:
         print("=" * 60)
         original_dir = results_dir / model_alias / "original"
         original_metrics = run_attack_only(
-            pretrained_model_path, grid_config, model_config_dict, original_dir, random_seed
+            pretrained_model_path,
+            grid_config,
+            model_config_dict,
+            original_dir,
+            random_seed,
+            keep_checkpoints=keep_checkpoints,
         )
         all_results["original"] = original_metrics
         print(f"Original metrics: {original_metrics}")
@@ -310,7 +358,13 @@ def main() -> None:
         print("Condition 3/4: SN-TUNE (defense + GSM8K fine-tune)")
         print("=" * 60)
         sn_metrics = run_defense_condition(
-            pretrained_model_path, DefenseName.RSN_TUNE, "sn_tune", results_dir, random_seed, model_alias
+            pretrained_model_path,
+            DefenseName.RSN_TUNE,
+            "sn_tune",
+            results_dir,
+            random_seed,
+            model_alias,
+            keep_checkpoints=keep_checkpoints,
         )
         all_results["sn_tune"] = sn_metrics
         print(f"SN-Tune metrics: {sn_metrics}")
@@ -322,10 +376,52 @@ def main() -> None:
         print("Condition 4/4: RSN-TUNE (defense + GSM8K fine-tune)")
         print("=" * 60)
         rsn_metrics = run_defense_condition(
-            pretrained_model_path, DefenseName.RSN_TUNE, "rsn_tune", results_dir, random_seed, model_alias
+            pretrained_model_path,
+            DefenseName.RSN_TUNE,
+            "rsn_tune",
+            results_dir,
+            random_seed,
+            model_alias,
+            keep_checkpoints=keep_checkpoints,
         )
         all_results["rsn_tune"] = rsn_metrics
         print(f"RSN-Tune metrics: {rsn_metrics}")
+        torch.cuda.empty_cache()
+
+    # --- Condition 5: SN-Tune (original code) ---
+    if run_original and "sn_tune_original" not in skip:
+        print("\n" + "=" * 60)
+        print("Condition 5/6: SN-TUNE ORIGINAL-CODE (defense + GSM8K fine-tune)")
+        print("=" * 60)
+        sn_orig_metrics = run_defense_condition(
+            pretrained_model_path,
+            DefenseName.RSN_TUNE,
+            "sn_tune_original",
+            results_dir,
+            random_seed,
+            model_alias,
+            keep_checkpoints=keep_checkpoints,
+        )
+        all_results["sn_tune_original"] = sn_orig_metrics
+        print(f"SN-Tune (original) metrics: {sn_orig_metrics}")
+        torch.cuda.empty_cache()
+
+    # --- Condition 6: RSN-Tune (original code) ---
+    if run_original and "rsn_tune_original" not in skip:
+        print("\n" + "=" * 60)
+        print("Condition 6/6: RSN-TUNE ORIGINAL-CODE (defense + GSM8K fine-tune)")
+        print("=" * 60)
+        rsn_orig_metrics = run_defense_condition(
+            pretrained_model_path,
+            DefenseName.RSN_TUNE,
+            "rsn_tune_original",
+            results_dir,
+            random_seed,
+            model_alias,
+            keep_checkpoints=keep_checkpoints,
+        )
+        all_results["rsn_tune_original"] = rsn_orig_metrics
+        print(f"RSN-Tune (original) metrics: {rsn_orig_metrics}")
         torch.cuda.empty_cache()
 
     # --- Save and display results ---
@@ -337,10 +433,7 @@ def main() -> None:
 
     print_table(
         model_name=pretrained_model_path,
-        before=all_results.get("before", {}),
-        original=all_results.get("original", {}),
-        sn_tune=all_results.get("sn_tune", {}),
-        rsn_tune=all_results.get("rsn_tune", {}),
+        all_results=all_results,
     )
 
 

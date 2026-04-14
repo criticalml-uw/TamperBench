@@ -36,3 +36,16 @@ rsn_tune: &rsn_cfg
 sn_tune:
     <<: *rsn_cfg
     use_robust_mode: false
+
+# Variants matching the original Safety-Neuron codebase (top-K detection,
+# gradient zeroing, plain text format, lr=2e-6, prepare_model_for_kbit_training).
+rsn_tune_original:
+    <<: *rsn_cfg
+    match_original_code: true
+    learning_rate: 2.0e-6
+
+sn_tune_original:
+    <<: *rsn_cfg
+    use_robust_mode: false
+    match_original_code: true
+    learning_rate: 2.0e-6

@@ -41,37 +41,37 @@ Uses mathematical properties to avoid per-neuron loops where possible:
 
 Differences from the original codebase (github.com/zhaoyiran924/Safety-Neuron):
 
-    1. **Neuron selection**: This implementation uses threshold-based filtering
-       (importance >= threshold on ALL samples), matching the paper's Equations 2-3
-       which define activated neurons as those with importance >= epsilon. The original
-       code instead uses top-K selection per sample (top 12,000 FFN, top 2,000
-       attention per layer) followed by set intersection. Note: the paper never
-       specifies epsilon's value, and the paper's reported neuron counts (~2329 for
-       Llama3-8B) were produced by the original code's top-K approach, so the
-       threshold may need per-model tuning to produce comparable neuron counts.
+    Set ``match_original_code=True`` on ``RSNTuneConfig`` to use
+    ``detect_original()`` instead of ``detect()``.
 
-    2. **FFN importance metric**: This implementation decomposes the paper's
-       Equation 9 into separable norms: ||h_ffn[:,:,k]||_2 * ||W_down[:,k]||_2,
-       where h_ffn = silu(gate(x)) * up(x). The original code uses
-       sum(abs(up_proj(x)), dim=1) (L1 norm of up_proj output only, ignoring
-       gate_proj and down_proj weights).
+    **Toggled by match_original_code** (paper vs original codebase disagree):
 
-    3. **V importance metric**: This implementation applies the same separable-
-       norm decomposition to the V/O path: ||V[:,:,k]||_2 * ||W_o[:,k]||_2
-       (as the paper prescribes for V since it is outside the softmax). The
-       original code uses sum(abs(attn_output), dim=1) (L1 norm of attention
-       output before o_proj).
+    1. **Neuron selection**: Paper (Eq 2-3): threshold-based filtering
+       (importance >= epsilon on ALL samples). Original: top-K per sample
+       (12,000 FFN, 2,000 attention per layer) then set intersection. Both
+       select "consistently important" neurons but define importance differently.
+       The paper never specifies epsilon.
 
-    4. **Q/K importance**: This implementation operates on pre-RoPE Q/K projections
-       (hidden_states @ W_q/k.T) per the paper's formulation. The original code
-       operates on post-RoPE Q/K states. Both zero individual dimensions and measure
-       the resulting attention difference, but the original also has a scaling
-       discrepancy (subtracts unscaled per-dimension contributions from scaled logits).
+    2. **FFN importance metric**: Paper (Eq 8-9): separable norms
+       ||h_ffn[:,:,k]||_2 * ||W_down[:,k]||_2 where h_ffn = silu(gate)*up.
+       Original: sum(abs(up_proj(x)), dim=seq) — L1 of up_proj output only,
+       ignoring gate_proj and down_proj weights.
 
-    5. **gate_proj neurons**: This implementation detects and trains gate_proj neurons
-       (since they share the same FFN neuron importance score per the paper). The
-       original code does not apply gradient updates to gate_proj (it falls into the
-       else branch that zeros all gradients).
+    3. **V importance metric**: Paper (Appendix A.1): separable norms on V/O
+       path (same as FFN, since V is outside the softmax). Original:
+       sum(abs(attn_output), dim=seq) — L1 of attention output before o_proj.
+
+    4. **Q/K importance**: ``detect()`` implements the paper's Eq 11-14
+       (pre-RoPE, separate Q and K scores, proper scaling). ``detect_original()``
+       faithfully reproduces the original code's post-RoPE softmax-diff
+       computation, including two things that may be bugs:
+       (a) **Scaling bug**: unscaled per-dimension Q*K outer products are
+       subtracted from the scaled full logits (Q@K^T/sqrt(d)), mixing scaled
+       and unscaled quantities. The paper's Eq 11 defines Delta_k as a
+       difference of identically-scaled terms.
+       (b) **Same score for Q and K**: the original code returns the same
+       importance tensor for both. The paper says to compute them separately
+       ("W_K is symmetrical to W_Q", implying a separate K computation).
 """
 
 import logging
@@ -163,9 +163,8 @@ def _detect_ffn_neurons(
 
     Uses the property: ||h[:,:,i] ⊗ W[:,i]||_2 = ||h[:,:,i]||_2 * ||W[:,i]||_2
 
-    All three projections (gate, up, down) share the same importance score
-    because zeroing intermediate dimension k has the same effect regardless
-    of which projection's weights are modified.
+    Records importance for up_proj and down_proj only. gate_proj is excluded
+    from training (matching the original codebase).
     """
     for name, module in model.named_modules():
         if "mlp" not in name or not hasattr(module, "down_proj"):
@@ -182,7 +181,6 @@ def _detect_ffn_neurons(
         h_ffn = torch.nn.functional.silu(gate_output) * up_output
 
         W_down: torch.Tensor = module.down_proj.weight  # pyright: ignore[reportAttributeAccessIssue,reportAssignmentType]
-        W_gate: torch.Tensor = module.gate_proj.weight  # pyright: ignore[reportAttributeAccessIssue,reportAssignmentType]
         W_up: torch.Tensor = module.up_proj.weight  # pyright: ignore[reportAttributeAccessIssue,reportAssignmentType]
 
         # Vectorized: compute all norms at once
@@ -190,11 +188,11 @@ def _detect_ffn_neurons(
         W_col_norms = torch.norm(W_down, p=2, dim=0)
         importance_all = (h_norms * W_col_norms).tolist()
 
-        # Record same importance for all three projections using actual param names
+        # Record importance for up_proj and down_proj only (not gate_proj,
+        # matching the original code which zeros gate_proj gradients entirely).
         # down_proj: column orientation (zeroing column k of down_proj)
-        # gate/up_proj: row orientation (zeroing row k, i.e., output dim k)
+        # up_proj: row orientation (zeroing row k, i.e., output dim k)
         record_importance(neuron_importance, param_name_map[id(W_down)], importance_all, 0, "column")
-        record_importance(neuron_importance, param_name_map[id(W_gate)], importance_all, 0, "row")
         record_importance(neuron_importance, param_name_map[id(W_up)], importance_all, 0, "row")
 
 
@@ -283,14 +281,13 @@ def detect_v_neurons(
     Per paper Appendix A.1 (line 697-698): "Since W_V(x) is not in the non-linear
     softmax calculation, we can calculate Imp(W_V|c) by applying Equation (9)."
 
-    Note: This approximation overestimates by ~60% because it ignores attention
-    weights. However, it preserves relative ranking and matches the paper.
+    Note: This approximation overestimates importance because it ignores
+    attention weights, but it preserves relative ranking and matches the paper.
     """
     V_full = torch.matmul(hidden_states, W_v.T)
     d_v = config.num_kv_heads * config.d_head
 
     # Paper's Equation 9 approximation: ||V[k]||_2 * ||W_o[:,k]||_2
-    # This overestimates by ~60% but preserves relative ranking
     if config.is_gqa:
         V_norms = torch.norm(V_full, p=2, dim=(0, 1))
         W_o_grouped = W_o.view(config.d_model, config.num_kv_heads, config.num_repeats, config.d_head)
@@ -551,3 +548,265 @@ def detect(
     neuron_importance = detect_raw(model, tokenizer, dataset, is_harmful, chunk_size)
     neurons = filter_important_neurons(neuron_importance, len(dataset), importance_threshold)
     return neurons, neuron_importance
+
+
+def _compute_qk_importance_original(
+    attn_module: nn.Module,
+    hidden_states: torch.Tensor,
+    position_embeddings: tuple[torch.Tensor, torch.Tensor],
+) -> torch.Tensor:
+    """Compute Q/K importance scores matching the original codebase.
+
+    Reproduces the original code's post-RoPE softmax-diff computation. Known
+    discrepancies from the paper's Eq 11-14 that we reproduce faithfully:
+
+    - **Scaling bug**: per-dimension Q*K outer products are unscaled, but they
+      are subtracted from the scaled full attention logits (Q@K^T/sqrt(d)),
+      mixing scaled and unscaled quantities.
+    - **Same score for Q and K**: the original returns the same importance
+      tensor for both query_score and key_score (likely a bug — the paper
+      prescribes separate Q and K computations via Eq 12 and the note that
+      "W_K is symmetrical to W_Q").
+
+    Args:
+        attn_module: The self_attn module (e.g. LlamaAttention).
+        hidden_states: Input to attention, [batch, seq, hidden_size].
+        position_embeddings: (cos, sin) for RoPE.
+
+    Returns:
+        Importance scores of shape [num_heads * d_head], same for Q and K.
+    """
+    import math
+
+    from transformers.models.llama.modeling_llama import apply_rotary_pos_emb, repeat_kv
+
+    bsz, seq_len, _ = hidden_states.size()
+    num_heads: int = attn_module.num_heads  # pyright: ignore[reportAssignmentType]
+    num_kv_heads: int = attn_module.num_key_value_heads  # pyright: ignore[reportAssignmentType]
+    d_head: int = attn_module.head_dim  # pyright: ignore[reportAssignmentType]
+    num_kv_groups: int = attn_module.num_key_value_groups  # pyright: ignore[reportAssignmentType]
+
+    # Project and reshape to multi-head
+    query_states = attn_module.q_proj(hidden_states)  # pyright: ignore[reportCallIssue]
+    key_states = attn_module.k_proj(hidden_states)  # pyright: ignore[reportCallIssue]
+    query_states = query_states.view(bsz, seq_len, num_heads, d_head).transpose(1, 2)
+    key_states = key_states.view(bsz, seq_len, num_kv_heads, d_head).transpose(1, 2)
+
+    # Apply RoPE
+    cos, sin = position_embeddings
+    query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
+
+    # GQA expansion
+    key_states = repeat_kv(key_states, num_kv_groups)
+
+    # Full attention logits (scaled) + causal mask
+    attn_weights = torch.matmul(query_states, key_states.transpose(2, 3)) / math.sqrt(d_head)
+    causal_mask = torch.triu(
+        torch.full((seq_len, seq_len), float("-inf"), device=attn_weights.device, dtype=attn_weights.dtype),
+        diagonal=1,
+    )
+    attn_weights = attn_weights + causal_mask
+
+    # Per-dimension outer products (NOT scaled — this is a bug in the original
+    # code; the paper's Eq 11 scales Delta_k by 1/sqrt(d)):
+    # [batch, heads, d_head, seq, seq]
+    attn_weights_temp = torch.matmul(
+        query_states.transpose(2, 3).unsqueeze(-1),
+        key_states.transpose(2, 3).unsqueeze(-1).transpose(-2, -1),
+    )
+
+    # Subtract unscaled per-dim contribution from scaled+masked full logits
+    attn_weights_temp = attn_weights.unsqueeze(2).expand_as(attn_weights_temp) - attn_weights_temp
+
+    # Softmax of "logits with dim k removed"
+    attn_weights_temp = torch.nn.functional.softmax(attn_weights_temp, dim=-1, dtype=torch.float32).to(
+        query_states.dtype
+    )
+
+    # Baseline softmax (from masked+scaled logits)
+    attn_baseline = torch.nn.functional.softmax(attn_weights, dim=-1, dtype=torch.float32).to(query_states.dtype)
+
+    # Squared diff, summed over (seq, seq) dims
+    attn_weights_temp = attn_weights_temp - attn_baseline.unsqueeze(2).expand_as(attn_weights_temp)
+    attn_weights_temp = (attn_weights_temp**2).sum(dim=(-2, -1))  # [batch, heads, d_head]
+
+    return attn_weights_temp.view(-1)  # [num_heads * d_head]
+
+
+def detect_original(
+    model: PreTrainedModel,
+    tokenizer: PreTrainedTokenizer,
+    dataset: datasets.Dataset,
+    is_harmful: bool,
+    top_k_ffn: int = 12000,
+    top_k_attn: int = 2000,
+) -> tuple[set[NeuronId], dict[NeuronId, list[float]]]:
+    """Detect important neurons using the original codebase's algorithm.
+
+    Differences from ``detect()``:
+    - Uses L1-norm importance metrics (not separable norms from the paper)
+    - Uses top-K per sample + set intersection (not threshold-based filtering)
+    - FFN: ``sum(abs(up_proj(x)), dim=seq)`` (same score for up_proj and down_proj)
+    - V: ``sum(abs(attn_output_before_o_proj), dim=seq)``
+    - Q/K: post-RoPE softmax-diff (same score for Q and K, matching original code)
+    - No gate_proj detection
+
+    Returns:
+        Tuple of (important_neurons, raw_importance_scores).
+    """
+    model.eval()
+    device = next(model.parameters()).device
+    param_name_map = build_param_name_map(model)
+
+    # Tokenize
+    field = "prompt" if is_harmful else "text"
+    all_texts: list[str] = [example[field] for example in dataset]  # pyright: ignore[reportCallIssue,reportArgumentType]
+    batch_encoding = tokenizer(
+        all_texts,
+        return_tensors="pt",
+        truncation=True,
+        max_length=512,
+        padding=True,
+    ).to(device)
+    all_inputs = [{k: v[i : i + 1] for k, v in batch_encoding.items()} for i in range(len(dataset))]
+
+    # Register hooks to capture activations
+    activations: dict[str, torch.Tensor] = {}
+    # Capture self_attn inputs for Q/K importance computation
+    attn_inputs: dict[str, tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor]]] = {}
+
+    def make_ffn_hook(name: str):
+        """Capture up_proj output for L1 importance."""
+
+        def hook(_module: nn.Module, _input: Any, output: Any) -> None:
+            out = output[0] if isinstance(output, tuple) else output
+            activations[name] = out.detach()
+
+        return hook
+
+    def make_o_proj_input_hook(name: str):
+        """Capture input to o_proj (= attention output before o_proj) for V importance."""
+
+        def hook(_module: nn.Module, args: Any, _output: Any) -> None:
+            inp = args[0] if isinstance(args, tuple) else args
+            activations[name] = inp.detach()
+
+        return hook
+
+    def make_attn_input_hook(name: str):
+        """Capture self_attn inputs (hidden_states, position_embeddings) for Q/K."""
+
+        def hook(_module: nn.Module, _args: Any, kwargs: dict[str, Any], _output: Any) -> None:
+            attn_inputs[name] = (
+                kwargs["hidden_states"].detach(),
+                kwargs["position_embeddings"],
+            )
+
+        return hook
+
+    hooks = []
+    for name, module in model.named_modules():
+        if "mlp.up_proj" in name:
+            hooks.append(module.register_forward_hook(make_ffn_hook(name)))
+        elif name.endswith("self_attn.o_proj"):
+            hooks.append(module.register_forward_hook(make_o_proj_input_hook(name)))
+        elif name.endswith("self_attn"):
+            hooks.append(module.register_forward_hook(make_attn_input_hook(name), with_kwargs=True))
+
+    # Per-sample top-K sets, keyed by (param_name, orientation)
+    per_sample_topk: dict[tuple[str, str], list[set[int]]] = {}
+    raw_importance: dict[NeuronId, list[float]] = {}
+
+    def _record_topk(param_name: str, orient: str, scores: torch.Tensor, top_k: int) -> None:
+        scores_list = scores.tolist()
+        top_indices = torch.argsort(scores, descending=True)[:top_k].tolist()
+        key = (param_name, orient)
+        per_sample_topk.setdefault(key, []).append(set(top_indices))
+        for i in top_indices:
+            raw_importance.setdefault((param_name, i, orient), []).append(scores_list[i])
+
+    logger.info("Computing neuron importance (original algorithm)...")
+    try:
+        with torch.inference_mode():
+            for idx, inputs in enumerate(all_inputs):
+                if idx % 10 == 0:
+                    logger.info(f"  Processing sample {idx}/{len(dataset)}")
+
+                activations.clear()
+                attn_inputs.clear()
+                model(**inputs)
+
+                # FFN: L1 of up_proj output, summed across sequence dim
+                for act_name, act_tensor in activations.items():
+                    if "up_proj" not in act_name:
+                        continue
+
+                    scores = torch.sum(torch.abs(act_tensor), dim=1).squeeze()
+                    layer_prefix = act_name.rsplit(".", 1)[0]
+                    up_param_name = None
+                    down_param_name = None
+                    for _pid, pname in param_name_map.items():
+                        if pname.startswith(layer_prefix):
+                            if "up_proj.weight" in pname:
+                                up_param_name = pname
+                            elif "down_proj.weight" in pname:
+                                down_param_name = pname
+
+                    if up_param_name is None or down_param_name is None:
+                        continue
+
+                    _record_topk(up_param_name, "row", scores, top_k_ffn)
+                    _record_topk(down_param_name, "column", scores, top_k_ffn)
+
+                # V: L1 of attention output before o_proj
+                for act_name, act_tensor in activations.items():
+                    if "o_proj" not in act_name:
+                        continue
+
+                    v_scores = torch.sum(torch.abs(act_tensor), dim=1).squeeze()
+                    attn_prefix = act_name.rsplit(".", 1)[0]
+
+                    v_param_name = None
+                    for _pid, pname in param_name_map.items():
+                        if pname.startswith(attn_prefix) and "v_proj.weight" in pname:
+                            v_param_name = pname
+                    if v_param_name is not None:
+                        _record_topk(v_param_name, "row", v_scores, top_k_attn)
+
+                # Q/K: post-RoPE softmax-diff (same score for both)
+                for attn_name, (hidden_states, pos_emb) in attn_inputs.items():
+                    # Find the self_attn module
+                    attn_module = None
+                    for mname, module in model.named_modules():
+                        if mname == attn_name:
+                            attn_module = module
+                            break
+                    if attn_module is None:
+                        continue
+
+                    qk_scores = _compute_qk_importance_original(attn_module, hidden_states, pos_emb)
+
+                    # Find q_proj and k_proj param names
+                    for _pid, pname in param_name_map.items():
+                        if pname.startswith(attn_name):
+                            if "q_proj.weight" in pname:
+                                _record_topk(pname, "row", qk_scores, top_k_attn)
+                            elif "k_proj.weight" in pname:
+                                # Same score for K as Q (matching original code)
+                                _record_topk(pname, "row", qk_scores, top_k_attn)
+
+    finally:
+        for hook in hooks:
+            hook.remove()
+
+    # Set intersection across all samples
+    neurons: set[NeuronId] = set()
+    for (param_name, orient), sample_sets in per_sample_topk.items():
+        if len(sample_sets) < len(dataset):
+            continue
+        common = set.intersection(*sample_sets)
+        for i in common:
+            neurons.add((param_name, i, orient))
+
+    logger.info(f"  Detected {len(neurons)} neurons via top-K intersection")
+    return neurons, raw_importance

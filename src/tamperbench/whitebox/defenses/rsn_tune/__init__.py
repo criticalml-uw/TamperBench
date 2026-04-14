@@ -18,6 +18,7 @@ from tamperbench.whitebox.defenses.rsn_tune.callbacks import GradientMaskCallbac
 from tamperbench.whitebox.defenses.rsn_tune.detection import (
     cap_neurons_per_param,
     detect,
+    detect_original,
 )
 from tamperbench.whitebox.defenses.rsn_tune.rsn_tune import (
     RSNTune,
@@ -30,4 +31,5 @@ __all__ = [
     "RSNTuneConfig",
     "cap_neurons_per_param",
     "detect",
+    "detect_original",
 ]
