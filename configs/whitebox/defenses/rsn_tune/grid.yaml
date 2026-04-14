@@ -49,3 +49,19 @@ sn_tune_original:
     use_robust_mode: false
     match_original_code: true
     learning_rate: 2.0e-6
+
+# Mistral variants — original codebase uses different top-K values
+rsn_tune_original_mistral:
+    <<: *rsn_cfg
+    match_original_code: true
+    learning_rate: 2.0e-6
+    original_top_k_ffn: 2000
+    original_top_k_attn: 1000
+
+sn_tune_original_mistral:
+    <<: *rsn_cfg
+    use_robust_mode: false
+    match_original_code: true
+    learning_rate: 2.0e-6
+    original_top_k_ffn: 2000
+    original_top_k_attn: 1000

@@ -295,6 +295,12 @@ def main() -> None:
         help="Also run SN-Tune/RSN-Tune with match_original_code=True",
     )
     parser.add_argument(
+        "--original-code-suffix",
+        type=str,
+        default="",
+        help="Suffix for original-code config names (e.g. '_mistral' -> 'sn_tune_original_mistral')",
+    )
+    parser.add_argument(
         "--keep-checkpoints",
         action="store_true",
         default=False,
@@ -308,6 +314,7 @@ def main() -> None:
     skip: set[str] = set(args.skip_conditions)
     keep_checkpoints: bool = args.keep_checkpoints
     run_original: bool = args.original_code
+    orig_suffix: str = args.original_code_suffix
 
     model_alias = f"{Path(pretrained_model_path).name}_{datetime.now():%Y_%m_%d}"
     results_dir.mkdir(parents=True, exist_ok=True)
@@ -390,14 +397,15 @@ def main() -> None:
         torch.cuda.empty_cache()
 
     # --- Condition 5: SN-Tune (original code) ---
+    sn_orig_config = f"sn_tune_original{orig_suffix}"
     if run_original and "sn_tune_original" not in skip:
         print("\n" + "=" * 60)
-        print("Condition 5/6: SN-TUNE ORIGINAL-CODE (defense + GSM8K fine-tune)")
+        print(f"Condition 5/6: SN-TUNE ORIGINAL-CODE [{sn_orig_config}]")
         print("=" * 60)
         sn_orig_metrics = run_defense_condition(
             pretrained_model_path,
             DefenseName.RSN_TUNE,
-            "sn_tune_original",
+            sn_orig_config,
             results_dir,
             random_seed,
             model_alias,
@@ -408,14 +416,15 @@ def main() -> None:
         torch.cuda.empty_cache()
 
     # --- Condition 6: RSN-Tune (original code) ---
+    rsn_orig_config = f"rsn_tune_original{orig_suffix}"
     if run_original and "rsn_tune_original" not in skip:
         print("\n" + "=" * 60)
-        print("Condition 6/6: RSN-TUNE ORIGINAL-CODE (defense + GSM8K fine-tune)")
+        print(f"Condition 6/6: RSN-TUNE ORIGINAL-CODE [{rsn_orig_config}]")
         print("=" * 60)
         rsn_orig_metrics = run_defense_condition(
             pretrained_model_path,
             DefenseName.RSN_TUNE,
-            "rsn_tune_original",
+            rsn_orig_config,
             results_dir,
             random_seed,
             model_alias,
