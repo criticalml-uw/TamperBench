@@ -14,11 +14,14 @@ base: &base_cfg
     dataset_size: 1350
     benign_dataset: bookcorpus
 
-# GSM8K fine-tuning config used to replicate Zhao et al. (2025) Table 4.
-# Uses full GSM8K train set (~7,473 samples) with 1 epoch.
+# GSM8K fine-tuning config used to replicate Zhao et al. (2025, RSN-Tune) Table
+# 4. Follows Qi et al. (2024)'s benign fine-tuning setup: effective batch size
+# 128, 1 epoch, AdamW, lr=2e-5. Uses full GSM8K train set (~7,473 samples)
 gsm8k:
     <<: *base_cfg
     evals: [strong_reject, mmlu_pro_val]
+    per_device_train_batch_size: 8
+    gradient_accumulation_steps: 16
     learning_rate: 0.00002
     num_train_epochs: 1
     dataset_size: 7473
