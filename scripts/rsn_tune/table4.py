@@ -3,10 +3,10 @@
 Table 4 evaluates whether RSN-Tune preserves model safety when the model is
 subsequently fine-tuned on a benign downstream task (GSM8K). The four conditions:
 
-  Before   — base instruction-tuned model, no fine-tuning
-  Original — fine-tuned on GSM8K (no defense)
-  SN-Tune  — SN-Tune defense, then fine-tuned on GSM8K
-  RSN-Tune — RSN-Tune defense, then fine-tuned on GSM8K
+  Before     — base instruction-tuned model, no fine-tuning
+  Undefended — fine-tuned on GSM8K (no defense)
+  SN-Tune    — SN-Tune defense, then fine-tuned on GSM8K
+  RSN-Tune   — RSN-Tune defense, then fine-tuned on GSM8K
 
 Discrepancies vs. paper
 -----------------------
@@ -205,11 +205,11 @@ def print_table(
     columns: list[tuple[str, dict[str, float], bool]] = []  # (label, data, is_defense)
     for key, label, is_def in [
         ("before", "Before", False),
-        ("original", "Original", False),
+        ("undefended", "Undefended", False),
         ("sn_tune", "SN-Tune", True),
         ("rsn_tune", "RSN-Tune", True),
-        ("sn_tune_original", "SN-Orig", True),
-        ("rsn_tune_original", "RSN-Orig", True),
+        ("sn_tune_orig_code", "SN-OCode", True),
+        ("rsn_tune_orig_code", "RSN-OCode", True),
     ]:
         if key in all_results:
             columns.append((label, all_results[key], is_def))
@@ -268,7 +268,7 @@ def print_table(
     print("  Mistral-7B-Instruct:    Before=36.0 Original=79.0  SN-Tune=72.0  RSN-Tune=41.0")
     print()
     print("Absolute values are NOT directly comparable (see docstring for discrepancies).")
-    print("The expected qualitative pattern is: RSN-Tune < SN-Tune < Original.")
+    print("The expected qualitative pattern is: RSN-Tune < SN-Tune < Undefended.")
 
 
 def main() -> None:
@@ -299,9 +299,9 @@ def main() -> None:
     parser.add_argument(
         "--skip-conditions",
         nargs="*",
-        choices=["before", "original", "sn_tune", "rsn_tune", "sn_tune_original", "rsn_tune_original"],
+        choices=["before", "undefended", "sn_tune", "rsn_tune", "sn_tune_orig_code", "rsn_tune_orig_code"],
         default=[],
-        help="Conditions to skip (e.g. --skip-conditions before original)",
+        help="Conditions to skip (e.g. --skip-conditions before undefended)",
     )
     parser.add_argument(
         "--original-code",
@@ -313,7 +313,7 @@ def main() -> None:
         "--original-code-suffix",
         type=str,
         default="",
-        help="Suffix for original-code config names (e.g. '_mistral' -> 'sn_tune_original_mistral')",
+        help="Suffix for orig-code config names (e.g. '_mistral' -> 'sn_tune_orig_code_mistral')",
     )
     parser.add_argument(
         "--keep-checkpoints",
@@ -367,22 +367,22 @@ def main() -> None:
         print(f"Before metrics: {before_metrics}")
         torch.cuda.empty_cache()
 
-    # --- Condition 2: Original (fine-tune on GSM8K, no defense) ---
-    if "original" not in skip:
+    # --- Condition 2: Undefended (fine-tune on GSM8K, no defense) ---
+    if "undefended" not in skip:
         print("\n" + "=" * 60)
-        print("Condition 2/4: ORIGINAL (GSM8K fine-tune, no defense)")
+        print("Condition 2/4: UNDEFENDED (GSM8K fine-tune, no defense)")
         print("=" * 60)
-        original_dir = results_dir / model_alias / "original"
-        original_metrics = run_attack_only(
+        undefended_dir = results_dir / model_alias / "undefended"
+        undefended_metrics = run_attack_only(
             pretrained_model_path,
             grid_config,
             model_config_dict,
-            original_dir,
+            undefended_dir,
             random_seed,
             keep_checkpoints=keep_checkpoints,
         )
-        all_results["original"] = original_metrics
-        print(f"Original metrics: {original_metrics}")
+        all_results["undefended"] = undefended_metrics
+        print(f"Undefended metrics: {undefended_metrics}")
         torch.cuda.empty_cache()
 
     # --- Condition 3: SN-Tune (SN-Tune defense + GSM8K fine-tune) ---
@@ -424,10 +424,10 @@ def main() -> None:
         torch.cuda.empty_cache()
 
     # --- Condition 5: SN-Tune (original code) ---
-    sn_orig_config = f"sn_tune_original{orig_suffix}"
-    if run_original and "sn_tune_original" not in skip:
+    sn_orig_config = f"sn_tune_orig_code{orig_suffix}"
+    if run_original and "sn_tune_orig_code" not in skip:
         print("\n" + "=" * 60)
-        print(f"Condition 5/6: SN-TUNE ORIGINAL-CODE [{sn_orig_config}]")
+        print(f"Condition 5/6: SN-TUNE ORIG-CODE [{sn_orig_config}]")
         print("=" * 60)
         sn_orig_metrics = run_defense_condition(
             pretrained_model_path,
@@ -439,15 +439,15 @@ def main() -> None:
             keep_checkpoints=keep_checkpoints,
             attack_config_override=attack_config if attack_config != "gsm8k" else None,
         )
-        all_results["sn_tune_original"] = sn_orig_metrics
-        print(f"SN-Tune (original) metrics: {sn_orig_metrics}")
+        all_results["sn_tune_orig_code"] = sn_orig_metrics
+        print(f"SN-Tune (orig-code) metrics: {sn_orig_metrics}")
         torch.cuda.empty_cache()
 
     # --- Condition 6: RSN-Tune (original code) ---
-    rsn_orig_config = f"rsn_tune_original{orig_suffix}"
-    if run_original and "rsn_tune_original" not in skip:
+    rsn_orig_config = f"rsn_tune_orig_code{orig_suffix}"
+    if run_original and "rsn_tune_orig_code" not in skip:
         print("\n" + "=" * 60)
-        print(f"Condition 6/6: RSN-TUNE ORIGINAL-CODE [{rsn_orig_config}]")
+        print(f"Condition 6/6: RSN-TUNE ORIG-CODE [{rsn_orig_config}]")
         print("=" * 60)
         rsn_orig_metrics = run_defense_condition(
             pretrained_model_path,
@@ -459,8 +459,8 @@ def main() -> None:
             keep_checkpoints=keep_checkpoints,
             attack_config_override=attack_config if attack_config != "gsm8k" else None,
         )
-        all_results["rsn_tune_original"] = rsn_orig_metrics
-        print(f"RSN-Tune (original) metrics: {rsn_orig_metrics}")
+        all_results["rsn_tune_orig_code"] = rsn_orig_metrics
+        print(f"RSN-Tune (orig-code) metrics: {rsn_orig_metrics}")
         torch.cuda.empty_cache()
 
     # --- Save and display results ---
