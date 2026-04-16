@@ -49,6 +49,26 @@ sn_tune_orig_code:
     <<: *orig_cfg
     use_robust_mode: false
 
+# More training samples (2000 instead of 50) — with 50 samples and effective
+# batch size 32, we only do ~1.5 gradient steps. 2000 samples gives ~62 steps.
+rsn_tune_2k_train:
+    <<: *rsn_cfg
+    num_training_samples: 2000
+
+sn_tune_2k_train:
+    <<: *rsn_cfg
+    use_robust_mode: false
+    num_training_samples: 2000
+
+rsn_tune_2k_train_orig_code:
+    <<: *orig_cfg
+    num_training_samples: 2000
+
+sn_tune_2k_train_orig_code:
+    <<: *orig_cfg
+    use_robust_mode: false
+    num_training_samples: 2000
+
 # Mistral variants — original codebase uses different top-K values
 rsn_tune_orig_code_mistral:
     <<: *orig_cfg

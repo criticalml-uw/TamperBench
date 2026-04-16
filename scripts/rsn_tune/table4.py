@@ -316,6 +316,12 @@ def main() -> None:
         help="Suffix for orig-code config names (e.g. '_mistral' -> 'sn_tune_orig_code_mistral')",
     )
     parser.add_argument(
+        "--defense-config-suffix",
+        type=str,
+        default="",
+        help="Suffix for paper-mode defense config names (e.g. '_2k_train' -> 'sn_tune_2k_train')",
+    )
+    parser.add_argument(
         "--keep-checkpoints",
         action="store_true",
         default=False,
@@ -330,6 +336,7 @@ def main() -> None:
     keep_checkpoints: bool = args.keep_checkpoints
     run_original: bool = args.original_code
     orig_suffix: str = args.original_code_suffix
+    defense_suffix: str = args.defense_config_suffix
     attack_config: str = args.attack_config
 
     model_alias = f"{Path(pretrained_model_path).name}_{datetime.now():%Y_%m_%d}"
@@ -390,10 +397,11 @@ def main() -> None:
         print("\n" + "=" * 60)
         print("Condition 3/4: SN-TUNE (defense + GSM8K fine-tune)")
         print("=" * 60)
+        sn_config = f"sn_tune{defense_suffix}"
         sn_metrics = run_defense_condition(
             pretrained_model_path,
             DefenseName.RSN_TUNE,
-            "sn_tune",
+            sn_config,
             results_dir,
             random_seed,
             model_alias,
@@ -409,10 +417,11 @@ def main() -> None:
         print("\n" + "=" * 60)
         print("Condition 4/4: RSN-TUNE (defense + GSM8K fine-tune)")
         print("=" * 60)
+        rsn_config = f"rsn_tune{defense_suffix}"
         rsn_metrics = run_defense_condition(
             pretrained_model_path,
             DefenseName.RSN_TUNE,
-            "rsn_tune",
+            rsn_config,
             results_dir,
             random_seed,
             model_alias,
@@ -424,7 +433,7 @@ def main() -> None:
         torch.cuda.empty_cache()
 
     # --- Condition 5: SN-Tune (original code) ---
-    sn_orig_config = f"sn_tune_orig_code{orig_suffix}"
+    sn_orig_config = f"sn_tune{defense_suffix}_orig_code{orig_suffix}"
     if run_original and "sn_tune_orig_code" not in skip:
         print("\n" + "=" * 60)
         print(f"Condition 5/6: SN-TUNE ORIG-CODE [{sn_orig_config}]")
@@ -444,7 +453,7 @@ def main() -> None:
         torch.cuda.empty_cache()
 
     # --- Condition 6: RSN-Tune (original code) ---
-    rsn_orig_config = f"rsn_tune_orig_code{orig_suffix}"
+    rsn_orig_config = f"rsn_tune{defense_suffix}_orig_code{orig_suffix}"
     if run_original and "rsn_tune_orig_code" not in skip:
         print("\n" + "=" * 60)
         print(f"Condition 6/6: RSN-TUNE ORIG-CODE [{rsn_orig_config}]")
