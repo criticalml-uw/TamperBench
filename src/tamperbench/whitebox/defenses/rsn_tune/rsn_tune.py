@@ -51,7 +51,13 @@ differences; see the ``detection`` module docstring.
 
 **Not toggled** (always differs from original):
 
-3. **Foundation detection corpus.** We use a Wikipedia corpus as the paper
+3. **Safety detection corpus.** Paper and our default use circuit-breakers
+   (Zou et al. 2024). The original codebase uses AdvBench for detection and
+   circuit-breakers only for training. Set ``harmful_dataset_path`` to
+   ``"AlignmentResearch/AdvBench"`` to match. A warning is logged if
+   match_original_code is True and AdvBench is not used for detection.
+
+4. **Foundation detection corpus.** We use a Wikipedia corpus as the paper
    suggests. The original code seems to use ``corpus_all/english.txt``, a
    different web corpus, though perhaps that corpus is just for testing.
 """
@@ -97,13 +103,15 @@ class RSNTuneConfig(AlignmentDefenseConfig):
 
     Attributes:
         harmful_dataset_path: HuggingFace dataset path for harmful queries used to detect
-            safety neurons. Paper uses circuit-breakers dataset from Zou et al. 2024.
+            safety neurons.
         foundation_dataset_path: HuggingFace dataset path for general (non-harmful) content
             used to detect foundation neurons in RSN-Tune mode.
         safety_dataset_path: HuggingFace dataset path for safety training data (refusal
             responses to harmful queries).
-        num_detection_samples: Number of samples used for neuron detection (paper: 200).
-        num_training_samples: Number of samples used for safety fine-tuning (paper: 50).
+        num_detection_samples: Number of samples used for safety neuron detection.
+        num_foundation_detection_samples: Number of Wikipedia samples for foundation
+            neuron detection (RSN-Tune mode).
+        num_training_samples: Number of samples for safety fine-tuning.
         safety_importance_threshold: Threshold for identifying safety neurons. Higher values
             = fewer neurons. The paper defines threshold-based selection (Eq. 2, epsilon)
             but never specifies epsilon's value. The paper's reported neuron counts (~2329
@@ -135,12 +143,14 @@ class RSNTuneConfig(AlignmentDefenseConfig):
             plain text format). See module docstring for full details.
     """
 
-    # Paper uses training data from Zou et al. 2024 (circuit breakers)
+    # Paper uses Zou et al. 2024 (circuit breakers) for the harmful dataset, but
+    # original codebase uses AdvBench
     harmful_dataset_path: str = "abhayesian/circuit-breakers-dataset"
     foundation_dataset_path: str = "wikimedia/wikipedia"
     safety_dataset_path: str = "abhayesian/circuit-breakers-dataset"
-    num_detection_samples: int = 200
-    num_training_samples: int = 50
+    num_detection_samples: int = 200  # Paper: 200 (Appendix A.2)
+    num_foundation_detection_samples: int = 200  # Paper unspecified
+    num_training_samples: int = 50  # Paper: 50 (Section 3.1)
     safety_importance_threshold: float = 1.0
     foundation_importance_threshold: float = 1.0
     max_neurons_per_param: int | None = 100  # Original codebase value (trainer.py:2038-2056)
@@ -157,6 +167,29 @@ class RSNTuneConfig(AlignmentDefenseConfig):
     # values per architecture: Llama (12000/2000), Mistral (2000/1000).
     original_top_k_ffn: int = 12000
     original_top_k_attn: int = 2000
+
+
+def _extract_texts(dataset: datasets.Dataset, dataset_path: str) -> list[str]:
+    """Extract a list of plain-text strings from a HuggingFace dataset.
+
+    Handles known dataset formats:
+    - circuit-breakers: ``prompt`` column
+    - AdvBench: ``content`` column (list of strings)
+    - Wikipedia: ``text`` column
+    """
+    rows: Any = dataset
+    if "prompt" in dataset.column_names:
+        return [row["prompt"] for row in rows]
+    if "text" in dataset.column_names:
+        return [row["text"] for row in rows]
+    if "content" in dataset.column_names:
+        # AdvBench: content is a list of strings, e.g. ["Write a script..."]
+        texts: list[str] = []
+        for row in rows:
+            content = row["content"]
+            texts.append(content[0] if isinstance(content, list) else str(content))
+        return texts
+    raise ValueError(f"Dataset {dataset_path} has no recognized text column. Columns: {dataset.column_names}")
 
 
 def load_model(checkpoint_path: Path) -> PreTrainedModel:
@@ -263,6 +296,12 @@ class RSNTune(AlignmentDefense["RSNTuneConfig"]):
         """
         cfg = self.defense_config
 
+        if cfg.match_original_code and "AdvBench" not in cfg.harmful_dataset_path:
+            logger.warning(
+                "match_original_code=True but harmful_dataset_path uses circuit-breakers. "
+                "The original codebase uses AdvBench for detection."
+            )
+
         logger.info("=== Step 1: Detecting Safety Neurons ===")
         safety_neurons, safety_scores, total_neurons = self._detect_safety_neurons()
         logger.info(
@@ -324,13 +363,17 @@ class RSNTune(AlignmentDefense["RSNTuneConfig"]):
         Returns:
             Tuple of (neurons, raw_importance_scores, total_neuron_count).
         """
-        logger.info(f"Loading {self.defense_config.num_detection_samples} harmful queries...")
-        dataset = datasets.load_dataset(self.defense_config.harmful_dataset_path, split="train").select(
-            range(self.defense_config.num_detection_samples)
+        n = self.defense_config.num_detection_samples
+        logger.info(f"Loading {n} harmful queries from {self.defense_config.harmful_dataset_path}...")
+        full_ds = datasets.load_dataset(self.defense_config.harmful_dataset_path, split="train")
+        assert n <= len(full_ds), (
+            f"num_detection_samples={n} exceeds dataset size {len(full_ds)} "
+            f"for {self.defense_config.harmful_dataset_path}"
         )
+        dataset = full_ds.select(range(n))
+        texts = _extract_texts(dataset, self.defense_config.harmful_dataset_path)
         return self._detect_neurons(
-            dataset,
-            is_harmful=True,
+            texts,
             threshold=self.defense_config.safety_importance_threshold,
         )
 
@@ -342,22 +385,32 @@ class RSNTune(AlignmentDefense["RSNTuneConfig"]):
         Returns:
             Tuple of (neurons, raw_importance_scores, total_neuron_count).
         """
-        logger.info(f"Loading {self.defense_config.num_detection_samples} foundation queries...")
-        dataset = datasets.load_dataset(
+        n = self.defense_config.num_foundation_detection_samples
+        logger.info(f"Loading {n} foundation queries...")
+        full_ds = datasets.load_dataset(
             self.defense_config.foundation_dataset_path,
             "20231101.en",
             split="train",
-        ).select(range(self.defense_config.num_detection_samples))
+        )
+        assert n <= len(full_ds), (
+            f"num_foundation_detection_samples={n} exceeds dataset size {len(full_ds)} "
+            f"for {self.defense_config.foundation_dataset_path}"
+        )
+        dataset = full_ds.select(range(n))
+        texts = _extract_texts(dataset, self.defense_config.foundation_dataset_path)
         return self._detect_neurons(
-            dataset,
-            is_harmful=False,
+            texts,
             threshold=self.defense_config.foundation_importance_threshold,
         )
 
     def _detect_neurons(
-        self, dataset: datasets.Dataset, is_harmful: bool, threshold: float
+        self, texts: list[str], threshold: float
     ) -> tuple[set[NeuronId], dict[NeuronId, list[float]], int]:
         """Detect important neurons using the configured detection strategy.
+
+        Args:
+            texts: List of input texts to detect neurons on.
+            threshold: Importance threshold (only used in paper mode).
 
         Returns:
             Tuple of (neurons, raw_importance_scores, total_neuron_count).
@@ -372,8 +425,7 @@ class RSNTune(AlignmentDefense["RSNTuneConfig"]):
             neurons, raw_scores = detect_original(
                 model,
                 tokenizer,
-                dataset,
-                is_harmful,
+                texts,
                 top_k_ffn=self.defense_config.original_top_k_ffn,
                 top_k_attn=self.defense_config.original_top_k_attn,
             )
@@ -381,8 +433,7 @@ class RSNTune(AlignmentDefense["RSNTuneConfig"]):
             neurons, raw_scores = detect(
                 model,
                 tokenizer,
-                dataset,
-                is_harmful,
+                texts,
                 threshold,
                 chunk_size=self.defense_config.detection_chunk_size,
             )
@@ -461,12 +512,29 @@ class RSNTune(AlignmentDefense["RSNTuneConfig"]):
     def _prepare_training_data(
         self, tokenizer: PreTrainedTokenizer, force_plain_text: bool = False
     ) -> datasets.Dataset:
-        """Load and format safety training data."""
+        """Load and format safety training data.
+
+        If the safety dataset is the same as the harmful detection dataset,
+        training samples are offset to avoid overlap with detection samples.
+        Otherwise all samples are used.
+        """
         cfg = self.defense_config
-        logger.info(f"Loading {cfg.num_training_samples} safety training samples...")
-        train_start = cfg.num_detection_samples
+        full_ds = datasets.load_dataset(cfg.safety_dataset_path, split="train")
+
+        # Offset to avoid overlap with detection samples if same dataset
+        if cfg.safety_dataset_path == cfg.harmful_dataset_path:
+            train_start = cfg.num_detection_samples
+        else:
+            train_start = 0
+
         train_end = train_start + cfg.num_training_samples
-        raw_ds = datasets.load_dataset(cfg.safety_dataset_path, split="train").select(range(train_start, train_end))
+        assert train_end <= len(full_ds), (
+            f"num_training_samples={cfg.num_training_samples} + offset {train_start} "
+            f"exceeds dataset size {len(full_ds)} for {cfg.safety_dataset_path}"
+        )
+        raw_ds = full_ds.select(range(train_start, train_end))
+
+        logger.info(f"Using {len(raw_ds)} safety training samples (offset {train_start})")
 
         if cfg.use_chat_template and not force_plain_text:
 

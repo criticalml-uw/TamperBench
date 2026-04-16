@@ -39,29 +39,24 @@ sn_tune:
 
 # Variants matching the original Safety-Neuron codebase (top-K detection,
 # plain text format, lr=2e-6, prepare_model_for_kbit_training).
-rsn_tune_orig_code:
+rsn_tune_orig_code: &orig_cfg
     <<: *rsn_cfg
     match_original_code: true
     learning_rate: 2.0e-6
+    harmful_dataset_path: AlignmentResearch/AdvBench
 
 sn_tune_orig_code:
-    <<: *rsn_cfg
+    <<: *orig_cfg
     use_robust_mode: false
-    match_original_code: true
-    learning_rate: 2.0e-6
 
 # Mistral variants — original codebase uses different top-K values
 rsn_tune_orig_code_mistral:
-    <<: *rsn_cfg
-    match_original_code: true
-    learning_rate: 2.0e-6
+    <<: *orig_cfg
     original_top_k_ffn: 2000
     original_top_k_attn: 1000
 
 sn_tune_orig_code_mistral:
-    <<: *rsn_cfg
+    <<: *orig_cfg
     use_robust_mode: false
-    match_original_code: true
-    learning_rate: 2.0e-6
     original_top_k_ffn: 2000
     original_top_k_attn: 1000

@@ -33,8 +33,3 @@ gsm8k: &gsm8k_cfg
 gsm8k_lr5e6:
     <<: *gsm8k_cfg
     learning_rate: 0.000005
-
-# Fewer samples variant (2000, ~16 steps) to reduce catastrophic forgetting
-gsm8k_2k:
-    <<: *gsm8k_cfg
-    dataset_size: 2000

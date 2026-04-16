@@ -80,7 +80,6 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any
 
-import datasets
 import torch
 from torch import nn
 from transformers import PreTrainedModel, PreTrainedTokenizer
@@ -410,15 +409,19 @@ def filter_important_neurons(
 def detect_raw(
     model: PreTrainedModel,
     tokenizer: PreTrainedTokenizer,
-    dataset: datasets.Dataset,
-    is_harmful: bool,
+    texts: list[str],
     chunk_size: int = 256,
 ) -> dict[tuple[str, int, str], list[float]]:
     """Compute raw importance scores for all neurons.
 
+    Args:
+        model: The model to analyze.
+        tokenizer: Tokenizer for the model.
+        texts: List of input texts (harmful queries or general text).
+        chunk_size: Chunk size for Q/K detection.
+
     Returns a dict mapping (param_name, neuron_idx, orientation) to list of
-    importance scores (one per sample). Use filter_by_threshold() to convert
-    to a set of important neurons.
+    importance scores (one per sample).
     """
     model.eval()
     device = next(model.parameters()).device
@@ -438,8 +441,7 @@ def detect_raw(
 
     # Batch tokenize all samples (faster than one at a time)
     logger.info("Tokenizing samples...")
-    field = "prompt" if is_harmful else "text"
-    all_texts: list[str] = [example[field] for example in dataset]  # pyright: ignore[reportCallIssue,reportArgumentType]
+    all_texts = texts
 
     # Tokenize in one batch, then split into individual samples
     batch_encoding = tokenizer(
@@ -451,7 +453,7 @@ def detect_raw(
     ).to(device)
 
     # Split batch into individual inputs
-    all_inputs = [{k: v[i : i + 1] for k, v in batch_encoding.items()} for i in range(len(dataset))]
+    all_inputs = [{k: v[i : i + 1] for k, v in batch_encoding.items()} for i in range(len(texts))]
 
     # Register hooks once (not per sample)
     activations: dict[str, torch.Tensor] = {}
@@ -497,7 +499,7 @@ def detect_raw(
         with torch.inference_mode():
             for idx, inputs in enumerate(all_inputs):
                 if idx % 10 == 0:
-                    logger.info(f"  Processing sample {idx}/{len(dataset)}")
+                    logger.info(f"  Processing sample {idx}/{len(texts)}")
 
                 activations.clear()
                 model(**inputs)
@@ -544,19 +546,25 @@ def cap_neurons_per_param(
 def detect(
     model: PreTrainedModel,
     tokenizer: PreTrainedTokenizer,
-    dataset: datasets.Dataset,
-    is_harmful: bool,
+    texts: list[str],
     importance_threshold: float,
     chunk_size: int = 256,
 ) -> tuple[set[NeuronId], dict[NeuronId, list[float]]]:
     """Detect important neurons using vectorized batched computation.
 
+    Args:
+        model: The model to analyze.
+        tokenizer: Tokenizer for the model.
+        texts: List of input texts (harmful queries or general text).
+        importance_threshold: Minimum importance score on ALL samples.
+        chunk_size: Chunk size for Q/K detection.
+
     Returns:
         Tuple of (important_neurons, raw_importance_scores). The raw scores are
         needed for cap_neurons_per_param() to rank neurons when capping.
     """
-    neuron_importance = detect_raw(model, tokenizer, dataset, is_harmful, chunk_size)
-    neurons = filter_important_neurons(neuron_importance, len(dataset), importance_threshold)
+    neuron_importance = detect_raw(model, tokenizer, texts, chunk_size)
+    neurons = filter_important_neurons(neuron_importance, len(texts), importance_threshold)
     return neurons, neuron_importance
 
 
@@ -651,12 +659,18 @@ def _compute_qk_importance_original(
 def detect_original(
     model: PreTrainedModel,
     tokenizer: PreTrainedTokenizer,
-    dataset: datasets.Dataset,
-    is_harmful: bool,
+    texts: list[str],
     top_k_ffn: int = 12000,
     top_k_attn: int = 2000,
 ) -> tuple[set[NeuronId], dict[NeuronId, list[float]]]:
     """Detect important neurons using the original codebase's algorithm.
+
+    Args:
+        model: The model to analyze.
+        tokenizer: Tokenizer for the model.
+        texts: List of input texts (harmful queries or general text).
+        top_k_ffn: Top-K FFN neurons per layer per sample (Llama: 12000, Mistral: 2000).
+        top_k_attn: Top-K attention neurons per layer per sample (Llama: 2000, Mistral: 1000).
 
     Differences from ``detect()``:
     - Uses L1-norm importance metrics (not separable norms from the paper)
@@ -674,16 +688,14 @@ def detect_original(
     param_name_map = build_param_name_map(model)
 
     # Tokenize
-    field = "prompt" if is_harmful else "text"
-    all_texts: list[str] = [example[field] for example in dataset]  # pyright: ignore[reportCallIssue,reportArgumentType]
     batch_encoding = tokenizer(
-        all_texts,
+        texts,
         return_tensors="pt",
         truncation=True,
         max_length=512,
         padding=True,
     ).to(device)
-    all_inputs = [{k: v[i : i + 1] for k, v in batch_encoding.items()} for i in range(len(dataset))]
+    all_inputs = [{k: v[i : i + 1] for k, v in batch_encoding.items()} for i in range(len(texts))]
 
     # Register hooks to capture activations
     activations: dict[str, torch.Tensor] = {}
@@ -771,7 +783,7 @@ def detect_original(
         with torch.inference_mode():
             for idx, inputs in enumerate(all_inputs):
                 if idx % 10 == 0:
-                    logger.info(f"  Processing sample {idx}/{len(dataset)}")
+                    logger.info(f"  Processing sample {idx}/{len(texts)}")
 
                 activations.clear()
                 attn_inputs.clear()
@@ -847,7 +859,7 @@ def detect_original(
     # Set intersection across all samples
     neurons: set[NeuronId] = set()
     for (param_name, orient), sample_sets in per_sample_topk.items():
-        if len(sample_sets) < len(dataset):
+        if len(sample_sets) < len(texts):
             continue
         common = set.intersection(*sample_sets)
         for i in common:
