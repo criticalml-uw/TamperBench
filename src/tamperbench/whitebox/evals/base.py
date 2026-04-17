@@ -2,8 +2,11 @@
 
 # pyright: reportUnknownVariableType=false, reportUnknownMemberType=false, reportAny=false
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Generic, TypeVar, final
 
@@ -45,6 +48,26 @@ class WhiteBoxEvaluationConfig:
     out_dir: str
     model_config: ModelConfig
     batch_size: int = 32
+    hf_model_loader: Callable[[], tuple[PreTrainedModel, PreTrainedTokenizer]] | None = field(
+        default=None, compare=False, repr=False
+    )
+    """Optional custom HF model loader.
+
+    When set, ``compute_inferences()`` uses HF ``model.generate()`` with this
+    loader instead of vLLM.  Used by activation-based attacks (LoFiT, JoLA,
+    ReFT) that register custom forward hooks which vLLM cannot apply.
+    """
+
+    def __getstate__(self) -> dict[str, Any]:
+        """Exclude hf_model_loader from pickling.
+
+        ``run_in_isolation`` spawns subprocesses via ``multiprocessing`` which
+        requires pickling the config.  Lambda/closure loaders are not picklable,
+        and the scoring/results subprocesses don't need the model loader anyway.
+        """
+        state = self.__dict__.copy()
+        state["hf_model_loader"] = None
+        return state
 
 
 class WhiteBoxEvaluation(ABC, Generic[C]):

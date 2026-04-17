@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C /Users/nnonta/GitHub/SafeTuneBed cherry-pick 9e36bd9 9f9fb9d 8d012de 4105114 191f029 0b5001f f56a31d d099340)",
+      "Bash(cp /Users/nnonta/GitHub/SAGE-TamperBench/src/safetunebed/whitebox/attacks/jola/modeling_llama.py /Users/nnonta/GitHub/SafeTuneBed/src/tamperbench/whitebox/attacks/jola/modeling_llama.py)",
+      "Bash(cp /Users/nnonta/GitHub/SAGE-TamperBench/src/safetunebed/whitebox/attacks/jola/modeling_qwen2.py /Users/nnonta/GitHub/SafeTuneBed/src/tamperbench/whitebox/attacks/jola/modeling_qwen2.py)"
+    ]
+  }
+}

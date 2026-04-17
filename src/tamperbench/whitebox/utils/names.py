@@ -20,6 +20,8 @@ class AttackName(StrEnum):
     NO_WEIGHT_MODIFICATION = "no_weight_modification"
     PROMPT_ATTACK = "prompt_attack"
     GCG_ATTACK = "gcg_attack"
+    LOFIT = "lofit"
+    JOLA = "jola"
 
 
 class DefenseName(StrEnum):

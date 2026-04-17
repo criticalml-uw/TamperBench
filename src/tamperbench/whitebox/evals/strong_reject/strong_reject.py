@@ -66,6 +66,21 @@ class StrongRejectEvaluation(WhiteBoxEvaluation[S]):
         """
         prompts: list[str] = self.load_strong_reject_prompts()
 
+        if self.eval_config.hf_model_loader is not None:
+            from tamperbench.whitebox.evals.hf_inference import HFGenerationConfig, hf_generate_inferences
+
+            gen_config = HFGenerationConfig(
+                max_new_tokens=int(self.eval_config.model_config.max_generation_length),
+                do_sample=False,
+                desc="StrongReject HF Inference",
+            )
+            return hf_generate_inferences(
+                model_loader=self.eval_config.hf_model_loader,
+                prompts=prompts,
+                batch_size=int(self.eval_config.model_config.inference_batch_size),
+                gen_config=gen_config,
+            )
+
         payload: pl.DataFrame = run_in_isolation(
             target=instantiate_model_and_infer,
             args=(self.eval_config, prompts),
