@@ -1,4 +1,4 @@
-# ruff: noqa: F722  # jaxtyping shape strings (e.g. Float[Tensor, "batch seq"]) trip F722
+# ruff: noqa: F722, F821  # jaxtyping shape strings (e.g. Float[Tensor, "d_model"]) trip F722/F821
 """Utility functions for model operations and Hugging Face Hub interactions."""
 
 import os
