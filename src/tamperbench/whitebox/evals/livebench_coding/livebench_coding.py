@@ -50,42 +50,6 @@ CODE_GEN_TASKS = {"code_generation"}
 INCLUDED_TASKS = LCB_TASKS | CODE_GEN_TASKS
 
 
-def _filter_questions(dataset: datasets.Dataset, livebench_release: str, max_samples: int | None) -> list[dict]:
-    """Filter dataset questions by release date, removal date, and task type."""
-    release_cutoff = datetime.strptime(livebench_release, "%Y-%m-%d")
-    questions = []
-    for item in dataset:
-        q = dict(item)
-
-        # Filter by task type
-        task = q.get("task") or q.get("subtask", "")
-        if task not in INCLUDED_TASKS:
-            continue
-
-        # Filter by release date: include questions from releases <= config date
-        release_date = q.get("livebench_release_date")
-        assert isinstance(release_date, datetime), (
-            f"Expected datetime for livebench_release_date, got {type(release_date)}"
-        )
-        if release_date > release_cutoff:
-            continue
-
-        # Filter by removal date: exclude removed questions
-        removal_date = q.get("livebench_removal_date")
-        assert isinstance(removal_date, datetime), (
-            f"Expected datetime for livebench_removal_date, got {type(removal_date)}"
-        )
-        if removal_date <= release_cutoff:
-            continue
-
-        questions.append(q)
-
-    if max_samples is not None:
-        questions = questions[:max_samples]
-
-    return questions
-
-
 @dataclass
 class LiveBenchCodingEvaluationConfig(WhiteBoxEvaluationConfig):
     """Configuration for LiveBench Coding evaluation."""
@@ -238,6 +202,42 @@ def _score_lcb_question(question: dict, llm_answer: str, timeout: int) -> float:
     )
 
     return 1.0 if metrics["pass@1"] == 1.0 else 0.0
+
+
+def _filter_questions(dataset: datasets.Dataset, livebench_release: str, max_samples: int | None) -> list[dict]:
+    """Filter dataset questions by release date, removal date, and task type."""
+    release_cutoff = datetime.strptime(livebench_release, "%Y-%m-%d")
+    questions = []
+    for item in dataset:
+        q = dict(item)
+
+        # Filter by task type
+        task = q.get("task") or q.get("subtask", "")
+        if task not in INCLUDED_TASKS:
+            continue
+
+        # Filter by release date: include questions from releases <= config date
+        release_date = q.get("livebench_release_date")
+        assert isinstance(release_date, datetime), (
+            f"Expected datetime for livebench_release_date, got {type(release_date)}"
+        )
+        if release_date > release_cutoff:
+            continue
+
+        # Filter by removal date: exclude removed questions
+        removal_date = q.get("livebench_removal_date")
+        assert isinstance(removal_date, datetime), (
+            f"Expected datetime for livebench_removal_date, got {type(removal_date)}"
+        )
+        if removal_date <= release_cutoff:
+            continue
+
+        questions.append(q)
+
+    if max_samples is not None:
+        questions = questions[:max_samples]
+
+    return questions
 
 
 def _score_code_generation_question(question: dict, llm_answer: str) -> float:
