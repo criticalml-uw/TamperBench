@@ -1,5 +1,6 @@
 """Model family configurations for different model architectures."""
 
+# ruff: noqa: F821  # jaxtyping shape strings (e.g. Float[Tensor, "d_model"]) trip F821
 # Adapted external code using transformers dynamic attributes; too noisy to annotate here.
 # pyright: reportAttributeAccessIssue=false, reportArgumentType=false, reportMissingParameterType=false, reportImplicitAbstractClass=false, reportImplicitOverride=false
 

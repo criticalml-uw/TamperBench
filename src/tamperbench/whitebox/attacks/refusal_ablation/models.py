@@ -1,5 +1,7 @@
 """Model wrapper classes for HuggingFace and vLLM backends."""
 
+# ruff: noqa: F821  # jaxtyping shape strings (e.g. Float[Tensor, "d_model"]) trip F821
+
 import json
 import logging
 from abc import ABC, abstractmethod
