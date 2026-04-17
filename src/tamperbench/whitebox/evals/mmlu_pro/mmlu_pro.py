@@ -9,21 +9,26 @@ Includes:
 
 from __future__ import annotations
 
+import functools
 import multiprocessing
 import re
 from dataclasses import dataclass
+from typing import Literal
 
 import datasets
 import polars as pl
 import torch
+from openai import OpenAI
 from pandera.typing.polars import DataFrame
 from tqdm import tqdm
+from tqdm.contrib.concurrent import thread_map
 from transformers import AutoTokenizer
 from typing_extensions import override
 from vllm import LLM, SamplingParams
 
 from tamperbench.whitebox.evals.base import WhiteBoxEvaluation, WhiteBoxEvaluationConfig
 from tamperbench.whitebox.evals.mmlu_pro import eval_from_api as mmlu_api
+from tamperbench.whitebox.evals.mmlu_pro import llm_judge
 from tamperbench.whitebox.evals.output_schema import (
     EvaluationSchema,
     InferenceSchema,
@@ -65,11 +70,18 @@ class MMLUProEvaluationConfig(WhiteBoxEvaluationConfig):
             with their corresponding instruct model's chat template (e.g. using
             ``meta-llama/Llama-3.1-8B-Instruct``'s template for
             ``meta-llama/Meta-Llama-3-8B``). Only used when ``use_chat_template=True``.
+        scoring_method: How to score model responses. "regex" extracts the answer
+            letter via pattern matching; "judge" uses an LLM to grade with full context.
+        judge_model: OpenAI model to use when ``scoring_method="judge"``.
+        max_judge_workers: Maximum concurrent threads for LLM judge calls.
     """
 
     n_shots: int = N_SHOTS
     use_chat_template: bool = False
     chat_template_model: str | None = None
+    scoring_method: Literal["regex", "judge"] = "regex"
+    judge_model: str = "gpt-5-mini-2025-08-07"
+    max_judge_workers: int = 16
 
     def __post_init__(self) -> None:
         """Validate configuration values."""
@@ -87,6 +99,7 @@ class _MMLUProVLLMBase(WhiteBoxEvaluation[MMLUProEvaluationConfig]):
     objective: MetricName = MetricName.MMLU_PRO_ACCURACY
     attacker_direction: OptimizationDirection = OptimizationDirection.MAXIMIZE
     defender_direction: OptimizationDirection = OptimizationDirection.MAXIMIZE
+    _openai_client: OpenAI
 
     @override
     def compute_inferences(self) -> DataFrame[InferenceSchema]:
@@ -120,10 +133,17 @@ class _MMLUProVLLMBase(WhiteBoxEvaluation[MMLUProEvaluationConfig]):
             test_rows = self._load_split(TEST_SPLIT)
             eval_rows = self._build_eval_items(val_rows, test_rows)
 
+        if self.eval_config.scoring_method == "judge":
+            return self._compute_scores_judge(inferences, eval_rows)
+        return self._compute_scores_regex(inferences, eval_rows)
+
+    def _compute_scores_regex(
+        self, inferences: DataFrame[InferenceSchema], eval_rows: list[dict]
+    ) -> DataFrame[ScoreSchema]:
         preds: list[str] = []
         scores: list[float] = []
 
-        for resp, row in zip(inferences[InferenceSchema.response], eval_rows, strict=False):
+        for resp, row in zip(inferences[InferenceSchema.response], eval_rows, strict=True):
             response_text = str(resp)
             match = re.search(r"PRED:\s*([A-P])", response_text)
             if match:
@@ -141,6 +161,46 @@ class _MMLUProVLLMBase(WhiteBoxEvaluation[MMLUProEvaluationConfig]):
                     f"{resp}\nPRED: {pred}"
                     for resp, pred in zip(inferences[InferenceSchema.response], preds, strict=False)
                 ],
+                ScoreSchema.score: scores,
+            }
+        )
+        return ScoreSchema.validate(df)
+
+    def _compute_scores_judge(
+        self, inferences: DataFrame[InferenceSchema], eval_rows: list[dict]
+    ) -> DataFrame[ScoreSchema]:
+        if not hasattr(self, "_openai_client"):
+            self._openai_client = OpenAI()
+        client = self._openai_client
+        judge_inputs: list[dict[str, str]] = []
+        for resp, row in zip(inferences[InferenceSchema.response], eval_rows, strict=True):
+            choices = format_options(row)
+            gold = self._gold_letter(row)
+            judge_inputs.append(
+                {
+                    "question": str(row.get("question", "")),
+                    "choices": choices,
+                    "ground_truth_answer": gold,
+                    "model_response": str(resp),
+                }
+            )
+
+        grade_fn = functools.partial(
+            _call_judge,
+            client=client,
+            model=self.eval_config.judge_model,
+        )
+        scores: list[float] = thread_map(
+            grade_fn,
+            judge_inputs,
+            max_workers=self.eval_config.max_judge_workers,
+            desc="Scoring with LLM judge",
+        )
+
+        df = pl.from_dict(
+            {
+                ScoreSchema.prompt: list(inferences[InferenceSchema.prompt]),
+                ScoreSchema.response: list(inferences[InferenceSchema.response]),
                 ScoreSchema.score: scores,
             }
         )
@@ -351,6 +411,24 @@ def compute_mmlu_inferences(
     )
 
     return InferenceSchema.validate(inferences_dataframe)
+
+
+def format_options(row: dict) -> str:
+    """Format just the answer options from a row (without the question)."""
+    options = row.get("options", [])
+    return "\n".join(f"{chr(ord('A') + i)}. {opt}" for i, opt in enumerate(options))
+
+
+def _call_judge(row_dict: dict[str, str], client: OpenAI, model: str) -> float:
+    """Grade a single row using the LLM judge."""
+    return llm_judge.grade_with_context(
+        client=client,
+        model=model,
+        question=row_dict["question"],
+        choices=row_dict["choices"],
+        ground_truth_answer=row_dict["ground_truth_answer"],
+        model_response=row_dict["model_response"],
+    )
 
 
 def subject_key(row: dict) -> str:

@@ -1,8 +1,12 @@
 """Sanity check for MMLU-Pro evaluator."""
 
+import contextlib
 import tempfile
+from collections.abc import Generator
 from typing import Any
+from unittest.mock import patch
 
+import polars as pl
 import pytest
 from dotenv import load_dotenv
 
@@ -11,11 +15,13 @@ from tamperbench.whitebox.evals.mmlu_pro.eval_from_api import (
     generate_chat_messages,
     generate_continuation_prompt,
 )
-from tamperbench.whitebox.evals.output_schema import EvaluationSchema
+from tamperbench.whitebox.evals.mmlu_pro.llm_judge import format_grading_prompt
+from tamperbench.whitebox.evals.mmlu_pro.mmlu_pro import format_options
+from tamperbench.whitebox.evals.output_schema import EvaluationSchema, InferenceSchema
 from tamperbench.whitebox.utils.models.config import ModelConfig
 from tamperbench.whitebox.utils.names import MetricName
 
-SUBJECT = "biology"
+SUBJECT = "math"
 
 MMLUProRow = dict[str, Any]
 MMLUProSamples = tuple[list[MMLUProRow], MMLUProRow]
@@ -55,12 +61,12 @@ def mmlu_pro_samples() -> MMLUProSamples:
 
 # These constants contain what we expect mmlu_pro_samples to get formatted into.
 CONTINUATION_SYSTEM_INSTRUCTION = (
-    "The following are multiple choice questions (with answers) about biology."
+    "The following are multiple choice questions (with answers) about math."
     " Think step by step and then finish your answer with"
     ' "the answer is (X)" where X is the correct letter choice.'
 )
 CHAT_SYSTEM_INSTRUCTION = (
-    "The following are multiple choice questions about biology."
+    "The following are multiple choice questions about math."
     " Think step by step and then finish your answer with"
     ' "the answer is (X)" where X is the correct letter choice.'
 )
@@ -127,6 +133,128 @@ def test_zeroshot_chat_messages(mmlu_pro_samples: MMLUProSamples) -> None:
         {"role": "user", "content": TARGET_QUESTION_AND_OPTIONS.strip()},
     ]
     assert messages == expected
+
+
+@contextlib.contextmanager
+def _make_eval(eval_rows: list[MMLUProRow], scoring_method: str = "regex") -> Generator[MMLUProValEvaluation]:
+    """Create a MMLUProValEvaluation with cached eval_rows (no HF download).
+
+    Injects ``_cached_eval_rows`` directly so that ``compute_scores`` skips
+    the HuggingFace dataset download that normally populates eval rows during
+    ``compute_inferences``.  This couples the test to an implementation detail,
+    but the alternative is downloading the dataset in every unit test.
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config = MMLUProEvaluationConfig(
+            model_checkpoint="dummy",
+            out_dir=tmpdir,
+            model_config=ModelConfig(
+                user_prefix="",
+                assistant_prefix="",
+                end_turn="",
+                max_generation_length=128,
+                inference_batch_size=1,
+            ),
+            scoring_method=scoring_method,  # pyright: ignore[reportArgumentType]
+        )
+        evaluator = MMLUProValEvaluation(config)
+        evaluator._cached_eval_rows = list(eval_rows)  # pyright: ignore[reportPrivateUsage]
+        yield evaluator
+
+
+def _make_inferences(responses: list[str]) -> pl.DataFrame:
+    return InferenceSchema.validate(
+        pl.from_dict(
+            {
+                InferenceSchema.prompt: [f"prompt_{i}" for i in range(len(responses))],
+                InferenceSchema.response: responses,
+            }
+        )
+    )
+
+
+def test_regex_scoring_method(mmlu_pro_samples: MMLUProSamples) -> None:
+    """Regex scoring extracts letter answers and compares to gold."""
+    shot_pool, target = mmlu_pro_samples
+    eval_rows = [*shot_pool, target]
+    with _make_eval(eval_rows, "regex") as evaluator:
+        inferences = _make_inferences(
+            [
+                "The answer is (A)",  # correct
+                "I think the answer is B",  # correct
+                "The answer is (A)",  # incorrect (correct is C)
+            ]
+        )
+        scores_df = evaluator.compute_scores(inferences)  # pyright: ignore[reportArgumentType]
+        scores = scores_df["score"].to_list()
+        assert scores == [1.0, 1.0, 0.0]
+
+
+def test_judge_scoring_method(mmlu_pro_samples: MMLUProSamples) -> None:
+    """Judge scoring calls llm_judge and returns scores based on judge verdicts."""
+    shot_pool, target = mmlu_pro_samples
+    eval_rows = [*shot_pool, target]
+    with _make_eval(eval_rows, "judge") as evaluator:
+        call_count = 0
+
+        def fake_grade(**kwargs: Any) -> float:
+            nonlocal call_count
+            call_count += 1
+            # Mark correct when the response contains the right answer text
+            model_response = kwargs.get("model_response", "")
+            if "answer_0" in model_response or "answer_z" in model_response:
+                return 1.0
+            return 0.0
+
+        inferences = _make_inferences(
+            [
+                "answer_0",  # correct
+                "wrong",  # wrong
+                "answer_z",  # correct
+            ]
+        )
+
+        with (
+            patch("tamperbench.whitebox.evals.mmlu_pro.mmlu_pro.OpenAI"),
+            patch("tamperbench.whitebox.evals.mmlu_pro.mmlu_pro.llm_judge.grade_with_context", side_effect=fake_grade),
+        ):
+            scores_df = evaluator.compute_scores(inferences)  # pyright: ignore[reportArgumentType]
+
+        scores = scores_df["score"].to_list()
+        assert scores == [1.0, 0.0, 1.0]
+        assert call_count == 3
+
+
+def test_judge_prompt(mmlu_pro_samples: MMLUProSamples) -> None:
+    """Judge grading prompt matches expected format."""
+    _shot_pool, target = mmlu_pro_samples
+
+    options_text = format_options(target)
+    assert options_text == "A. x\nB. y\nC. z"
+
+    prompt = format_grading_prompt(
+        question="q",
+        choices=options_text,
+        ground_truth_answer="C",
+        model_response="I think the answer is z.",
+    )
+    assert (
+        prompt
+        == """\
+## Question
+q
+
+## Answer Choices
+A. x
+B. y
+C. z
+
+## Correct Answer
+C
+
+## Model's Response
+I think the answer is z."""
+    )
 
 
 @pytest.mark.expensive

@@ -16,6 +16,8 @@ from dotenv import load_dotenv
 from openai import APIStatusError, APITimeoutError, AsyncOpenAI, RateLimitError
 from openai.types.chat import ChatCompletionMessageParam
 
+from tamperbench.whitebox.evals.mmlu_pro.llm_judge import SYSTEM_PROMPT, format_grading_prompt
+
 load_dotenv()
 
 # ------------ config ------------
@@ -46,40 +48,7 @@ _default_client = AsyncOpenAI(
     max_retries=0,
 )
 
-SYSTEM_PROMPT = """You are grading a model's response to a multiple-choice question.
-
-You will be given:
-1. The original question and answer choices
-2. The correct answer letter
-3. The model's response
-
-Your task is to determine if the model's response clearly indicates the CORRECT answer.
-
-Return ONLY one of:
-- "correct" - if the model's response clearly and unambiguously indicates the correct answer
-- "incorrect" - if the model's response clearly indicates a wrong answer or you cannot determine what answer the model intended""".strip()
-
 _default_sem = asyncio.Semaphore(MAX_CONCURRENCY)
-
-
-def format_grading_prompt(
-    question: str,
-    choices: str,
-    ground_truth_answer: str,
-    model_response: str,
-) -> str:
-    """Format the prompt for the grading judge."""
-    return f"""## Question
-{question}
-
-## Answer Choices
-{choices}
-
-## Correct Answer
-{ground_truth_answer}
-
-## Model's Response
-{model_response}"""
 
 
 async def _one_call(
@@ -96,6 +65,9 @@ async def _one_call(
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": prompt},
     ]
+    # This substring check is fragile, but we expect any unlisted reasoning
+    # models to throw an error since the non-reasoning codepath sets
+    # temperature=0, which so far all OpenAI reasoning models disallow.
     is_reasoning_model = any(tag in model for tag in ("gpt-5", "o1", "o3"))
     async with sem:
         if is_reasoning_model:
