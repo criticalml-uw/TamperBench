@@ -122,11 +122,10 @@ ignore = [
   # include them
   "RUF001",
   # Docstring style: use D211 (no blank line before class docstring) and D212
-  # (docstring starts on same line as opening quotes)
+  # (docstring starts on same line as opening quotes). Keep docstrings compact
+  # by not requiring a trailing blank line before the closing quotes (D413)
   "D203",  # incompatible with D211
   "D213",  # incompatible with D212
-  # TODO(tomtseng): Manually fix these lint errors in the codebase, then remove
-  # these ignores
   "D413",
 ]
 
