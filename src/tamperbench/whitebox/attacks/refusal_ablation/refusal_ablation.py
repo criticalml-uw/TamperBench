@@ -1,5 +1,6 @@
 # ruff: noqa: F722
-# pyright: reportMissingTypeArgument=false, reportOptionalSubscript=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportCallIssue=false, reportMissingTypeStubs=false, reportUnusedCallResult=false, reportMissingParameterType=false, reportUnknownParameterType=false, reportUnknownArgumentType=false, reportAttributeAccessIssue=false, reportArgumentType=false, reportPrivateImportUsage=false
+# Adapted external code with pervasive transformers typing noise.
+# pyright: reportMissingTypeArgument=false, reportOptionalSubscript=false, reportCallIssue=false, reportMissingParameterType=false, reportAttributeAccessIssue=false, reportArgumentType=false
 """Refusal Ablation Attack for SafeTuneBed.
 
 Attack from: Arditi et al., "Refusal in Language Models Is Mediated by a Single Direction"

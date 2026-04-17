@@ -11,9 +11,6 @@ Usage:
     python scripts/figures/plot_supplemental_heatmap.py results/aggregated_eps05/heatmap_max_sr.json
 """
 
-# pyright: reportUnknownMemberType=false, reportUnknownArgumentType=false
-# pyright: reportUnknownVariableType=false, reportAny=false, reportExplicitAny=false
-# pyright: reportUnusedCallResult=false
 from __future__ import annotations
 
 import argparse

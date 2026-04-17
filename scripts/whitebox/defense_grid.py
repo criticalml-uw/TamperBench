@@ -1,7 +1,5 @@
 """Script to benchmark a defense against attacks with configs defined in a grid."""
 
-# pyright: reportUnusedCallResult=false, reportAny=false, reportUnknownVariableType=false
-
 from __future__ import annotations
 
 import argparse

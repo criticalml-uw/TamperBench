@@ -1,7 +1,5 @@
 """Validation utilities for results directory structure, attack names, and required files."""
 
-# pyright: reportExplicitAny=false
-
 from __future__ import annotations
 
 import json

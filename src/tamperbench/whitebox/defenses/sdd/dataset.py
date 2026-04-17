@@ -12,7 +12,8 @@ on HuggingFace.
 Reference implementation: https://github.com/ZeroNLP/SDD
 """
 
-# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportArgumentType=false, reportCallIssue=false
+# `datasets.Dataset.__getitem__` typing doesn't cover string keys; all failures below are from that.
+# pyright: reportArgumentType=false, reportCallIssue=false
 
 import random
 

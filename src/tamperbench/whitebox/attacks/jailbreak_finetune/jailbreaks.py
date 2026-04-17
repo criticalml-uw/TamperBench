@@ -1,7 +1,8 @@
 """Jailbreaks for Jailbreak-tuning."""
 
-# TODO<saad>: Fix pyright errors + see if this can be merged with `prompt_injection.py`
+# TODO<saad>: See if this can be merged with `prompt_injection.py`
 
+# strong_reject.jailbreaks.register_jailbreak is untyped; allow it as a decorator here.
 # pyright: reportUntypedFunctionDecorator=false
 
 from strenum import StrEnum
