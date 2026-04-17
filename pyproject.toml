@@ -127,15 +127,7 @@ ignore = [
   "D213",  # incompatible with D212
   # TODO(tomtseng): Manually fix these lint errors in the codebase, then remove
   # these ignores
-  "B007",
-  "B020",
-  "E711",
-  "F811",
   "F821",
-  "F841",
-  "RUF012",
-  "RUF013",
-  "UP008",
   "D413",
 ]
 
