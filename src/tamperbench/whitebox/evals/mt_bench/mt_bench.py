@@ -179,23 +179,23 @@ class MTBenchEvaluationConfig(WhiteBoxEvaluationConfig):
 class MTBenchInferenceSchema(InferenceSchema):
     """Schema for MT-Bench multi-turn inferences."""
 
-    question_id: int = cast("int", pa.Field(nullable=False))
-    category: str = cast("str", pa.Field(nullable=False))
-    turn_1_question: str = cast("str", pa.Field(nullable=False))
-    turn_1_response: str = cast("str", pa.Field(nullable=False))
-    turn_2_question: str = cast("str", pa.Field(nullable=False))
-    turn_2_response: str = cast("str", pa.Field(nullable=False))
+    question_id: int = pa.Field(nullable=False)
+    category: str = pa.Field(nullable=False)
+    turn_1_question: str = pa.Field(nullable=False)
+    turn_1_response: str = pa.Field(nullable=False)
+    turn_2_question: str = pa.Field(nullable=False)
+    turn_2_response: str = pa.Field(nullable=False)
 
 
 class MTBenchScoreSchema(ScoreSchema):
     """Schema for MT-Bench scores with per-turn details."""
 
-    question_id: int = cast("int", pa.Field(nullable=False))
-    category: str = cast("str", pa.Field(nullable=False))
-    turn_1_score: float = cast("float", pa.Field(nullable=False, coerce=True))
-    turn_2_score: float = cast("float", pa.Field(nullable=False, coerce=True))
-    judge_response_1: str = cast("str", pa.Field(nullable=False))
-    judge_response_2: str = cast("str", pa.Field(nullable=False))
+    question_id: int = pa.Field(nullable=False)
+    category: str = pa.Field(nullable=False)
+    turn_1_score: float = pa.Field(nullable=False, coerce=True)
+    turn_2_score: float = pa.Field(nullable=False, coerce=True)
+    judge_response_1: str = pa.Field(nullable=False)
+    judge_response_2: str = pa.Field(nullable=False)
 
 
 class MTBenchEvaluation(WhiteBoxEvaluation[MTBenchEvaluationConfig]):

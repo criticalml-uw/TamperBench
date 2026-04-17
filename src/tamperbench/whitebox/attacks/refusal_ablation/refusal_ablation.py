@@ -1,4 +1,4 @@
-# ruff: noqa: F722
+# ruff: noqa: F722  # jaxtyping shape strings (e.g. Float[Tensor, "batch seq"]) trip F722
 # Adapted external code with pervasive transformers typing noise.
 # pyright: reportMissingTypeArgument=false, reportOptionalSubscript=false, reportCallIssue=false, reportMissingParameterType=false, reportAttributeAccessIssue=false, reportArgumentType=false
 """Refusal Ablation Attack for SafeTuneBed.

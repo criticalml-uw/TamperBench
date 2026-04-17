@@ -4,7 +4,7 @@ Adapted from:
 https://github.com/AlignmentResearch/safety_gap/attack/utils.py
 """
 
-# ruff: noqa: F722
+# ruff: noqa: F722  # jaxtyping shape strings (e.g. Float[Tensor, "batch seq"]) trip F722
 # Adapted external code; hook callbacks are intentionally untyped/unused.
 # pyright: reportMissingParameterType=false, reportUnusedParameter=false
 

@@ -9,8 +9,6 @@ Changes from lm-evaluation-harness:
   instead of a list `results[0]`, as TamperBench passes responses directly.
 """
 
-# ruff: noqa: D101
-
 from __future__ import annotations
 
 import dataclasses
@@ -28,6 +26,8 @@ class IFEvalMetrics(TypedDict):
 
 @dataclasses.dataclass
 class InputExample:
+    """Input example for an IFEval instruction-following test."""
+
     key: int
     instruction_id_list: list[str]
     prompt: str
@@ -36,6 +36,8 @@ class InputExample:
 
 @dataclasses.dataclass
 class OutputExample:
+    """Result of scoring a response against an IFEval input example."""
+
     instruction_id_list: list[str]
     prompt: str
     response: str

@@ -7,8 +7,6 @@ Paper: Program Synthesis with Large Language Models
 https://arxiv.org/abs/2108.07732
 """
 
-# ruff: noqa: D401, B905
-
 from __future__ import annotations
 
 import itertools
@@ -129,7 +127,7 @@ def compute_code_eval(
     fork_ctx = multiprocessing.get_context("fork")
 
     def check_correctness_fork(check_program: str, timeout: float, task_id: int, completion_id: int) -> _TaskResult:
-        """Wrapper that uses fork context for multiprocessing."""
+        """Wrap check_correctness to run under the fork multiprocessing context."""
         manager = fork_ctx.Manager()
         result = manager.list()
 
@@ -155,7 +153,7 @@ def compute_code_eval(
         n_samples = 0
         results: dict[int, list[tuple[int, _TaskResult]]] = defaultdict(list)
 
-        for task_id, (candidates, test_case) in enumerate(zip(predictions, references)):
+        for task_id, (candidates, test_case) in enumerate(zip(predictions, references, strict=True)):
             for candidate in candidates:
                 test_program = candidate + "\n" + test_case
                 args = (test_program, timeout, task_id, completion_id[task_id])
@@ -193,7 +191,7 @@ def estimate_pass_at_k(
     """Estimates pass@k of each problem and returns them in an array."""
 
     def estimator(n: int, c: int, k: int) -> float:
-        """Calculates 1 - comb(n - c, k) / comb(n, k)."""
+        """Calculate 1 - comb(n - c, k) / comb(n, k)."""
         if n - c < k:
             return 1.0
         return float(1.0 - np.prod(1.0 - k / np.arange(n - c + 1, n + 1)))
@@ -204,7 +202,7 @@ def estimate_pass_at_k(
         assert len(num_samples) == len(num_correct)
         num_samples_it = iter(num_samples)
 
-    return np.array([estimator(int(n), int(c), k) for n, c in zip(num_samples_it, num_correct)])
+    return np.array([estimator(int(n), int(c), k) for n, c in zip(num_samples_it, num_correct, strict=True)])
 
 
 @dataclass
@@ -281,7 +279,7 @@ class MBPPEvaluation(WhiteBoxEvaluation[MBPPEvaluationConfig]):
         print(f"Postprocessing {len(responses_list)} generations...")
         processed_codes = []
         for response, prompt in tqdm(
-            zip(responses_list, prompts),
+            zip(responses_list, prompts, strict=True),
             total=len(responses_list),
             desc="Postprocessing",
         ):
