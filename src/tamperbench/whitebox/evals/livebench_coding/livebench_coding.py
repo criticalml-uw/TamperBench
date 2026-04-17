@@ -1,7 +1,5 @@
 """LiveBench coding evaluation."""
 
-# pyright: reportUnknownArgumentType=false, reportUnknownMemberType=false, reportAny=false, reportMissingParameterType=false, reportUnknownParameterType=false, reportUnknownVariableType=false, reportMissingTypeArgument=false, reportArgumentType=false, reportCallIssue=false, reportOptionalMemberAccess=false
-
 from __future__ import annotations
 
 import base64
@@ -11,6 +9,7 @@ import pickle
 import zlib
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
 import datasets
 import polars as pl
@@ -139,20 +138,20 @@ class LiveBenchCodingEvaluation(WhiteBoxEvaluation[LiveBenchCodingEvaluationConf
         """Compute final pass@1 metric."""
         scores_dataframe: DataFrame[ScoreSchema] = ScoreSchema.validate(scores)
 
-        mean_pass_at_1: float = float(scores_dataframe[ScoreSchema.score].mean())
+        mean_pass_at_1: float = float(scores_dataframe[ScoreSchema.score].mean())  # pyright: ignore[reportArgumentType, reportCallIssue]
 
         print(f"LiveBench Coding pass@1: {mean_pass_at_1:.3f}")
 
         _metrics_dataframe: pl.DataFrame = pl.from_dict(
             data={
                 EvaluationSchema.metric_name: [str(LiveBenchCodingEvaluation.objective)],
-                EvaluationSchema.metric_value: [mean_pass_at_1],
+                EvaluationSchema.metric_value: [mean_pass_at_1],  # pyright: ignore[reportArgumentType]
             }
         )
         return EvaluationSchema.validate(_metrics_dataframe)
 
 
-def _score_lcb_question(question: dict, llm_answer: str, timeout: int) -> float:
+def _score_lcb_question(question: dict[str, Any], llm_answer: str, timeout: int) -> float:
     """Score an LCB_generation or coding_completion question.
 
     Uses LiveBench's LCB_generation_process_results logic: extract code,
@@ -201,10 +200,12 @@ def _score_lcb_question(question: dict, llm_answer: str, timeout: int) -> float:
         timeout=timeout,
     )
 
-    return 1.0 if metrics["pass@1"] == 1.0 else 0.0
+    return 1.0 if metrics["pass@1"] == 1.0 else 0.0  # pyright: ignore[reportArgumentType, reportCallIssue]
 
 
-def _filter_questions(dataset: datasets.Dataset, livebench_release: str, max_samples: int | None) -> list[dict]:
+def _filter_questions(
+    dataset: datasets.Dataset, livebench_release: str, max_samples: int | None
+) -> list[dict[str, Any]]:
     """Filter dataset questions by release date, removal date, and task type."""
     release_cutoff = datetime.strptime(livebench_release, "%Y-%m-%d")
     questions = []
@@ -240,7 +241,7 @@ def _filter_questions(dataset: datasets.Dataset, livebench_release: str, max_sam
     return questions
 
 
-def _score_code_generation_question(question: dict, llm_answer: str) -> float:
+def _score_code_generation_question(question: dict[str, Any], llm_answer: str) -> float:
     """Score a code_generation question.
 
     Uses LiveBench's code_generation_process_results logic: extract code,
@@ -283,7 +284,7 @@ def _instantiate_model_and_infer(
     """Run inference in a subprocess to properly release GPU memory."""
     llm: LLM | None = None
     try:
-        llm_kwargs = {
+        llm_kwargs: dict[str, Any] = {
             "model": eval_config.model_checkpoint,
             "tensor_parallel_size": (torch.cuda.device_count() if torch.cuda.is_available() else 1),
             "gpu_memory_utilization": GPU_MEMORY_UTILIZATION,
