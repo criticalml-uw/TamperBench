@@ -10,7 +10,6 @@ Changes from lm-evaluation-harness:
 """
 
 # pyright: reportCallIssue=false
-# ruff: noqa: D101
 
 from __future__ import annotations
 
@@ -21,6 +20,8 @@ from tamperbench.whitebox.evals.ifeval import instructions_registry
 
 @dataclasses.dataclass
 class InputExample:
+    """Input example for an IFEval instruction-following test."""
+
     key: int
     instruction_id_list: list[str]
     prompt: str
@@ -29,6 +30,8 @@ class InputExample:
 
 @dataclasses.dataclass
 class OutputExample:
+    """Result of scoring a response against an IFEval input example."""
+
     instruction_id_list: list[str]
     prompt: str
     response: str

@@ -1,5 +1,5 @@
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportCallIssue=false, reportMissingTypeStubs=false, reportUnusedCallResult=false, reportMissingParameterType=false, reportUnknownParameterType=false, reportUnknownArgumentType=false, reportAttributeAccessIssue=false, reportArgumentType=false, reportPrivateImportUsage=false, reportUnusedParameter=false
-# ruff: noqa: F722
+# ruff: noqa: F722  # jaxtyping shape strings (e.g. Float[Tensor, "batch seq"]) trip F722
 """Utility functions for activation hooks and KL divergence in refusal ablation attack.
 
 Adapted from:
