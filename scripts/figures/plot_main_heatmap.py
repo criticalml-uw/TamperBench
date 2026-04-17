@@ -76,6 +76,8 @@ BENIGN_ATTACKS: list[str] = [
     "benign_lora_finetune",
 ]
 
+EMBEDDING_ATTACK = "embedding_attack"
+
 # Colormap settings
 CMAP_NAME = "magma_r"
 CMAP_MIN = 0.02
@@ -161,6 +163,12 @@ def build_grouped_data(attacks: list[str], sr_raw: FloatArray) -> tuple[list[str
         avg = np.nanmean(np.stack(benign_rows), axis=0)
         rows.append(avg)
         labels.append("Avg: Benign SR")
+
+    # Embedding attack
+    if EMBEDDING_ATTACK in attacks:
+        idx = attacks.index(EMBEDDING_ATTACK)
+        rows.append(sr_raw[:, idx])
+        labels.append(f"{display_name(EMBEDDING_ATTACK)} SR")
 
     # Overall max row (across all attacks except baseline)
     all_attack_rows: list[FloatArray] = []

@@ -36,7 +36,10 @@ from tamperbench.whitebox.defenses.defense import (
     AlignmentDefenseConfig,
 )
 from tamperbench.whitebox.defenses.registry import register_defense
-from tamperbench.whitebox.defenses.t_vaccine.train import TarRunConfig, run_tar_training
+from tamperbench.whitebox.defenses.t_vaccine.train import (
+    defense_config_to_upstream_training_config,
+    run_upstream_training,
+)
 from tamperbench.whitebox.utils.names import DefenseName
 
 
@@ -46,7 +49,6 @@ class TARConfig(AlignmentDefenseConfig):
 
     Key Parameters:
         lamb: Regularization strength for TAR loss (default: 5.0)
-        alpha: Weighting factor for adversarial examples (default: 0.1)
         bad_sample_num: Number of harmful examples to use (default: 2000)
         rho: Perturbation radius for adversarial training
 
@@ -75,12 +77,8 @@ class TARConfig(AlignmentDefenseConfig):
     optim: str
     optimizer: str
     rho: float
-    density: float
     lamb: float
-    alpha: float
-    track_embedding: bool
     alternating: str
-    lora_folder: str
     lisa_activated_layers: int
     lisa_interval_steps: int
     prompt_data_size: int
@@ -88,10 +86,7 @@ class TARConfig(AlignmentDefenseConfig):
     system_evaluate: bool
     evaluate_step: bool
     max_length: int
-    poison_ratio: float
     sample_num: int
-    benign_dataset: str
-    vaccine_ratio: float
     guide_data_num: int
     bad_sample_num: int
     harmful_dataset: str
@@ -109,54 +104,4 @@ class TARDefense(AlignmentDefense[TARConfig]):
     @override
     def run_defense(self) -> Path:
         """Run TAR fine-tuning to obtain an aligned checkpoint."""
-        tar_run_config = TarRunConfig(
-            model_name_or_path=str(self.defense_config.input_checkpoint_path),
-            output_dir=str(self.defense_config.output_checkpoint_path),
-            data_path=self.defense_config.data_path,
-            alignment_dataset_path=self.defense_config.alignment_dataset_path,
-            beaver_tails_dataset_path=self.defense_config.beaver_tails_dataset_path,
-            num_train_epochs=self.defense_config.num_train_epochs,
-            per_device_train_batch_size=self.defense_config.per_device_train_batch_size,
-            per_device_eval_batch_size=self.defense_config.per_device_eval_batch_size,
-            gradient_accumulation_steps=self.defense_config.gradient_accumulation_steps,
-            evaluation_strategy=self.defense_config.evaluation_strategy,
-            save_strategy=self.defense_config.save_strategy,
-            save_steps=self.defense_config.save_steps,
-            save_total_limit=self.defense_config.save_total_limit,
-            learning_rate=self.defense_config.learning_rate,
-            weight_decay=self.defense_config.weight_decay,
-            warmup_ratio=self.defense_config.warmup_ratio,
-            lr_scheduler_type=self.defense_config.lr_scheduler_type,
-            logging_steps=self.defense_config.logging_steps,
-            bf16=self.defense_config.bf16,
-            tf32=self.defense_config.tf32,
-            cache_dir=self.defense_config.cache_dir,
-            optim=self.defense_config.optim,
-            optimizer=self.defense_config.optimizer,
-            rho=self.defense_config.rho,
-            density=self.defense_config.density,
-            lamb=self.defense_config.lamb,
-            alpha=self.defense_config.alpha,
-            track_embedding=self.defense_config.track_embedding,
-            alternating=self.defense_config.alternating,
-            lora_folder=self.defense_config.lora_folder,
-            lisa_activated_layers=self.defense_config.lisa_activated_layers,
-            lisa_interval_steps=self.defense_config.lisa_interval_steps,
-            prompt_data_size=self.defense_config.prompt_data_size,
-            probability_steps=self.defense_config.probability_steps,
-            system_evaluate=self.defense_config.system_evaluate,
-            evaluate_step=self.defense_config.evaluate_step,
-            max_length=self.defense_config.max_length,
-            poison_ratio=self.defense_config.poison_ratio,
-            sample_num=self.defense_config.sample_num,
-            benign_dataset=self.defense_config.benign_dataset,
-            vaccine_ratio=self.defense_config.vaccine_ratio,
-            guide_data_num=self.defense_config.guide_data_num,
-            bad_sample_num=self.defense_config.bad_sample_num,
-            harmful_dataset=self.defense_config.harmful_dataset,
-            decoding_trust_dataset_path=self.defense_config.decoding_trust_dataset_path,
-            seed=self.defense_config.seed,
-            log_dir=self.defense_config.log_dir,
-        )
-
-        return run_tar_training(tar_run_config)
+        return run_upstream_training(defense_config_to_upstream_training_config(self.defense_config))
