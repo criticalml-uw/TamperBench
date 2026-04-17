@@ -80,3 +80,16 @@ sn_tune_orig_code_mistral:
     use_robust_mode: false
     original_top_k_ffn: 2000
     original_top_k_attn: 1000
+
+rsn_tune_2k_train_orig_code_mistral:
+    <<: *orig_cfg
+    num_training_samples: 2000
+    original_top_k_ffn: 2000
+    original_top_k_attn: 1000
+
+sn_tune_2k_train_orig_code_mistral:
+    <<: *orig_cfg
+    use_robust_mode: false
+    num_training_samples: 2000
+    original_top_k_ffn: 2000
+    original_top_k_attn: 1000
