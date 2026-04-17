@@ -1,7 +1,5 @@
 """Optuna runner for single-objective defense hyperparameter sweeps."""
 
-# pyright: reportUnusedCallResult=false, reportUnknownVariableType=false
-
 from __future__ import annotations
 
 import argparse

@@ -1,7 +1,5 @@
 """Soft Prompt Optimization for LLM Embedding Attack."""
 
-# pyright: reportGeneralTypeIssues=false, reportArgumentType=false, reportUnknownMemberType=false, reportAttributeAccessIssue=false, reportUnknownVariableType=False, reportAny=false
-
 import logging
 from dataclasses import dataclass
 

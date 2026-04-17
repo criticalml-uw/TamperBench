@@ -1,4 +1,3 @@
-# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportCallIssue=false, reportMissingTypeStubs=false, reportUnusedCallResult=false, reportMissingParameterType=false, reportUnknownParameterType=false, reportUnknownArgumentType=false, reportAttributeAccessIssue=false, reportArgumentType=false, reportPrivateImportUsage=false
 # ruff: noqa: F722  # jaxtyping shape strings (e.g. Float[Tensor, "batch seq"]) trip F722
 """Utility functions for model operations and Hugging Face Hub interactions."""
 
@@ -9,7 +8,7 @@ from pathlib import Path
 import einops
 import torch
 from huggingface_hub import HfApi
-from huggingface_hub.utils import HfHubHTTPError  # type: ignore
+from huggingface_hub.errors import HfHubHTTPError
 from jaxtyping import Float
 from torch import Tensor
 
@@ -73,7 +72,7 @@ def download_model_from_huggingface(name_or_path: Path, download_dir: Path, num_
 def get_orthogonalized_matrix(
     matrix: Float[Tensor, "... d_model"],
     vec: Float[Tensor, "d_model"],
-    weight_scale=None,
+    weight_scale: float | None = None,
 ) -> Float[Tensor, "... d_model"]:
     """Orthogonalize a matrix by removing the component along a given vector.
 

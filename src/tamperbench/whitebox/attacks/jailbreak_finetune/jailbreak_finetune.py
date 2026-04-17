@@ -1,7 +1,5 @@
 """Jailbreak-tuning attack interface."""
 
-# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportCallIssue=false, reportMissingTypeStubs=false, reportArgumentType=false
-
 from dataclasses import dataclass, field
 from typing import Any
 

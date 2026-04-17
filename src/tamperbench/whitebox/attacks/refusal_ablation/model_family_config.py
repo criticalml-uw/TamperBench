@@ -1,5 +1,7 @@
-# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportCallIssue=false, reportMissingTypeStubs=false, reportUnusedCallResult=false, reportMissingParameterType=false, reportUnknownParameterType=false, reportUnknownArgumentType=false, reportAttributeAccessIssue=false, reportArgumentType=false, reportPrivateImportUsage=false, reportImplicitAbstractClass=false, reportImplicitOverride=false
 """Model family configurations for different model architectures."""
+
+# Adapted external code using transformers dynamic attributes; too noisy to annotate here.
+# pyright: reportAttributeAccessIssue=false, reportArgumentType=false, reportMissingParameterType=false, reportImplicitAbstractClass=false, reportImplicitOverride=false
 
 import logging
 from abc import ABC, abstractmethod
@@ -7,8 +9,9 @@ from pathlib import Path
 
 import torch
 from jaxtyping import Float
+from peft.peft_model import PeftModel
 from torch import Tensor
-from transformers import AutoModelForCausalLM, PreTrainedTokenizerBase
+from transformers import PreTrainedModel, PreTrainedTokenizerBase
 
 from .model_utils import get_orthogonalized_matrix
 
@@ -170,7 +173,7 @@ class ModelFamilyConfig(ABC):
 
     @staticmethod
     def orthogonalize_weights(
-        _model: AutoModelForCausalLM,
+        _model: PreTrainedModel | PeftModel,
         _direction: Float[Tensor, "d_model"],
     ) -> None:
         """Orthogonalize the weights of the model in the given direction.
@@ -180,7 +183,7 @@ class ModelFamilyConfig(ABC):
         raise NotImplementedError("Weight orthogonalization is not implemented for this model family.")
 
     @staticmethod
-    def get_layers(model: AutoModelForCausalLM) -> torch.nn.ModuleList:
+    def get_layers(model: PreTrainedModel | PeftModel) -> torch.nn.ModuleList:
         """Get the layers of the model.
 
         might need to be replaced by model family specific implementation
@@ -189,7 +192,7 @@ class ModelFamilyConfig(ABC):
         return torch.nn.ModuleList(model.model.layers)  # type: ignore
 
     @staticmethod
-    def get_attn_modules(model: AutoModelForCausalLM) -> torch.nn.ModuleList:
+    def get_attn_modules(model: PreTrainedModel | PeftModel) -> torch.nn.ModuleList:
         """Get the attention modules of the model.
 
         might need to be replaced by model family specific implementation
@@ -198,7 +201,7 @@ class ModelFamilyConfig(ABC):
         return torch.nn.ModuleList([block_module.self_attn for block_module in layers])
 
     @staticmethod
-    def get_mlp_modules(model: AutoModelForCausalLM) -> torch.nn.ModuleList:
+    def get_mlp_modules(model: PreTrainedModel | PeftModel) -> torch.nn.ModuleList:
         """Get the mlp modules of the model.
 
         might need to be replaced by model family specific implementation

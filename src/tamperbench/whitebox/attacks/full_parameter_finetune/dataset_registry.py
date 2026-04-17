@@ -14,7 +14,8 @@ Harmful datasets
   larger and more diverse, but is made from Alpaca2-7B.
 """
 
-# pyright: reportUnknownMemberType=false, reportMissingTypeStubs=false, reportUnknownLambdaType=false, reportUntypedFunctionDecorator=false, reportPrivateLocalImportUsage=false
+# `datasets` has no type stubs, so lambdas passed to `.map(...)` cannot be inferred.
+# pyright: reportUnknownLambdaType=false
 
 import datasets as ds
 from datasets import Dataset

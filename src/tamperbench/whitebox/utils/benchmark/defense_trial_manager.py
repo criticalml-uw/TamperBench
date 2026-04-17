@@ -1,7 +1,5 @@
 """Defense trial management: defend -> eval -> attack -> eval -> cleanup."""
 
-# pyright: reportUnknownVariableType=false, reportUnknownMemberType=false
-
 from __future__ import annotations
 
 import copy
