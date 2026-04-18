@@ -123,13 +123,12 @@ class RSNTuneConfig(AlignmentDefenseConfig):
             matrix). Applied after detection and deduplication. The original codebase caps
             at 100 per projection per layer (trainer.py lines 2038-2062). Set to None to
             disable capping.
-        learning_rate: Learning rate for safety neuron fine-tuning. Paper says 1e-6
-            (Section 3); original codebase uses 2e-6.
-        num_train_epochs: Number of training epochs (paper: 1).
-        per_device_train_batch_size: Batch size per device (original codebase: 8).
+        learning_rate: Learning rate for safety neuron fine-tuning.
+        num_train_epochs: Number of training epochs.
+        per_device_train_batch_size: Batch size per device .
         gradient_accumulation_steps: Number of gradient accumulation steps (original
             codebase: 4). Effective batch size = per_device_train_batch_size * this value.
-        max_length: Maximum sequence length for training (paper: 512).
+        max_length: Maximum sequence length for training.
         use_robust_mode: If True, use RSN-Tune (excludes foundation neurons from training).
             If False, use SN-Tune (trains all safety neurons).
         use_chat_template: If True, use model's chat template for formatting training data.
@@ -154,11 +153,11 @@ class RSNTuneConfig(AlignmentDefenseConfig):
     safety_importance_threshold: float = 1.0
     foundation_importance_threshold: float = 1.0
     max_neurons_per_param: int | None = 100  # Original codebase value (trainer.py:2038-2056)
-    learning_rate: float = 1e-6  # Paper value (Section 3); original codebase uses 2e-6
-    num_train_epochs: int = 1
+    learning_rate: float = 1e-6  # Paper value (Section 3.1); original codebase uses 2e-6
+    num_train_epochs: int = 1  # Paper value (Section 3.1)
     per_device_train_batch_size: int = 8  # Original codebase value
     gradient_accumulation_steps: int = 4  # Original codebase value (effective batch=32)
-    max_length: int = 512
+    max_length: int = 512  # (original codebase value)
     use_robust_mode: bool = True  # RSN-Tune (True) vs SN-Tune (False)
     use_chat_template: bool = True  # False for base models (paper Section 3.2)
     detection_chunk_size: int = 128  # Larger chunks = faster Q/K detection
