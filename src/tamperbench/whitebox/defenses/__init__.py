@@ -17,7 +17,7 @@ from tamperbench.whitebox.defenses.t_vaccine.tar import (
     TARTVaccineConfig,
     TARTVaccineDefense,
 )
-from tamperbench.whitebox.defenses.tar.defense import (
+from tamperbench.whitebox.defenses.tar.tar import (
     TARConfig,
     TARDefense,
 )
