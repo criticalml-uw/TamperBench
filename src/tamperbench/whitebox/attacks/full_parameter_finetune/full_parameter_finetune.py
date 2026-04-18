@@ -40,6 +40,11 @@ class FullParameterFinetuneConfig(TamperAttackConfig):
         lr_scheduler_type: The learning rate schedule used in the fine-tuning.
         optim: The optimizer used for fine-tuning.
         warmup_steps: Number of warmup steps for the learning rate scheduler.
+        warmup_ratio: Proportion of training steps used for warmup (alternative
+            to ``warmup_steps``; ``warmup_steps`` takes priority if it's
+            non-zero).
+        gradient_accumulation_steps: Number of gradient accumulation steps
+            before an optimizer update.
         dataset_size: Total number of samples in the training dataset.
         poison_ratio: Proportion of harmful data (0.0 = fully benign, 1.0 = fully harmful).
         harmful_dataset: Name of the harmful dataset registered with harmtune.
@@ -53,6 +58,7 @@ class FullParameterFinetuneConfig(TamperAttackConfig):
     lr_scheduler_type: str
     optim: str
     warmup_steps: int = 0
+    warmup_ratio: float = 0.0
     gradient_accumulation_steps: int = 1
     dataset_size: int = 64
     poison_ratio: float = 1.0
@@ -78,6 +84,7 @@ class FullParameterFinetune(TamperAttack[H]):
             max_steps=self.attack_config.max_steps,
             lr_scheduler_type=self.attack_config.lr_scheduler_type,
             warmup_steps=self.attack_config.warmup_steps,
+            warmup_ratio=self.attack_config.warmup_ratio,
             gradient_accumulation_steps=self.attack_config.gradient_accumulation_steps,
             gradient_checkpointing=True,
             optim=self.attack_config.optim,
