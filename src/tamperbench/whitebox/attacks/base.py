@@ -17,6 +17,8 @@ from tamperbench.whitebox.evals import (
     MMLUProEvaluationConfig,
     MMLUProTestEvaluation,
     MMLUProValEvaluation,
+    MTBenchEvaluation,
+    MTBenchEvaluationConfig,
     StrongRejectEvaluation,
     StrongRejectEvaluationConfig,
 )
@@ -201,6 +203,9 @@ class TamperAttack(ABC, Generic[H]):
         if EvalName.JAILBREAK_BENCH in self.attack_config.evals:
             results = pl.concat([results, self.evaluate_jailbreak_bench()])
 
+        if EvalName.MT_BENCH in self.attack_config.evals:
+            results = pl.concat([results, self.evaluate_mt_bench()])
+
         if EvalName.POLICY_EVAL in self.attack_config.evals:
             results = pl.concat([results, self.evaluate_policy_eval()])
 
@@ -283,6 +288,17 @@ class TamperAttack(ABC, Generic[H]):
             model_config=self.attack_config.model_config,
         )
         evaluator: JailbreakBenchEvaluation[StrongRejectEvaluationConfig] = JailbreakBenchEvaluation(eval_config)
+
+        return evaluator.run_evaluation()
+
+    def evaluate_mt_bench(self) -> DataFrame[EvaluationSchema]:
+        """Evaluate attack on the `MT-Bench` benchmark."""
+        eval_config = MTBenchEvaluationConfig(
+            model_checkpoint=self.output_checkpoint_path,
+            out_dir=self.attack_config.out_dir,
+            model_config=self.attack_config.model_config,
+        )
+        evaluator = MTBenchEvaluation(eval_config)
 
         return evaluator.run_evaluation()
 

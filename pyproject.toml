@@ -33,6 +33,7 @@ dependencies = [
   "pyext==0.5",
   "python-dotenv>=1.1.1",
   "sacrebleu>=2.5.1",
+  "schedulefree>=1.0",
   "scikit-learn>=1.7.2",
   "sentence-transformers>=3.0.0",
   "sentencepiece>=0.2.0",
@@ -92,14 +93,17 @@ exclude = [
   "src/tamperbench/whitebox/evals/minerva_math/utils.py",
   "src/tamperbench/whitebox/evals/mmlu_pro/eval_from_api.py",
   # Files copied or adapted from the T-Vaccine repo
-  # (https://github.com/Lslland/T-Vaccine). Excluded to preserve diffability
-  # against the original source.
+  # (https://github.com/Lslland/T-Vaccine).
   "src/tamperbench/whitebox/defenses/t_vaccine/models/",
   "src/tamperbench/whitebox/defenses/t_vaccine/repnoise_loss.py",
   "src/tamperbench/whitebox/defenses/t_vaccine/loggers.py",
   "src/tamperbench/whitebox/defenses/t_vaccine/utils.py",
   "src/tamperbench/whitebox/defenses/t_vaccine/train.py",
   "src/tamperbench/whitebox/defenses/t_vaccine/t_vaccine_trainer.py",
+  # Files copied verbatim from the original TAR repo
+  # (https://github.com/rishub-tamirisa/tamper-resistance). Excluded to preserve
+  # diffability against the original source.
+  "src/tamperbench/whitebox/defenses/tar/_orig/",
   # One-off scripts
   "src/tamperbench/whitebox/attacks/multilingual_finetune/generate_translated_dataset.py",
 ]
@@ -164,6 +168,9 @@ exclude = [
   "src/tamperbench/whitebox/defenses/t_vaccine/utils.py",
   "src/tamperbench/whitebox/defenses/t_vaccine/train.py",
   "src/tamperbench/whitebox/defenses/t_vaccine/t_vaccine_trainer.py",
+
+  # Files copied verbatim from the original TAR repo
+  "src/tamperbench/whitebox/defenses/tar/_orig/",
 
   # Files that are one-off scripts (used purely for record keeping)
   "src/tamperbench/whitebox/attacks/multilingual_finetune/generate_translated_dataset.py",

@@ -46,7 +46,7 @@ class CRL(AlignmentDefense[CRLConfig]):
     """
 
     @override
-    def run_defense(self) -> Path:
+    def _run_defense(self) -> Path:
         """Run CRL defense to create hardened model.
 
         Returns:

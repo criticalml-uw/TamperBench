@@ -39,6 +39,7 @@ from tamperbench.whitebox.evals.output_schema import (
     ScoreSchema,
 )
 from tamperbench.whitebox.evals.reference import ReferenceScore, ReferenceScores
+from tamperbench.whitebox.evals.registry import register_evaluation
 from tamperbench.whitebox.utils import (
     EvalName,
     MetricName,
@@ -198,6 +199,7 @@ class MTBenchScoreSchema(ScoreSchema):
     judge_response_2: str = pa.Field(nullable=False)
 
 
+@register_evaluation(EvalName.MT_BENCH, MTBenchEvaluationConfig)
 class MTBenchEvaluation(WhiteBoxEvaluation[MTBenchEvaluationConfig]):
     """MT-Bench evaluation using LLM-as-a-Judge."""
 

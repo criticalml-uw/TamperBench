@@ -79,10 +79,24 @@ class AlignmentDefense(ABC, Generic[H]):
         """
         self.defense_config: H = defense_config
 
-    @abstractmethod
     def run_defense(self) -> Path:
         """Run defense and get aligned LLM.
+
+        Checks that ``output_checkpoint_path`` does not already exist (to avoid
+        silently overwriting a previous run), then delegates to the subclass
+        implementation in :meth:`_run_defense`.
 
         Returns:
             Path: Path to checkpoint file of aligned model.
         """
+        output = self.defense_config.output_checkpoint_path
+        if output.exists():
+            raise FileExistsError(
+                f"Output path already exists: {output}. "
+                "Remove it or use a different results directory to avoid overwriting a previous run."
+            )
+        return self._run_defense()
+
+    @abstractmethod
+    def _run_defense(self) -> Path:
+        """Subclass implementation of the defense. Called by :meth:`run_defense`."""

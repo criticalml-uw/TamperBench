@@ -229,7 +229,7 @@ class CTRL(AlignmentDefense[CTRLConfig]):
     """
 
     @override
-    def run_defense(self) -> Path:
+    def _run_defense(self) -> Path:
         """Run CTRL defense to create hardened model.
 
         Returns:

@@ -15,6 +15,10 @@ from tamperbench.whitebox.defenses.t_vaccine.t_vaccine import (
     TVaccineDefense,
 )
 from tamperbench.whitebox.defenses.t_vaccine.tar import (
+    TARTVaccineConfig,
+    TARTVaccineDefense,
+)
+from tamperbench.whitebox.defenses.tar.tar import (
     TARConfig,
     TARDefense,
 )
@@ -35,6 +39,8 @@ __all__: list[str] = [
     "SDDConfig",
     "TARConfig",
     "TARDefense",
+    "TARTVaccineConfig",
+    "TARTVaccineDefense",
     "TVaccineConfig",
     "TVaccineDefense",
 ]

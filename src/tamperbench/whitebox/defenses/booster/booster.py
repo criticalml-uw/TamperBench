@@ -71,7 +71,7 @@ class Booster(AlignmentDefense[BoosterConfig]):
     """
 
     @override
-    def run_defense(self) -> Path:
+    def _run_defense(self) -> Path:
         """Run Booster defense to create hardened model.
 
         Returns:
