@@ -20,6 +20,7 @@ from tamperbench.whitebox.evals.output_schema import (
 )
 from tamperbench.whitebox.utils import MetricName
 from tamperbench.whitebox.utils.models.config import ModelConfig
+from tamperbench.whitebox.utils.names import TemplateName
 
 # --- Tests for build_choices ---
 
@@ -147,6 +148,7 @@ def make_evaluation(
         model_checkpoint="test-model",
         out_dir="/tmp/lab-bench-test",
         model_config=ModelConfig(
+            template_name=TemplateName.PLAIN,
             user_prefix="",
             assistant_prefix="",
             end_turn="",
