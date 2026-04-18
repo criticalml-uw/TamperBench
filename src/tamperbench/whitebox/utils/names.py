@@ -27,6 +27,7 @@ class DefenseName(StrEnum):
 
     BOOSTER = "booster"
     CRL = "crl"
+    RSN_TUNE = "rsn_tune"
     TAR = "tar"
     T_VACCINE = "t_vaccine"
     SDD = "sdd"

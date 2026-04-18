@@ -141,6 +141,7 @@ exclude = [
   ".venv",
   "**/__pycache__",
   "_legacy",
+  "scripts",
   ".cache",
 
   # Files whose implementation was mostly sourced from external codebases
