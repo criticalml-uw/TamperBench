@@ -272,7 +272,10 @@ class LabBenchEvaluation(WhiteBoxEvaluation[LabBenchEvaluationConfig]):
         raw_prompts = [q.prompt for q in self.questions]
         # Wrap each question in the model's chat template (user turn) so instruct
         # models get the proper framing for CoT generation.
-        chat_prompts = [format_chat_prompt(p, tokenizer) for p in raw_prompts]
+        chat_prompts = [
+            format_chat_prompt(p, tokenizer, system_prompt=self.eval_config.model_config.system_prompt)
+            for p in raw_prompts
+        ]
 
         max_new_tokens = min(self.eval_config.model_config.max_generation_length, 2048)
         responses = generate(chat_prompts, model, max_new_tokens=max_new_tokens, temperature=0.0)

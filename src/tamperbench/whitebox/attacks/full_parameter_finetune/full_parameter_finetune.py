@@ -176,7 +176,12 @@ class FullParameterFinetune(TamperAttack[H]):
                 if message["role"] == "assistant":
                     assistant_content = message["content"]
 
-            return format_prompt_completion(user_content, assistant_content, tokenizer)
+            return format_prompt_completion(
+                user_content,
+                assistant_content,
+                tokenizer,
+                system_prompt=self.attack_config.model_config.system_prompt,
+            )
 
         return mixed_dataset.map(to_completions, remove_columns=mixed_dataset.column_names)
 

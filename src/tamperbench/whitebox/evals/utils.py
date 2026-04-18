@@ -32,6 +32,7 @@ def format_prompt_completion(
     user_content: str,
     assistant_content: str,
     tokenizer: PreTrainedTokenizerBase,
+    system_prompt: str | None = None,
 ) -> dict[str, str]:
     """Format a user/assistant exchange into a prompt-completion pair for SFTTrainer.
 
@@ -44,22 +45,24 @@ def format_prompt_completion(
         user_content: The user message text.
         assistant_content: The assistant response text.
         tokenizer: A tokenizer whose ``chat_template`` has already been configured.
+        system_prompt: Optional system prompt to prepend as a system message.
 
     Returns:
         Dict with ``"prompt"`` and ``"completion"`` keys.
     """
+    prompt_messages: list[dict[str, str]] = []
+    if system_prompt:
+        prompt_messages.append({"role": "system", "content": system_prompt})
+    prompt_messages.append({"role": "user", "content": user_content})
+
     prompt = cast(
         str,
-        tokenizer.apply_chat_template(
-            [{"role": "user", "content": user_content}],
-            tokenize=False,
-            add_generation_prompt=True,
-        ),
+        tokenizer.apply_chat_template(prompt_messages, tokenize=False, add_generation_prompt=True),
     )
     full = cast(
         str,
         tokenizer.apply_chat_template(
-            [{"role": "user", "content": user_content}, {"role": "assistant", "content": assistant_content}],
+            [*prompt_messages, {"role": "assistant", "content": assistant_content}],
             tokenize=False,
             add_generation_prompt=False,
         ),

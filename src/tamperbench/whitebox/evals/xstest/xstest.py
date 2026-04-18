@@ -264,9 +264,8 @@ class XSTestEvaluation(WhiteBoxEvaluation[XSTestEvaluationConfig]):
 
         # Format all prompts first
         questions = [item["prompt"] for item in prompts_data]
-        formatted_prompts = [
-            format_chat_prompt(q, tokenizer, system_prompt=self.eval_config.system_prompt) for q in questions
-        ]
+        system_prompt = self.eval_config.system_prompt or self.eval_config.model_config.system_prompt
+        formatted_prompts = [format_chat_prompt(q, tokenizer, system_prompt=system_prompt) for q in questions]
 
         # Generate all responses at once
         responses = generate(

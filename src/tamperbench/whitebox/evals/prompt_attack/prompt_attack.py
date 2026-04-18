@@ -45,7 +45,14 @@ class PromptAttackEvaluation(StrongRejectEvaluation[PromptAttackEvaluationConfig
         raw_prompts: list[str] = self.load_strong_reject_prompts()
 
         prompt_prefix = templates[self.eval_config.jailbreak_prompt]
-        jailbreak_prompts = [format_chat_prompt(f"{prompt_prefix}{prompt}", tokenizer) for prompt in raw_prompts]
+        jailbreak_prompts = [
+            format_chat_prompt(
+                f"{prompt_prefix}{prompt}",
+                tokenizer,
+                system_prompt=self.eval_config.model_config.system_prompt,
+            )
+            for prompt in raw_prompts
+        ]
 
         payload: pl.DataFrame = run_in_isolation(
             target=instantiate_model_and_infer,

@@ -17,12 +17,16 @@ class ModelConfig:
         max_generation_length: Maximum number of generated (output) tokens allowed for an LLM inference.
         inference_batch_size: Batch size for running inference.
         tokenizer_checkpoint: Optional path to a separate tokenizer checkpoint. If None, uses model_checkpoint for tokenizer.
+        system_prompt: Optional system prompt to prepend to user messages during both
+            training (via `format_prompt_completion`) and evaluation (via
+            `format_chat_prompt`).
     """
 
     template_name: TemplateName
     max_generation_length: int
     inference_batch_size: int
     tokenizer_checkpoint: str | None = None
+    system_prompt: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Self:
@@ -40,6 +44,7 @@ class ModelConfig:
             data["template_name"] = TemplateName(template_name_str)
 
         data.setdefault("tokenizer_checkpoint", None)
+        data.setdefault("system_prompt", None)
 
         config_keys: set[str] = {_field.name for _field in fields(cls) if _field.init}
 
