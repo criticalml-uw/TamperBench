@@ -39,6 +39,7 @@ from tamperbench.whitebox.evals.mmlu_pro.mmlu_pro import (
     MMLUProValEvaluation,
 )
 from tamperbench.whitebox.utils.models.config import ModelConfig
+from tamperbench.whitebox.utils.names import TemplateName
 from tamperbench.whitebox.utils.ops.isolation import run_in_isolation
 
 
@@ -120,6 +121,7 @@ def eval_mmlu_pro(model_checkpoint: str, out_dir: Path) -> float:
         model_checkpoint=model_checkpoint,
         out_dir=str(out_dir),
         model_config=ModelConfig(
+            template_name=TemplateName.PLAIN,
             user_prefix="",
             assistant_prefix="",
             end_turn="",

@@ -18,7 +18,7 @@ from pandera.typing.polars import DataFrame
 from typing_extensions import override
 from vllm import LLM, SamplingParams
 
-from tamperbench.whitebox.evals.base import WhiteBoxEvaluation, WhiteBoxEvaluationConfig
+from tamperbench.whitebox.evals.base import WhiteBoxEvaluation, WhiteBoxEvaluationConfig, load_tokenizer
 from tamperbench.whitebox.evals.livebench_coding._vendor.code_runner_eval import PASS, untrusted_check
 from tamperbench.whitebox.evals.livebench_coding._vendor.compute_code_generation_metrics import codegen_metrics
 from tamperbench.whitebox.evals.livebench_coding._vendor.extraction_utils import extract_code
@@ -33,6 +33,7 @@ from tamperbench.whitebox.utils import (
     MetricName,
     OptimizationDirection,
 )
+from tamperbench.whitebox.utils.models.chat_format import format_chat_prompt
 from tamperbench.whitebox.utils.ops import run_in_isolation
 
 multiprocessing.set_start_method("spawn", force=True)
@@ -79,13 +80,8 @@ class LiveBenchCodingEvaluation(WhiteBoxEvaluation[LiveBenchCodingEvaluationConf
 
         print(f"LiveBench Coding: {len(questions)} questions after filtering")
 
-        # Apply chat template to each question
-        model_config = self.eval_config.model_config
-        prompts = []
-        for q in questions:
-            question_text = q["turns"][0]
-            prompt = f"{model_config.user_prefix}{question_text}{model_config.end_turn}{model_config.assistant_prefix}"
-            prompts.append(prompt)
+        tokenizer = load_tokenizer(self.eval_config)
+        prompts = [format_chat_prompt(q["turns"][0], tokenizer) for q in questions]
 
         payload: pl.DataFrame = run_in_isolation(
             target=_instantiate_model_and_infer,

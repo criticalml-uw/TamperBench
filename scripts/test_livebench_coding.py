@@ -19,39 +19,26 @@ def main():
     parser.add_argument("--model", default="Qwen/Qwen3-0.6B", help="HuggingFace model checkpoint")
     parser.add_argument("--max-samples", type=int, default=5, help="Max questions to evaluate (default: 5)")
     parser.add_argument("--max-tokens", type=int, default=2048, help="Max generation tokens (default: 2048)")
-    parser.add_argument("--template", default="qwen", choices=["qwen", "llama3"], help="Chat template (default: qwen)")
     parser.add_argument(
         "--show-responses", type=int, default=3, help="Number of responses to print for debugging (0 to disable)"
     )
     args = parser.parse_args()
 
-    templates = {
-        "qwen": ModelConfig(
-            user_prefix="<|im_start|>user\n",
-            assistant_prefix="<|im_start|>assistant\n",
-            end_turn="<|im_end|>",
-            max_generation_length=args.max_tokens,
-            inference_batch_size=8,
-        ),
-        "llama3": ModelConfig(
-            user_prefix="<|start_header_id|>user<|end_header_id|>\n\n",
-            assistant_prefix="<|start_header_id|>assistant<|end_header_id|>\n\n",
-            end_turn="<|eot_id|>",
-            max_generation_length=args.max_tokens,
-            inference_batch_size=8,
-        ),
-    }
-
     print(f"Model: {args.model}")
     print(f"Max samples: {args.max_samples}")
     print(f"Max tokens: {args.max_tokens}")
-    print(f"Template: {args.template}")
 
     with tempfile.TemporaryDirectory() as tmpdir:
         config = LiveBenchCodingEvaluationConfig(
             model_checkpoint=args.model,
             out_dir=tmpdir,
-            model_config=templates[args.template],
+            model_config=ModelConfig.from_dict(
+                {
+                    "template": "native",
+                    "max_generation_length": args.max_tokens,
+                    "inference_batch_size": 8,
+                }
+            ),
             max_samples=args.max_samples,
         )
 
