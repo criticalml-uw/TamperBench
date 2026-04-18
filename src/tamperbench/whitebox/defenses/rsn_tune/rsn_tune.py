@@ -344,7 +344,7 @@ class RSNTune(AlignmentDefense["RSNTuneConfig"]):
         return safety_neurons, foundation_neurons
 
     @override
-    def run_defense(self) -> Path:
+    def _run_defense(self) -> Path:
         # Run in a subprocess so all GPU memory (model, optimizer, compiled
         # graphs) is guaranteed freed when the process exits.
         run_in_isolation(
