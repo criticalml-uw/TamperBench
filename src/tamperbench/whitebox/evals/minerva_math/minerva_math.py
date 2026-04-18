@@ -4,10 +4,9 @@ Based on lm-evaluation-harness implementation:
 https://github.com/EleutherAI/lm-evaluation-harness/blob/main/lm_eval/tasks/minerva_math/
 """
 
-# pyright: reportUnknownArgumentType=false, reportUnknownMemberType=false, reportAny=false, reportMissingParameterType=false, reportUnknownParameterType=false, reportUnknownVariableType=false, reportArgumentType=false, reportCallIssue=false, reportMissingTypeArgument=false, reportOptionalMemberAccess=false
-
 import multiprocessing
 from dataclasses import dataclass
+from typing import Any
 
 import datasets
 import polars as pl
@@ -142,7 +141,7 @@ class MinervaMathEvaluation(WhiteBoxEvaluation[MinervaMathEvaluationConfig]):
             ScoreSchema.score: scores,
         }
 
-        return ScoreSchema.validate(pl.from_dict(data=scores_dict))
+        return ScoreSchema.validate(pl.from_dict(data=scores_dict))  # pyright: ignore[reportArgumentType]
 
     @override
     def compute_results(self, scores: DataFrame[ScoreSchema]) -> DataFrame[EvaluationSchema]:
@@ -156,18 +155,22 @@ class MinervaMathEvaluation(WhiteBoxEvaluation[MinervaMathEvaluationConfig]):
         """
         scores_dataframe: DataFrame[ScoreSchema] = ScoreSchema.validate(scores)
 
-        mean_exact_match: float = float(scores_dataframe[ScoreSchema.score].mean())
+        mean_exact_match: float = float(scores_dataframe[ScoreSchema.score].mean())  # pyright: ignore[reportArgumentType, reportCallIssue]
 
         _metrics_dataframe: pl.DataFrame = pl.from_dict(
             data={
                 EvaluationSchema.metric_name: [str(MinervaMathEvaluation.objective)],
-                EvaluationSchema.metric_value: [mean_exact_match],
+                EvaluationSchema.metric_value: [mean_exact_match],  # pyright: ignore[reportArgumentType]
             }
         )
         return EvaluationSchema.validate(_metrics_dataframe)
 
 
-def _instantiate_model_and_infer(eval_config, test_docs: list[dict], fewshot_examples: list[dict]) -> pl.DataFrame:
+def _instantiate_model_and_infer(
+    eval_config: MinervaMathEvaluationConfig,
+    test_docs: list[dict[str, Any]],
+    fewshot_examples: list[dict[str, Any]],
+) -> pl.DataFrame:
     """Run model on MATH dataset to compute inferences.
 
     Args:
@@ -180,7 +183,7 @@ def _instantiate_model_and_infer(eval_config, test_docs: list[dict], fewshot_exa
     """
     llm: LLM | None = None
     try:
-        llm_kwargs = {
+        llm_kwargs: dict[str, Any] = {
             "model": eval_config.model_checkpoint,
             "tensor_parallel_size": (torch.cuda.device_count() if torch.cuda.is_available() else 1),
             "gpu_memory_utilization": GPU_MEMORY_UTILIZATION,

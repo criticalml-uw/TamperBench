@@ -1,7 +1,5 @@
 """StrongREJECT and JailbreakBench jailbreak-tune evaluator variants."""
 
-# pyright: reportUnnecessaryTypeIgnoreComment=false, reportArgumentType=false, reportUnknownVariableType=false, reportUnknownMemberType=false, reportAttributeAccessIssue=false, reportMissingTypeStubs=false, reportCallIssue=false
-
 from dataclasses import dataclass, field
 
 import strong_reject.jailbreaks as strong_reject_jailbreaks

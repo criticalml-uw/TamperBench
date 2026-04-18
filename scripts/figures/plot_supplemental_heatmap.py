@@ -11,9 +11,6 @@ Usage:
     python scripts/figures/plot_supplemental_heatmap.py results/aggregated_eps05/heatmap_max_sr.json
 """
 
-# pyright: reportUnknownMemberType=false, reportUnknownArgumentType=false
-# pyright: reportUnknownVariableType=false, reportAny=false, reportExplicitAny=false
-# pyright: reportUnusedCallResult=false
 from __future__ import annotations
 
 import argparse
@@ -71,6 +68,20 @@ ATTACKS_ORDER: list[str] = [
 ]
 
 BASELINE_ATTACK = "no_weight_modification"
+
+MALICIOUS_ATTACKS: list[str] = [
+    "backdoor_finetune",
+    "competing_objectives_finetune",
+    "style_modulation_finetune",
+    "full_parameter_finetune",
+    "lora_finetune",
+    "multilingual_finetune",
+]
+
+BENIGN_ATTACKS: list[str] = [
+    "benign_full_parameter_finetune",
+    "benign_lora_finetune",
+]
 
 # Colormap settings
 SR_CMAP_NAME = "magma_r"
@@ -159,30 +170,66 @@ def plot_heatmap(json_path: Path, output_path: Path) -> None:
     attacks, sr_raw, mmlu_raw, mmlu_delta = reorder_attacks(attacks, sr_raw, mmlu_raw, mmlu_delta)
 
     n_models = len(models)
-    n_attacks = len(attacks)
-    n_rows = n_attacks * 2  # SR + MMLU for each attack
+    attack_to_idx = {a: i for i, a in enumerate(attacks)}
 
-    matrix: FloatArray = np.full((n_rows, n_models), np.nan)
+    rows: list[FloatArray] = []
     labels: list[str] = []
     is_delta: list[bool] = []
 
-    for i, attack in enumerate(attacks):
+    def add_attack_rows(attack: str) -> None:
+        """Add SR + MMLU rows for a single attack."""
+        if attack not in attack_to_idx:
+            return
+        idx = attack_to_idx[attack]
         attack_disp = display_name(attack)
 
-        # SR raw row
-        matrix[i * 2, :] = sr_raw[:, i]
+        rows.append(sr_raw[:, idx])
         labels.append(f"{attack_disp} SR")
         is_delta.append(False)
 
-        # MMLU row: raw for baseline, delta for others
         if attack == BASELINE_ATTACK:
-            matrix[i * 2 + 1, :] = mmlu_raw[:, i]
+            rows.append(mmlu_raw[:, idx])
             labels.append(f"{attack_disp} MMLU")
             is_delta.append(False)
         else:
-            matrix[i * 2 + 1, :] = mmlu_delta[:, i]
+            rows.append(mmlu_delta[:, idx])
             labels.append(f"{attack_disp} MMLU \u0394")
             is_delta.append(True)
+
+    def add_avg_rows(attack_list: list[str], group_name: str) -> None:
+        """Add Avg SR + Avg MMLU delta rows for a group of attacks."""
+        indices = [attack_to_idx[a] for a in attack_list if a in attack_to_idx]
+        if not indices:
+            return
+        avg_sr = np.nanmean(sr_raw[:, indices], axis=1)
+        avg_mmlu_delta = np.nanmean(mmlu_delta[:, indices], axis=1)
+
+        rows.append(avg_sr)
+        labels.append(f"Avg: {group_name} SR")
+        is_delta.append(False)
+
+        rows.append(avg_mmlu_delta)
+        labels.append(f"Avg: {group_name} MMLU \u0394")
+        is_delta.append(True)
+
+    # Baseline
+    add_attack_rows(BASELINE_ATTACK)
+
+    # Malicious attacks + average
+    for attack in MALICIOUS_ATTACKS:
+        add_attack_rows(attack)
+    add_avg_rows(MALICIOUS_ATTACKS, "Malicious")
+
+    # Benign attacks + average
+    for attack in BENIGN_ATTACKS:
+        add_attack_rows(attack)
+    add_avg_rows(BENIGN_ATTACKS, "Benign")
+
+    # Embedding attack
+    add_attack_rows("embedding_attack")
+
+    matrix = np.stack(rows)
+    n_rows = len(labels)
 
     sr_cmap = truncated_cmap(SR_CMAP_NAME, SR_CMAP_MIN, SR_CMAP_MAX)
     mmlu_cmap = truncated_cmap(MMLU_CMAP_NAME, MMLU_CMAP_MIN, MMLU_CMAP_MAX)
@@ -208,8 +255,10 @@ def plot_heatmap(json_path: Path, output_path: Path) -> None:
     for row_idx, ax in enumerate(axes):
         ax: Axes
         row_data = matrix[row_idx, :][np.newaxis, :]
-        is_sr_row = row_idx % 2 == 0
         row_is_delta = is_delta[row_idx]
+        label = labels[row_idx]
+        is_sr_row = label.endswith(" SR")
+        is_avg = label.startswith("Avg:")
 
         if is_sr_row:
             cmap, norm = sr_cmap, sr_norm
@@ -234,12 +283,13 @@ def plot_heatmap(json_path: Path, output_path: Path) -> None:
             spine.set_visible(False)
 
         ax.set_ylabel(
-            labels[row_idx],
+            label,
             rotation=0,
             labelpad=18,
             fontsize=8,
             ha="right",
             va="center",
+            fontweight="bold" if is_avg else "normal",
         )
 
         for col_idx in range(n_models):
@@ -252,7 +302,7 @@ def plot_heatmap(json_path: Path, output_path: Path) -> None:
                     ha="center",
                     va="center",
                     fontsize=8,
-                    fontweight="bold",
+                    fontweight="bold" if is_avg else "normal",
                     color=get_text_color(value, norm, cmap),
                 )
 

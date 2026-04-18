@@ -4,8 +4,6 @@ Adapted from lm-evaluation-harness:
 https://github.com/EleutherAI/lm-evaluation-harness/blob/main/lm_eval/tasks/minerva_math/utils.py
 """
 
-# pyright: reportConstantRedefinition=false, reportMissingTypeArgument=false, reportArgumentType=false, reportPossiblyUnboundVariable=false, reportAttributeAccessIssue=false, reportOptionalOperand=false
-
 import logging
 import re
 import signal

@@ -9,8 +9,6 @@ This module provides reusable functions for common evaluation patterns:
 - `aggregate_by_field`: Compute per-domain and overall metrics
 """
 
-# pyright: reportUnknownVariableType=false, reportUnknownMemberType=false, reportMissingTypeStubs=false
-
 import logging
 import re
 from collections.abc import Callable

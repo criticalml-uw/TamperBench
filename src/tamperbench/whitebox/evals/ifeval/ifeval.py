@@ -19,12 +19,11 @@ Changes from lm-evaluation-harness:
 - process_results() receives response string directly instead of results[0] list format
 """
 
-# pyright: reportUnknownArgumentType=false, reportUnknownMemberType=false, reportAny=false, reportMissingParameterType=false, reportUnknownParameterType=false, reportUnknownVariableType=false, reportCallIssue=false, reportArgumentType=false, reportOptionalMemberAccess=false
-
 from __future__ import annotations
 
 import multiprocessing
 from dataclasses import dataclass
+from typing import Any
 
 import datasets
 import polars as pl
@@ -143,13 +142,15 @@ class IFEvalEvaluation(WhiteBoxEvaluation[IFEvalEvaluationConfig]):
 
             scores.append(strict_prompt)
 
+        # Pandera schema class attributes are typed with the column dtype, but at runtime resolve
+        # to the column name (`str`). That makes these dicts look mixed-key to pyright.
         scores_dict = {
             ScoreSchema.prompt: list(inferences[InferenceSchema.prompt]),
             ScoreSchema.response: responses_list,
             ScoreSchema.score: scores,
         }
 
-        return ScoreSchema.validate(pl.from_dict(data=scores_dict))
+        return ScoreSchema.validate(pl.from_dict(data=scores_dict))  # pyright: ignore[reportArgumentType]
 
     @override
     def compute_results(self, scores: DataFrame[ScoreSchema]) -> DataFrame[EvaluationSchema]:
@@ -176,7 +177,7 @@ class IFEvalEvaluation(WhiteBoxEvaluation[IFEvalEvaluationConfig]):
         _metrics_dataframe = pl.from_dict(
             data={
                 EvaluationSchema.metric_name: list(metrics.keys()),
-                EvaluationSchema.metric_value: list(metrics.values()),
+                EvaluationSchema.metric_value: list(metrics.values()),  # pyright: ignore[reportArgumentType]
             }
         )
         return EvaluationSchema.validate(_metrics_dataframe)
@@ -228,7 +229,7 @@ def _instantiate_model_and_infer(
             )
             formatted_prompts.append(formatted)
 
-        llm_kwargs = {
+        llm_kwargs: dict[str, Any] = {
             "model": eval_config.model_checkpoint,
             "tensor_parallel_size": (torch.cuda.device_count() if torch.cuda.is_available() else 1),
             "gpu_memory_utilization": GPU_MEMORY_UTILIZATION,

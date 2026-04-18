@@ -27,8 +27,11 @@ class DefenseName(StrEnum):
 
     BOOSTER = "booster"
     CRL = "crl"
+    RSN_TUNE = "rsn_tune"
     TAR = "tar"
+    TAR_TVACCINE = "tar_tvaccine"
     T_VACCINE = "t_vaccine"
+    SDD = "sdd"
 
 
 class EvalName(StrEnum):
@@ -49,6 +52,8 @@ class EvalName(StrEnum):
     SAFETY_GAP = "safety_gap"
     XSTEST = "xstest"
     WMDP = "wmdp"
+    LAB_BENCH = "lab_bench"
+    LIVEBENCH_CODING = "livebench_coding"
 
 
 class MetricName(StrEnum):
@@ -82,6 +87,31 @@ class MetricName(StrEnum):
     WMDP_BIO_ACCURACY = "wmdp_bio_accuracy"
     WMDP_CYBER_ACCURACY = "wmdp_cyber_accuracy"
     WMDP_CHEM_ACCURACY = "wmdp_chem_accuracy"
+
+    # Lab-Bench metrics
+    LAB_BENCH_ACCURACY = "lab_bench_accuracy"
+    LAB_BENCH_PRECISION = "lab_bench_precision"
+    LAB_BENCH_COVERAGE = "lab_bench_coverage"
+    LAB_BENCH_LITQA2_ACCURACY = "lab_bench_litqa2_accuracy"
+    LAB_BENCH_LITQA2_PRECISION = "lab_bench_litqa2_precision"
+    LAB_BENCH_LITQA2_COVERAGE = "lab_bench_litqa2_coverage"
+    LAB_BENCH_DBQA_ACCURACY = "lab_bench_dbqa_accuracy"
+    LAB_BENCH_DBQA_PRECISION = "lab_bench_dbqa_precision"
+    LAB_BENCH_DBQA_COVERAGE = "lab_bench_dbqa_coverage"
+    LAB_BENCH_SUPPQA_ACCURACY = "lab_bench_suppqa_accuracy"
+    LAB_BENCH_SUPPQA_PRECISION = "lab_bench_suppqa_precision"
+    LAB_BENCH_SUPPQA_COVERAGE = "lab_bench_suppqa_coverage"
+    LAB_BENCH_PROTOCOLQA_ACCURACY = "lab_bench_protocolqa_accuracy"
+    LAB_BENCH_PROTOCOLQA_PRECISION = "lab_bench_protocolqa_precision"
+    LAB_BENCH_PROTOCOLQA_COVERAGE = "lab_bench_protocolqa_coverage"
+    LAB_BENCH_SEQQA_ACCURACY = "lab_bench_seqqa_accuracy"
+    LAB_BENCH_SEQQA_PRECISION = "lab_bench_seqqa_precision"
+    LAB_BENCH_SEQQA_COVERAGE = "lab_bench_seqqa_coverage"
+    LAB_BENCH_CLONING_ACCURACY = "lab_bench_cloning_accuracy"
+    LAB_BENCH_CLONING_PRECISION = "lab_bench_cloning_precision"
+    LAB_BENCH_CLONING_COVERAGE = "lab_bench_cloning_coverage"
+
+    LIVEBENCH_CODING_PASS_AT_1 = "livebench_coding_pass_at_1"
 
     # XSTest metrics
     XSTEST_SAFE_REFUSAL_RATE = "xstest_safe_refusal_rate"
@@ -221,6 +251,16 @@ class DefenseTrialDirs(StrEnum):
     DEFENSE_EVAL = "defense_eval"  # Defense checkpoint evaluation results
     POST_ATTACK = "post_attack"  # Post-attack results (per-attack subdirectories)
     TRIAL_RESULTS = "trial_results.json"  # Aggregated metrics for the trial
+    BEST_CHECKPOINT = "best_checkpoint"  # Best defended model checkpoint directory
+    BEST_CHECKPOINT_SCORE = "best_score.json"  # JSON file tracking the best score
+
+
+class BestCheckpointKeys(StrEnum):
+    """Keys for the best_score.json file tracking the best defense checkpoint."""
+
+    TRIAL = "trial"  # Trial number that produced the best checkpoint
+    SCORE = "score"  # Primary metric value of the best trial
+    METRIC = "metric"  # Name of the primary metric key
 
 
 class ConfigKeys(StrEnum):
@@ -308,7 +348,7 @@ class DefenseMetricPrefix(StrEnum):
         return f"{DefenseMetricPrefix.DEFENSE}.{eval_name}"
 
     @staticmethod
-    def post_attack_key(attack_name: AttackName, eval_name: EvalName) -> str:
+    def post_attack_key(attack_name: AttackName | str, eval_name: EvalName) -> str:
         """Build a post-attack metric key.
 
         Args:
@@ -321,6 +361,21 @@ class DefenseMetricPrefix(StrEnum):
         return f"{DefenseMetricPrefix.POST_ATTACK}.{attack_name}.{eval_name}"
 
     @staticmethod
+    def global_post_attack_key(eval_name: EvalName) -> str:
+        """Build a global post-attack metric key aggregated across all attacks.
+
+        This key holds the value aggregated across all attack specs for a
+        given evaluation, and is used as the Optuna primary objective.
+
+        Args:
+            eval_name: The evaluation whose metric this key represents.
+
+        Returns:
+            Global key, e.g. ``"post_attack.strong_reject"``.
+        """
+        return f"{DefenseMetricPrefix.POST_ATTACK}.{eval_name}"
+
+    @staticmethod
     def build_all_metric_keys(
         defense_eval_names: list[EvalName],
         post_attack_eval_names: list[EvalName],
@@ -328,21 +383,38 @@ class DefenseMetricPrefix(StrEnum):
     ) -> list[str]:
         """Build the full ordered list of prefixed metric keys for a defense sweep.
 
+        Deduplicates repeated attack names so that each per-attack key appears
+        only once.  Appends global post-attack keys (aggregated across all
+        attacks) at the end.
+
         Args:
             defense_eval_names: Evaluations run on the defended checkpoint.
             post_attack_eval_names: Evaluations run after each attack.
             attack_names: Attacks run against the defended model.
 
         Returns:
-            Ordered list of all prefixed metric keys, defense keys first,
-            then post-attack keys grouped by attack.
+            Ordered list of all unique prefixed metric keys: defense keys
+            first, then per-attack keys grouped by attack, then global
+            post-attack keys.
         """
         keys: list[str] = []
         for eval_name in defense_eval_names:
             keys.append(DefenseMetricPrefix.defense_key(eval_name))
-        for attack_name in attack_names:
+
+        seen: set[AttackName] = set()
+        unique_attack_names: list[AttackName] = []
+        for name in attack_names:
+            if name not in seen:
+                seen.add(name)
+                unique_attack_names.append(name)
+
+        for attack_name in unique_attack_names:
             for eval_name in post_attack_eval_names:
                 keys.append(DefenseMetricPrefix.post_attack_key(attack_name, eval_name))
+
+        for eval_name in post_attack_eval_names:
+            keys.append(DefenseMetricPrefix.global_post_attack_key(eval_name))
+
         return keys
 
     @staticmethod
