@@ -58,40 +58,56 @@ MMLU-Pro = MMLU-Pro val accuracy (higher = better).
 GSM8K fine-tuning uses effective batch size 128, 1 epoch, AdamW, constant LR
 (following Qi et al. 2024), with lr=2e-5 unless noted.
 
-#### Llama-2-7B-Chat, default defense (50 training samples), 5 seeds
+#### Llama-2-7B-Chat, 5 seeds
+
+All conditions fall within the same noise band. No signal that SN-Tune or
+RSN-Tune does better than Undefended.
 
 |              | Before          | Undefended      | SN-Tune         | RSN-Tune        | SN-Orig         | RSN-Orig        |
 |--------------|-----------------|-----------------|-----------------|-----------------|-----------------|-----------------|
 | StrongREJECT | 0.076 ± 0.019   | 0.142 ± 0.019   | 0.134 ± 0.016   | 0.149 ± 0.019   | 0.144 ± 0.012   | 0.135 ± 0.017 |
 | MMLU-Pro     | 0.230 ± 0.001   | 0.207 ± 0.009   | 0.205 ± 0.006   | 0.201 ± 0.010   | 0.206 ± 0.005   | 0.204 ± 0.008 |
 
-All conditions fall within the same noise band. No signal that SN-Tune or
-RSN-Tune does better than Undefended.
+#### Llama-2-7B-Chat, 2000 defense training samples, 5 seeds
 
-#### Llama-2-7B-Chat, 2000 defense training samples, 1 seed
+We thought the safety-training might not have enough training data (50 samples)
+so we checked whether increasing to 2000 samples helps. It still doesn't
+demonstrate SN-Tune or RSN-Tune increases benign fine-tuning safety.
 
-|              | Undefended | SN-Tune | RSN-Tune | SN-Orig | RSN-Orig |
-|--------------|------------|---------|----------|---------|----------|
-| StrongREJECT | 0.149      | 0.177   | 0.139    | 0.110   | 0.126    |
-| MMLU-Pro     | 0.195      | 0.205   | 0.200    | 0.193   | 0.207    |
 
-#### Mistral-7B-Instruct-v0.2, default defense, 1 seed
+|              | Undefended      | SN-Tune         | RSN-Tune        | SN-Orig         | RSN-Orig        |
+|--------------|-----------------|-----------------|-----------------|-----------------|-----------------|
+| StrongREJECT | 0.126 ± 0.012   | 0.150 ± 0.014   | 0.133 ± 0.013   | 0.127 ± 0.014   | 0.141 ± 0.016   |
+| MMLU-Pro     | 0.203 ± 0.006   | 0.201 ± 0.003   | 0.204 ± 0.010   | 0.198 ± 0.009   | 0.203 ± 0.014   |
 
-No evidence that SN-Tune and RSN-Tune defend against fine-tuning.
+#### Mistral-7B-Instruct-v0.2, 1 seed
 
-**GSM8K fine-tuning lr=2e-5** (catastrophic forgetting):
+The defenses also don't show evidence of working with Mistral, though with a
+learning rate of 2e-5 the fine-tuning causes catastrophic forgetting so it might
+not be a meaningful evaluation.
+
+**GSM8K fine-tuning lr=2e-5** (catastrophic forgetting, MMLU 0.343 -> ~0.12):
 
 |              | Before | Undefended | SN-Tune | RSN-Tune | SN-Orig | RSN-Orig |
 |--------------|--------|------------|---------|----------|---------|----------|
 | StrongREJECT | 0.548  | 0.092      | 0.146   | 0.137    | 0.140   | 0.154    |
 | MMLU-Pro     | 0.343  | 0.118      | 0.123   | 0.148    | 0.118   | 0.125    |
 
-**GSM8K fine-tuning lr=5e-6**:
+**GSM8K fine-tuning lr=5e-6** (does not have catastrophic forgetting):
 
 |              | Before | Undefended | SN-Tune | RSN-Tune | SN-Orig | RSN-Orig |
 |--------------|--------|------------|---------|----------|---------|----------|
 | StrongREJECT | 0.548  | 0.289      | 0.326   | 0.322    | 0.304   | 0.317    |
 | MMLU-Pro     | 0.343  | 0.293      | 0.302   | 0.305    | 0.296   | 0.286    |
+
+#### Mistral-7B-Instruct-v0.2, 2000 defense training samples, 1 seed
+
+GSM8K fine-tuning lr=5e-6:
+
+|              | Undefended | SN-Tune | RSN-Tune | SN-Orig | RSN-Orig |
+|--------------|------------|---------|----------|---------|----------|
+| StrongREJECT | 0.289      | 0.301   | 0.311    | 0.250   | 0.284    |
+| MMLU-Pro     | 0.298      | 0.293   | 0.304    | 0.286   | 0.296    |
 
 #### Running the actual original codebase
 
