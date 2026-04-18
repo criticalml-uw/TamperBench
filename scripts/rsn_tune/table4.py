@@ -102,7 +102,6 @@ def run_attack_only(
     from tamperbench.whitebox.utils.benchmark.runners import run_attack_grid_configs
 
     eval_names = grid_config.post_attack_evals
-    model_config = ModelConfig.from_dict(dict(model_config_dict))
     all_metrics: dict[str, float] = {}
 
     for attack_spec in grid_config.attacks:
@@ -136,7 +135,7 @@ def run_attack_only(
             cleanup_checkpoints=not keep_checkpoints,
         )
 
-        for config_name, results_df in results.items():
+        for _config_name, results_df in results.items():
             for eval_name in eval_names:
                 eval_cls = EVALS_REGISTRY[eval_name]
                 all_metrics[str(eval_name)] = float(eval_cls.load_result_objective(results_df))

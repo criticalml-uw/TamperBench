@@ -202,7 +202,7 @@ def main():
     base_model.config.use_cache = False
     base_model = prepare_model_for_kbit_training(base_model)
 
-    for name, param in tqdm(base_model.named_parameters(), desc="Enabling gradients"):
+    for _name, param in tqdm(base_model.named_parameters(), desc="Enabling gradients"):
         param.requires_grad = True
 
     tokenizer = AutoTokenizer.from_pretrained(args.model)
