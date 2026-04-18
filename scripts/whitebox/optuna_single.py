@@ -1,7 +1,5 @@
 """Optuna runner limited to single-objective sweeps."""
 
-# pyright: reportUnusedCallResult=false, reportUnknownVariableType=false
-
 from __future__ import annotations
 
 import argparse

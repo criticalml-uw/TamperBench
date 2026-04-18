@@ -1,10 +1,8 @@
 """StrongREJECT evaluator interface."""
 
-# pyright: reportUnnecessaryTypeIgnoreComment=false, reportArgumentType=false, reportUnknownVariableType=false, reportUnknownMemberType=false, reportAttributeAccessIssue=false, reportMissingTypeStubs=false, reportCallIssue=false, reportUnknownArgumentType=false, reportMissingParameterType=false, reportUnknownParameterType=false, reportOptionalMemberAccess=false
-
 import multiprocessing
 from dataclasses import dataclass, field
-from typing import TypeVar
+from typing import Any, TypeVar
 
 import datasets
 import polars as pl
@@ -116,12 +114,12 @@ class StrongRejectEvaluation(WhiteBoxEvaluation[S]):
         scores_dataframe: DataFrame[ScoreSchema] = ScoreSchema.validate(scores)
 
         mean_strong_reject_score: float = float(
-            scores_dataframe[ScoreSchema.score].mean()  # pyright: ignore[reportUnknownArgumentType]
+            scores_dataframe[ScoreSchema.score].mean()  # pyright: ignore[reportArgumentType, reportCallIssue]
         )
         _metrics_dataframe: pl.DataFrame = pl.from_dict(
             data={
                 EvaluationSchema.metric_name: [str(StrongRejectEvaluation.objective)],
-                EvaluationSchema.metric_value: [mean_strong_reject_score],
+                EvaluationSchema.metric_value: [mean_strong_reject_score],  # pyright: ignore[reportArgumentType]
             }
         )
         return EvaluationSchema.validate(_metrics_dataframe)
@@ -137,7 +135,7 @@ class StrongRejectEvaluation(WhiteBoxEvaluation[S]):
         if self.eval_config.max_samples is not None:
             strong_reject_dataset = strong_reject_dataset.select(range(self.eval_config.max_samples))
 
-        return [row["forbidden_prompt"] for row in strong_reject_dataset]  # pyright: ignore[reportCallIssue]
+        return [row["forbidden_prompt"] for row in strong_reject_dataset]  # pyright: ignore[reportArgumentType, reportCallIssue]  # datasets stubs omit string keys
 
 
 @register_evaluation(EvalName.JAILBREAK_BENCH, StrongRejectEvaluationConfig)
@@ -155,11 +153,9 @@ class JailbreakBenchEvaluation(StrongRejectEvaluation[S]):
             list[str]: A list of raw prompts from the JailbreakBench dataset.
                 Chat formatting is applied later in `compute_inferences`.
         """
-        jbb_dataset = datasets.load_dataset(  # pyright: ignore[reportReturnType]
-            path="JailbreakBench/JBB-Behaviors", name="behaviors", split="harmful"
-        )
+        jbb_dataset = datasets.load_dataset(path="JailbreakBench/JBB-Behaviors", name="behaviors", split="harmful")
 
-        return [row["Goal"] for row in jbb_dataset]  # pyright: ignore[reportCallIssue]
+        return [row["Goal"] for row in jbb_dataset]  # pyright: ignore[reportArgumentType, reportCallIssue]  # datasets stubs omit string keys
 
     @override
     def compute_results(self, scores: DataFrame[ScoreSchema]) -> DataFrame[EvaluationSchema]:
@@ -177,20 +173,20 @@ class JailbreakBenchEvaluation(StrongRejectEvaluation[S]):
         scores_dataframe: DataFrame[ScoreSchema] = ScoreSchema.validate(scores)
 
         mean_strong_reject_score: float = float(
-            scores_dataframe[ScoreSchema.score].mean()  # pyright: ignore[reportUnknownArgumentType]
+            scores_dataframe[ScoreSchema.score].mean()  # pyright: ignore[reportArgumentType, reportCallIssue]
         )
         _metrics_dataframe: pl.DataFrame = pl.from_dict(
             data={
                 EvaluationSchema.metric_name: [str(JailbreakBenchEvaluation.objective)],
-                EvaluationSchema.metric_value: [mean_strong_reject_score],
+                EvaluationSchema.metric_value: [mean_strong_reject_score],  # pyright: ignore[reportArgumentType]
             }
         )
         return EvaluationSchema.validate(_metrics_dataframe)
 
 
 def instantiate_model_and_infer(
-    eval_config,
-    prompts,
+    eval_config: StrongRejectEvaluationConfig,
+    prompts: list[str],
 ) -> pl.DataFrame:
     """Run model on evaluation dataset (StrongREJECT) to compute the inferences.
 
@@ -205,7 +201,7 @@ def instantiate_model_and_infer(
     try:
         # vllm tensor_parallel_size must be a factor of 64 (model hidden dimensions).
         # TODO: Handle scaling beyond 4 GPUs properly by validating against model config.
-        llm_kwargs = {
+        llm_kwargs: dict[str, Any] = {
             "model": eval_config.model_checkpoint,
             "tensor_parallel_size": torch.cuda.device_count() if torch.cuda.device_count() != 5 else 4,
             "gpu_memory_utilization": 0.8,
@@ -228,7 +224,7 @@ def instantiate_model_and_infer(
 
         request_outputs = llm.generate(prompts, sampling_params)
 
-        for prompt, request_output in zip(prompts, request_outputs, strict=False):  # pyright: ignore[reportUnknownArgumentType]
+        for prompt, request_output in zip(prompts, request_outputs, strict=False):
             text: str = ""
             if request_output.outputs:
                 text = request_output.outputs[0].text.strip()
@@ -244,7 +240,9 @@ def instantiate_model_and_infer(
             torch.cuda.empty_cache()
 
 
-def _compute_strong_reject_scores(eval_config, inferences_dict) -> pl.DataFrame:
+def _compute_strong_reject_scores(
+    eval_config: StrongRejectEvaluationConfig, inferences_dict: dict[str, list[str]]
+) -> pl.DataFrame:
     """Run StrongReject scoring inside an isolated process to release GPU memory cleanly.
 
     Args:
@@ -279,13 +277,13 @@ def _compute_strong_reject_scores(eval_config, inferences_dict) -> pl.DataFrame:
             ),
         }
 
-        scores.extend(
-            strong_reject_finetuned(
-                batch=batch_inferences,
-                max_response_length=eval_config.model_config.max_generation_length,
-            ).get("score")
-        )
+        batch_scores = strong_reject_finetuned(
+            batch=batch_inferences,
+            max_response_length=eval_config.model_config.max_generation_length,
+        ).get("score")
+        assert batch_scores is not None, "strong_reject_finetuned did not return 'score'"
+        scores.extend(batch_scores)
 
-    scores_dict.update({ScoreSchema.score: pl.Series(scores)})
+    scores_dict.update({ScoreSchema.score: pl.Series(scores)})  # pyright: ignore[reportCallIssue, reportArgumentType]
 
     return ScoreSchema.validate(pl.from_dict(data=scores_dict))
