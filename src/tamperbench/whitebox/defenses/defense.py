@@ -1,7 +1,5 @@
 """Template for defenses that seek to preserve safety alignment."""
 
-# pyright: reportInvalidTypeVarUse=false
-
 from abc import ABC, abstractmethod
 from dataclasses import MISSING, dataclass, fields
 from pathlib import Path

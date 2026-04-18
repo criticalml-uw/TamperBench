@@ -1,7 +1,5 @@
 """Template for tampering attacks in tamperbench."""
 
-# pyright: reportUnknownMemberType=false
-
 import dataclasses
 import shutil
 from abc import ABC, abstractmethod

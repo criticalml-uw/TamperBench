@@ -3,8 +3,6 @@
 Import modules for side effects so they register via the attacks registry.
 """
 
-# pyright: reportDuplicateImport=false
-
 # Side-effect imports to populate ATTACKS_REGISTRY
 from tamperbench.whitebox.attacks.embedding_attack import (
     embedding_attack as _embedding,

@@ -1,7 +1,5 @@
 """Full parameter fine-tuning attack interface."""
 
-# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportCallIssue=false, reportUnusedCallResult=false, reportMissingTypeStubs=false, reportMissingParameterType=false, reportUnknownParameterType=false, reportUnknownArgumentType=false, reportAttributeAccessIssue=false, reportArgumentType=false, reportPrivateImportUsage=false
-
 import multiprocessing
 from dataclasses import dataclass
 from typing import Any, TypeVar
@@ -15,7 +13,8 @@ from transformers import (
     PreTrainedModel,
     PreTrainedTokenizer,
 )
-from trl.trainer.sft_trainer import SFTConfig, SFTTrainer
+from trl.trainer.sft_config import SFTConfig
+from trl.trainer.sft_trainer import SFTTrainer
 from typing_extensions import override
 
 from tamperbench.whitebox.attacks.base import TamperAttack, TamperAttackConfig
@@ -172,7 +171,7 @@ class FullParameterFinetune(TamperAttack[H]):
 
 
 @register_attack(AttackName.BENIGN_FULL_PARAMETER_FINETUNE, FullParameterFinetuneConfig)
-class BenignFullParameterFinetune(FullParameterFinetune[H]):
+class BenignFullParameterFinetune(FullParameterFinetune[FullParameterFinetuneConfig]):
     """Benign full parameter finetuning class.
 
     Behaviour is driven by config: ``poison_ratio: 0.0`` yields a purely benign dataset.
@@ -198,10 +197,10 @@ class BenignFullParameterFinetune(FullParameterFinetune[H]):
 
 
 def run_full_finetune_attack(  # TODO: Consolidate with `run_lora_attack`
-    attack_config,
-    training_arguments,
-    prompt_completions_dataset,
-    output_checkpoint_path,
+    attack_config: FullParameterFinetuneConfig,
+    training_arguments: SFTConfig,
+    prompt_completions_dataset: datasets.Dataset,
+    output_checkpoint_path: str,
 ) -> None:
     """Instantiate model, tokenizer and finetune the model with full parameters.
 

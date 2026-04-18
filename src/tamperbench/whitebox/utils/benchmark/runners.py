@@ -5,8 +5,6 @@ Extracts shared logic from ``scripts/whitebox/optuna_single.py`` (Optuna loop) a
 defense scripts can share the same core without duplicating boilerplate.
 """
 
-# pyright: reportUnusedCallResult=false, reportUnknownVariableType=false
-
 from __future__ import annotations
 
 import copy

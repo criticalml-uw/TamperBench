@@ -88,6 +88,7 @@ exclude = [
   "src/tamperbench/whitebox/evals/ifeval/instructions_registry.py",
   "src/tamperbench/whitebox/evals/ifeval/instructions_util.py",
   "src/tamperbench/whitebox/evals/ifeval/utils.py",
+  "src/tamperbench/whitebox/evals/livebench_coding/_vendor/",
   "src/tamperbench/whitebox/evals/mbpp/execute.py",
   "src/tamperbench/whitebox/evals/minerva_math/utils.py",
   "src/tamperbench/whitebox/evals/mmlu_pro/eval_from_api.py",
@@ -125,21 +126,10 @@ ignore = [
   # include them
   "RUF001",
   # Docstring style: use D211 (no blank line before class docstring) and D212
-  # (docstring starts on same line as opening quotes)
+  # (docstring starts on same line as opening quotes). Keep docstrings compact
+  # by not requiring a trailing blank line before the closing quotes (D413)
   "D203",  # incompatible with D211
   "D213",  # incompatible with D212
-  # TODO(tomtseng): Manually fix these lint errors in the codebase, then remove
-  # these ignores
-  "A002",
-  "B007",
-  "B020",
-  "E711",
-  "F811",
-  "F821",
-  "F841",
-  "RUF012",
-  "RUF013",
-  "UP008",
   "D413",
 ]
 
@@ -163,6 +153,7 @@ exclude = [
   "src/tamperbench/whitebox/evals/ifeval/instructions_registry.py",
   "src/tamperbench/whitebox/evals/ifeval/instructions_util.py",
   "src/tamperbench/whitebox/evals/ifeval/utils.py",
+  "src/tamperbench/whitebox/evals/livebench_coding/_vendor/",
   "src/tamperbench/whitebox/evals/mbpp/execute.py",
   "src/tamperbench/whitebox/evals/minerva_math/utils.py",
   "src/tamperbench/whitebox/evals/mmlu_pro/eval_from_api.py",

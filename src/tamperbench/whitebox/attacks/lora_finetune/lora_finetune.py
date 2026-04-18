@@ -1,20 +1,20 @@
 """Lora (PEFT) fine-tuning attack interface."""
 
-# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportCallIssue=false, reportMissingTypeStubs=false, reportUnusedCallResult=false, reportMissingParameterType=false, reportUnknownParameterType=false, reportUnknownArgumentType=false, reportAttributeAccessIssue=false, reportArgumentType=false, reportPrivateImportUsage=false
-
 import multiprocessing
 from dataclasses import dataclass, field
 from typing import TypeVar
 
+import datasets
 import peft
 import torch
-import trl
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
     PreTrainedModel,
     PreTrainedTokenizer,
 )
+from trl.trainer.sft_config import SFTConfig
+from trl.trainer.sft_trainer import SFTTrainer
 from typing_extensions import override
 
 from tamperbench.whitebox.attacks.full_parameter_finetune.full_parameter_finetune import (
@@ -68,7 +68,7 @@ class LoraFinetune(FullParameterFinetune[H]):
         """Run lora fine-tuning attack and modify weights."""
         prompt_completions_dataset = self.load_prompt_completions_dataset()
 
-        training_arguments: trl.SFTConfig = trl.SFTConfig(
+        training_arguments = SFTConfig(
             output_dir=self.attack_config.out_dir,
             per_device_train_batch_size=self.attack_config.per_device_train_batch_size,
             learning_rate=self.attack_config.learning_rate,
@@ -99,7 +99,7 @@ class LoraFinetune(FullParameterFinetune[H]):
 
 
 @register_attack(AttackName.BENIGN_LORA_FINETUNE, LoraFinetuneConfig)
-class BenignLoraFinetune(LoraFinetune[H]):
+class BenignLoraFinetune(LoraFinetune[LoraFinetuneConfig]):
     """Benign lora finetuning class.
 
     Behaviour is driven by config: ``poison_ratio: 0.0`` yields a purely benign dataset.
@@ -123,10 +123,10 @@ class BenignLoraFinetune(LoraFinetune[H]):
 
 
 def run_lora_attack(  # TODO: Consolidate with `run_full_finetune_attack`
-    attack_config,
-    training_arguments,
-    prompt_completions_dataset,
-    output_checkpoint_path,
+    attack_config: LoraFinetuneConfig,
+    training_arguments: SFTConfig,
+    prompt_completions_dataset: datasets.Dataset,
+    output_checkpoint_path: str,
 ) -> None:
     """Instantiate model, tokenizer and finetune the model with LoRA.
 
@@ -166,7 +166,7 @@ def run_lora_attack(  # TODO: Consolidate with `run_full_finetune_attack`
         ),
     )
 
-    trainer: trl.SFTTrainer = trl.SFTTrainer(
+    trainer = SFTTrainer(
         model=peft_model,
         processing_class=tokenizer,
         train_dataset=prompt_completions_dataset,
@@ -175,7 +175,7 @@ def run_lora_attack(  # TODO: Consolidate with `run_full_finetune_attack`
 
     trainer.train()
 
-    merged_model: PreTrainedModel = trainer.model.merge_and_unload()  # pyright: ignore[reportOptionalMemberAccess]
+    merged_model: PreTrainedModel = trainer.model.merge_and_unload()  # pyright: ignore[reportOptionalMemberAccess, reportCallIssue]
     merged_model.save_pretrained(
         save_directory=output_checkpoint_path,
         safe_serialization=True,
@@ -185,5 +185,5 @@ def run_lora_attack(  # TODO: Consolidate with `run_full_finetune_attack`
     trainer.accelerator.free_memory()
 
     dealloc_model_and_tokenizer(model, tokenizer)
-    dealloc_model_and_tokenizer(peft_model, None)
+    dealloc_model_and_tokenizer(peft_model, None)  # pyright: ignore[reportArgumentType]
     dealloc_model_and_tokenizer(merged_model, None)

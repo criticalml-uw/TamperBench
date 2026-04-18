@@ -17,7 +17,8 @@ Harmful datasets
   2024) as the test-time attack dataset for harmful request refusal.
 """
 
-# pyright: reportUnknownMemberType=false, reportMissingTypeStubs=false, reportUnknownLambdaType=false, reportUntypedFunctionDecorator=false, reportPrivateLocalImportUsage=false
+# `datasets` has no type stubs, so lambdas passed to `.map(...)` cannot be inferred.
+# pyright: reportUnknownLambdaType=false
 
 import datasets as ds
 from datasets import Dataset
