@@ -146,7 +146,7 @@ def analyze(
 
     # Print detailed comparison table
     header = f"{'Model':<20} {'Attack':<35}"
-    for en in eval_names:
+    for _en in eval_names:
         header += f"  {'Old':>7}  {'New':>7}  {'Diff':>8}  {'Rel%':>7}"
     print(header)
     print("-" * len(header))
