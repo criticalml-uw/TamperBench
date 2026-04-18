@@ -96,15 +96,14 @@ No evidence that SN-Tune and RSN-Tune defend against fine-tuning.
 #### Running the actual original codebase
 
 We also ran the [original Safety-Neuron
-codebase](https://github.com/zhaoyiran924/Safety-Neuron) on Llama-2-7B-Chat and
-Mistral-7B-Instruct-v0.2k, rather than using the `match_original_code` flag in
-our own implementation, to rule out implementation differences. However,
-parameter comparison revealed that the saved defended checkpoints were identical
+repo](https://github.com/zhaoyiran924/Safety-Neuron) on `Llama-2-7B-Chat` and
+`Mistral-7B-Instruct-v0.2k`, rather than using the `match_original_code` flag in
+our own implementation, to rule out implementation differences
+(`run_original_repo/`). However, the saved defended checkpoints were identical
 to the base models. Our interpretation of what the paper says the training
 hyperparameters are lead to very little training: 50 samples (section 3.1)
 effective batch size of 32 (`train_neuron.py` in the codebase), and learning
-rate of 1e-6 (section 3.1) leads to only 2 steps at a very low learning rate,
-leading to little change in the model.
+rate of 1e-6 (section 3.1) leads to only 2 steps at a very low learning rate.
 
 ### Conclusion
 
