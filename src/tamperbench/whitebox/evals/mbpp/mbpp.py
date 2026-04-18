@@ -7,9 +7,6 @@ Paper: Program Synthesis with Large Language Models
 https://arxiv.org/abs/2108.07732
 """
 
-# pyright: reportUnknownArgumentType=false, reportUnknownMemberType=false, reportAny=false, reportMissingParameterType=false, reportUnknownParameterType=false, reportUnknownVariableType=false, reportMissingTypeArgument=false, reportArgumentType=false, reportCallIssue=false, reportOptionalMemberAccess=false
-# ruff: noqa: D401, B905
-
 from __future__ import annotations
 
 import itertools
@@ -18,6 +15,7 @@ import os
 from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
+from typing import Any, TypedDict
 
 import datasets
 import numpy as np
@@ -61,7 +59,7 @@ GPU_MEMORY_UTILIZATION = 0.8
 STOP_WORDS = ["\nclass", "\nassert", '\n"""', "\nprint", "\nif", "\n<|/", "\n```"]
 
 
-def get_prompt(doc: dict) -> str:
+def get_prompt(doc: dict[str, Any]) -> str:
     """Build prompt following InCoder approach from bigcode-evaluation-harness.
 
     Prompt = docstring that includes one test case.
@@ -71,7 +69,7 @@ def get_prompt(doc: dict) -> str:
     return f'"""\n{description}\n{test_example}\n"""\n'
 
 
-def get_reference(doc: dict) -> str:
+def get_reference(doc: dict[str, Any]) -> str:
     """Build reference test cases."""
     return "\n".join(doc["test_list"])
 
@@ -98,13 +96,20 @@ def postprocess_generation(generation: str, prompt: str) -> str:
     return generation
 
 
+class _TaskResult(TypedDict):
+    task_id: int
+    passed: bool
+    result: str
+    completion_id: int
+
+
 def compute_code_eval(
     predictions: list[list[str]],
     references: list[str],
     k: list[int] | None = None,
     num_workers: int = 4,
     timeout: float = 3.0,
-) -> tuple[dict[str, float], dict]:
+) -> tuple[dict[str, float], dict[int, list[tuple[int, _TaskResult]]]]:
     """Compute pass@k metrics for code evaluation.
 
     Args:
@@ -121,8 +126,8 @@ def compute_code_eval(
     # This is separate from the spawn context used for vLLM
     fork_ctx = multiprocessing.get_context("fork")
 
-    def check_correctness_fork(check_program, timeout, task_id, completion_id):
-        """Wrapper that uses fork context for multiprocessing."""
+    def check_correctness_fork(check_program: str, timeout: float, task_id: int, completion_id: int) -> _TaskResult:
+        """Wrap check_correctness to run under the fork multiprocessing context."""
         manager = fork_ctx.Manager()
         result = manager.list()
 
@@ -135,7 +140,7 @@ def compute_code_eval(
         if not result:
             result.append("timed out")
 
-        return dict(
+        return _TaskResult(
             task_id=task_id,
             passed=result[0] == "passed",
             result=result[0],
@@ -144,11 +149,11 @@ def compute_code_eval(
 
     with ThreadPoolExecutor(max_workers=num_workers) as executor:
         futures = []
-        completion_id: Counter = Counter()
+        completion_id: Counter[int] = Counter()
         n_samples = 0
-        results: dict = defaultdict(list)
+        results: dict[int, list[tuple[int, _TaskResult]]] = defaultdict(list)
 
-        for task_id, (candidates, test_case) in enumerate(zip(predictions, references)):
+        for task_id, (candidates, test_case) in enumerate(zip(predictions, references, strict=True)):
             for candidate in candidates:
                 test_program = candidate + "\n" + test_case
                 args = (test_program, timeout, task_id, completion_id[task_id])
@@ -180,11 +185,13 @@ def compute_code_eval(
     return pass_at_k, results
 
 
-def estimate_pass_at_k(num_samples: np.ndarray, num_correct: np.ndarray, k: int) -> np.ndarray:
+def estimate_pass_at_k(
+    num_samples: np.ndarray[Any, Any], num_correct: np.ndarray[Any, Any], k: int
+) -> np.ndarray[Any, Any]:
     """Estimates pass@k of each problem and returns them in an array."""
 
     def estimator(n: int, c: int, k: int) -> float:
-        """Calculates 1 - comb(n - c, k) / comb(n, k)."""
+        """Calculate 1 - comb(n - c, k) / comb(n, k)."""
         if n - c < k:
             return 1.0
         return float(1.0 - np.prod(1.0 - k / np.arange(n - c + 1, n + 1)))
@@ -195,7 +202,7 @@ def estimate_pass_at_k(num_samples: np.ndarray, num_correct: np.ndarray, k: int)
         assert len(num_samples) == len(num_correct)
         num_samples_it = iter(num_samples)
 
-    return np.array([estimator(int(n), int(c), k) for n, c in zip(num_samples_it, num_correct)])
+    return np.array([estimator(int(n), int(c), k) for n, c in zip(num_samples_it, num_correct, strict=True)])
 
 
 @dataclass
@@ -272,7 +279,7 @@ class MBPPEvaluation(WhiteBoxEvaluation[MBPPEvaluationConfig]):
         print(f"Postprocessing {len(responses_list)} generations...")
         processed_codes = []
         for response, prompt in tqdm(
-            zip(responses_list, prompts),
+            zip(responses_list, prompts, strict=True),
             total=len(responses_list),
             desc="Postprocessing",
         ):
@@ -325,12 +332,12 @@ class MBPPEvaluation(WhiteBoxEvaluation[MBPPEvaluationConfig]):
         """Compute final pass@1 metric."""
         scores_dataframe: DataFrame[ScoreSchema] = ScoreSchema.validate(scores)
 
-        mean_pass_at_1: float = float(scores_dataframe[ScoreSchema.score].mean())
+        mean_pass_at_1: float = float(scores_dataframe[ScoreSchema.score].mean())  # pyright: ignore[reportArgumentType, reportCallIssue]
 
         _metrics_dataframe: pl.DataFrame = pl.from_dict(
             data={
                 EvaluationSchema.metric_name: [str(MBPPEvaluation.objective)],
-                EvaluationSchema.metric_value: [mean_pass_at_1],
+                EvaluationSchema.metric_value: [mean_pass_at_1],  # pyright: ignore[reportArgumentType]
             }
         )
         return EvaluationSchema.validate(_metrics_dataframe)
@@ -358,7 +365,7 @@ def _instantiate_model_and_infer(
     """
     llm: LLM | None = None
     try:
-        llm_kwargs = {
+        llm_kwargs: dict[str, Any] = {
             "model": eval_config.model_checkpoint,
             "tensor_parallel_size": (torch.cuda.device_count() if torch.cuda.is_available() else 1),
             "gpu_memory_utilization": GPU_MEMORY_UTILIZATION,

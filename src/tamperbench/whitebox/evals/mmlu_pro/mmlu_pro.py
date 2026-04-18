@@ -5,13 +5,12 @@ Includes:
 - vLLM-based evaluators for test and validation splits with strict non-overlap of few-shot exemplars.
 """
 
-# pyright: reportUnknownArgumentType=false, reportUnknownMemberType=false, reportAny=false, reportMissingParameterType=false, reportUnknownParameterType=false, reportUnknownVariableType=false, reportMissingTypeArgument=false, reportArgumentType=false, reportCallIssue=false, reportImplicitOverride=false, reportUnusedParameter=false
-
 from __future__ import annotations
 
 import multiprocessing
 import re
 from dataclasses import dataclass
+from typing import Any
 
 import datasets
 import polars as pl
@@ -96,7 +95,7 @@ class _MMLUProVLLMBase(WhiteBoxEvaluation[MMLUProEvaluationConfig]):
         shot_pool = self._build_shot_pool(val_rows, test_rows)
         eval_rows = self._build_eval_items(val_rows, test_rows)
 
-        self._cached_eval_rows: list[dict] = list(eval_rows)
+        self._cached_eval_rows: list[dict[str, Any]] = list(eval_rows)
 
         payload: pl.DataFrame = run_in_isolation(
             target=compute_mmlu_inferences,
@@ -141,23 +140,23 @@ class _MMLUProVLLMBase(WhiteBoxEvaluation[MMLUProEvaluationConfig]):
                     f"{resp}\nPRED: {pred}"
                     for resp, pred in zip(inferences[InferenceSchema.response], preds, strict=False)
                 ],
-                ScoreSchema.score: scores,
+                ScoreSchema.score: scores,  # pyright: ignore[reportArgumentType]
             }
         )
         return ScoreSchema.validate(df)
 
     @override
     def compute_results(self, scores: DataFrame[ScoreSchema]) -> DataFrame[EvaluationSchema]:
-        acc = float(pl.Series(scores[ScoreSchema.score]).mean())
+        acc = float(pl.Series(scores[ScoreSchema.score]).mean())  # pyright: ignore[reportArgumentType, reportCallIssue]
         df = pl.from_dict(
             {
                 EvaluationSchema.metric_name: [str(MetricName.MMLU_PRO_ACCURACY)],
-                EvaluationSchema.metric_value: [float(acc) if acc == acc else 0.0],
+                EvaluationSchema.metric_value: [float(acc) if acc == acc else 0.0],  # pyright: ignore[reportArgumentType]
             }
         )
         return EvaluationSchema.validate(df)
 
-    def _load_split(self, split_name: str) -> list[dict]:
+    def _load_split(self, split_name: str) -> list[dict[str, Any]]:
         split = (
             split_name
             if SPLIT_SAMPLE_LIMIT is None or SPLIT_SAMPLE_LIMIT <= 0
@@ -167,18 +166,24 @@ class _MMLUProVLLMBase(WhiteBoxEvaluation[MMLUProEvaluationConfig]):
         rows = [dict(item) for item in ds]
         return mmlu_api.preprocess(rows)
 
-    def _build_eval_items(self, val_rows: list[dict], test_rows: list[dict]) -> list[dict]:
+    def _build_eval_items(
+        self, val_rows: list[dict[str, Any]], test_rows: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        _ = val_rows, test_rows
         raise NotImplementedError
 
-    def _build_shot_pool(self, val_rows: list[dict], test_rows: list[dict]) -> dict[str, list[dict]]:
+    def _build_shot_pool(
+        self, val_rows: list[dict[str, Any]], test_rows: list[dict[str, Any]]
+    ) -> dict[str, list[dict[str, Any]]]:
+        _ = test_rows
         return self._build_shot_pool_from_rows(val_rows)
 
-    def _build_shot_pool_from_rows(self, rows: list[dict]) -> dict[str, list[dict]]:
-        by_subj: dict[str, list[dict]] = {}
+    def _build_shot_pool_from_rows(self, rows: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+        by_subj: dict[str, list[dict[str, Any]]] = {}
         for row in rows:
             subj = subject_key(row)
             by_subj.setdefault(subj, []).append(row)
-        pool: dict[str, list[dict]] = {}
+        pool: dict[str, list[dict[str, Any]]] = {}
         for subj, rows in by_subj.items():
             holdout_count = min(
                 HOLDOUT_PER_SUBJECT,
@@ -188,7 +193,7 @@ class _MMLUProVLLMBase(WhiteBoxEvaluation[MMLUProEvaluationConfig]):
             pool[subj] = rows[:holdout_count]
         return pool
 
-    def _gold_letter(self, row: dict) -> str:
+    def _gold_letter(self, row: dict[str, Any]) -> str:
         # Prefer explicit letter if present
         ans = row.get("answer")
         if isinstance(ans, str) and re.search(r"^[A-P]$", ans.strip(), flags=re.IGNORECASE):
@@ -226,10 +231,18 @@ class MMLUProValEvaluation(_MMLUProVLLMBase):
 
     name: EvalName = EvalName.MMLU_PRO_VAL
 
-    def _build_eval_items(self, val_rows: list[dict], test_rows: list[dict]) -> list[dict]:
+    @override
+    def _build_eval_items(
+        self, val_rows: list[dict[str, Any]], test_rows: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        _ = val_rows
         return limit_examples_per_subject(test_rows, VAL_MAX_EXAMPLES_PER_SUBJECT)
 
-    def _build_shot_pool(self, val_rows: list[dict], test_rows: list[dict]) -> dict[str, list[dict]]:
+    @override
+    def _build_shot_pool(
+        self, val_rows: list[dict[str, Any]], test_rows: list[dict[str, Any]]
+    ) -> dict[str, list[dict[str, Any]]]:
+        _ = test_rows
         return self._build_shot_pool_from_rows(val_rows)
 
 
@@ -239,19 +252,27 @@ class MMLUProTestEvaluation(_MMLUProVLLMBase):
 
     name: EvalName = EvalName.MMLU_PRO_TEST
 
-    def _build_eval_items(self, val_rows: list[dict], test_rows: list[dict]) -> list[dict]:
+    @override
+    def _build_eval_items(
+        self, val_rows: list[dict[str, Any]], test_rows: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        _ = val_rows
         return list(test_rows)
 
-    def _build_shot_pool(self, val_rows: list[dict], test_rows: list[dict]) -> dict[str, list[dict]]:
+    @override
+    def _build_shot_pool(
+        self, val_rows: list[dict[str, Any]], test_rows: list[dict[str, Any]]
+    ) -> dict[str, list[dict[str, Any]]]:
+        _ = test_rows
         return self._build_shot_pool_from_rows(val_rows)
 
 
 def compute_mmlu_inferences(
     eval_config: MMLUProEvaluationConfig,
-    val_rows,
-    test_rows,
-    shot_pool,
-    eval_rows,
+    val_rows: list[dict[str, Any]],
+    test_rows: list[dict[str, Any]],
+    shot_pool: dict[str, list[dict[str, Any]]],
+    eval_rows: list[dict[str, Any]],
 ) -> pl.DataFrame:
     """Run model on MMLU-Pro dataset to compute inferences.
 
@@ -291,7 +312,7 @@ def compute_mmlu_inferences(
             )
     # vllm tensor_parallel_size must be a factor of 64 (model hidden dimensions).
     # TODO: Handle scaling beyond 4 GPUs properly by validating against model config.
-    llm_kwargs = {
+    llm_kwargs: dict[str, Any] = {
         "model": eval_config.model_checkpoint,
         "tensor_parallel_size": torch.cuda.device_count() if torch.cuda.device_count() != 5 else 4,
         "gpu_memory_utilization": 0.8,
@@ -353,16 +374,16 @@ def compute_mmlu_inferences(
     return InferenceSchema.validate(inferences_dataframe)
 
 
-def subject_key(row: dict) -> str:
+def subject_key(row: dict[str, Any]) -> str:
     """Extract the subject/category key from a row."""
     return str(row.get("category") or row.get("subject") or "").strip()
 
 
-def limit_examples_per_subject(rows: list[dict], max_examples: int) -> list[dict]:
+def limit_examples_per_subject(rows: list[dict[str, Any]], max_examples: int) -> list[dict[str, Any]]:
     """Limit the number of examples per subject to max_examples."""
     if max_examples <= 0:
         return []
-    selected: list[dict] = []
+    selected: list[dict[str, Any]] = []
     seen_counts: dict[str, int] = {}
     for row in rows:
         subj = subject_key(row)

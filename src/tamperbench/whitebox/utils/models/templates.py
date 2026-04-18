@@ -19,6 +19,11 @@ class TextTemplate:
 
 
 TEMPLATE_REGISTRY: dict[TemplateName, TextTemplate] = {
+    TemplateName.LLAMA2_CHAT: TextTemplate(
+        user_prefix="[INST] ",
+        assistant_prefix=" ",
+        end_turn=" [/INST]",
+    ),
     TemplateName.LLAMA3: TextTemplate(
         user_prefix="<|start_header_id|>user<|end_header_id|>\n\n",
         assistant_prefix="<|start_header_id|>assistant<|end_header_id|>\n\n",
