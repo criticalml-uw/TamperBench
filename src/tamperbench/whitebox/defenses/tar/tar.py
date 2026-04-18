@@ -46,7 +46,75 @@ _ACCEL_CONFIGS = {
 
 @dataclass
 class TARConfig(AlignmentDefenseConfig):
-    """Configuration for the original TAR defense (Tamirisa et al. 2024)."""
+    """Configuration for the original TAR defense (Tamirisa et al. 2024).
+
+    The model architecture is detected automatically via
+    ``AutoModelForCausalLM``, so no architecture-specific configuration is
+    needed.  Defaults below are for the bio/weapon knowledge restriction
+    setting; see ``__init__.py`` for the refusal (DPO) variant.
+
+    Attributes:
+        subject: Dataloader subject key. ``"bio"`` / ``"cyber"`` for knowledge
+            restriction, ``"dpo_anthropic"`` for harmful-request refusal.
+        num_gpus: Number of GPUs for FSDP-distributed training.
+        max_steps: Outer-loop (meta-optimizer) steps (N in the paper).
+        tar_inner_loop_steps: Inner-loop adversary SFT steps per outer step (K).
+        lr: Outer-loop ScheduleFree AdamW learning rate.
+        batch_size: Per-GPU batch size for retain / TR dataloaders.
+        gradient_accumulation_steps: Gradient accumulation steps. Effective
+            batch = ``batch_size * gradient_accumulation_steps * num_gpus``.
+        schedule_lambda: Exponential schedule scaling factor for inner-loop
+            TR gradient weighting.
+        warmup_steps: Outer-loop optimizer warmup steps.
+        adversary_dist_types: Comma-separated ``type:weight`` pairs (weights
+            are sampling probabilities) for sampling inner-loop adversary
+            tasks (e.g. ``"pile-bio:0.33,camel-bio:0.33,retain_forget_switch:0.33"``).
+        adversary_lr_samples: Comma-separated learning rates to sample
+            uniformly for inner-loop adversaries.
+        switching_point_coeffs: Beta distribution ``alpha:X,beta:Y`` params
+            for sampling the adversary→retain switching point in
+            retain_forget_switch adversaries.
+        adversary_lr_schedulers: Comma-separated ``scheduler:weight`` pairs
+            for inner-loop LR schedule sampling (supported schedulers:
+            ``constant``, ``linear_warmup``).
+        tar_tamper_resistance_grad_scale: Scale factor λ_TR for the
+            tamper-resistance meta-gradient (λ_TR in Eq. 1).
+        tar_retain_scale: Scale factor λ_retain for the retain loss.
+        tar_tamper_resistance_loss_type: Loss for the TR objective.
+            ``"max_entropy"`` for bio/cyber, ``"dpo"`` for refusal.
+        tar_inner_loop_subsample: Subsample factor for inner-loop batches.
+        tar_adversary_batch_size: Batch size for inner-loop adversary SFT.
+        retain_model_name: HuggingFace model ID for retain-representation
+            matching (loaded as a frozen reference when
+            ``retain_representations=True``).
+        retain_representations: If True, add an L2 penalty on hidden states vs
+            the retain model (Eq. 2 in the paper). Requires ~2x GPU memory.
+        unbounded: If True, always apply the TR meta-gradient regardless of
+            whether the TR loss exceeds the lower bound.
+        use_weighting_schedule: If True, apply the exponential weighting
+            schedule to inner-loop TR gradients.
+        wandb: Enable Weights & Biases logging.
+        wandb_project_name: W&B project name.
+        inner_optimizer_warmup_steps: Warmup steps for the inner-loop AdamW.
+        new_model_name: Name prefix for the output checkpoint directory.
+        expname: Experiment name suffix for the output checkpoint directory.
+        trainer_type: Training loop key. ``"tar_trainer"`` for the main TAR
+            loop, ``"random_mapping_trainer"`` for the random-mapping pre-step.
+        max_data_size: Maximum dataset size (caps large datasets for speed).
+        concept_data_split: Train/test split ratio for concept datasets
+            (passed to argparse but unused in current upstream code).
+        tar_num_tasks_sampled: Number of adversary tasks sampled per outer step.
+        tar_tamper_resistance_loss_lower_bound: Lower bound on TR loss; the TR
+            meta-gradient is skipped if loss is below this (unless ``unbounded``).
+        post_tar_sft_steps: Post-TAR Magpie-Align SFT steps. Set to 100 for
+            the refusal setting (paper appendix), 0 for bio/cyber.
+        post_tar_sft_lr: Learning rate for post-TAR SFT.
+        post_tar_sft_batch_size: Per-GPU batch size for post-TAR SFT.
+        post_tar_sft_gradient_accumulation_steps: Grad accumulation for SFT.
+        post_tar_sft_warmup_steps: Warmup steps for SFT optimizer.
+        accel_config_path: Custom accelerate config YAML path. If None,
+            looks up by ``num_gpus`` from built-in configs.
+    """
 
     subject: str = "bio"
     num_gpus: int = 4
@@ -67,40 +135,24 @@ class TARConfig(AlignmentDefenseConfig):
     tar_inner_loop_subsample: int = 4
     tar_adversary_batch_size: int = 4
     retain_model_name: str = "meta-llama/Meta-Llama-3-8B-Instruct"
-    # L2 penalty on hidden states vs base model. This is Eq. 2 in the original
-    # TAR paper so we should default to enabling it.
-    # Requires ~2x GPU memory (loads a second model copy).
     retain_representations: bool = True
     unbounded: bool = True
     use_weighting_schedule: bool = True
     wandb: bool = False
     wandb_project_name: str = "tar_training"
     inner_optimizer_warmup_steps: int = 20
-
-    # Fields not in argparse but needed for output naming
     new_model_name: str = "tar_model"
     expname: str = "latest"
     trainer_type: str = "tar_trainer"
-
-    # Additional argparse fields with defaults
     max_data_size: int = 40000
     concept_data_split: float = 0.2
     tar_num_tasks_sampled: int = 1
     tar_tamper_resistance_loss_lower_bound: float = -11.76
-
-    # Post-TAR recovery SFT on Magpie-Align. The TAR paper performs 100 steps
-    # of SFT after TAR training for the refusal setting to recover benign
-    # capabilities (MT-Bench). Set to 0 to skip (appropriate for bio/cyber).
-    # The paper does not specify hyperparameters for this step; the defaults
-    # below are our best guesses (lr matches the bio TAR outer loop,
-    # batch_size * grad_accum * num_gpus targets an effective batch of 64).
     post_tar_sft_steps: int = 0
     post_tar_sft_lr: float = 2e-5
     post_tar_sft_batch_size: int = 1
     post_tar_sft_gradient_accumulation_steps: int = 8
     post_tar_sft_warmup_steps: int = 10
-
-    # Accelerate config path override (if not using num_gpus lookup)
     accel_config_path: str | None = None
 
 
@@ -111,15 +163,9 @@ class TARDefense(AlignmentDefense[TARConfig]):
     name: DefenseName = DefenseName.TAR
 
     @override
-    def run_defense(self) -> Path:
+    def _run_defense(self) -> Path:
         """Run the original TAR training as a subprocess."""
         cfg = self.defense_config
-
-        if cfg.output_checkpoint_path.exists():
-            raise FileExistsError(
-                f"Output path already exists: {cfg.output_checkpoint_path}. "
-                "Remove it or use a different --results-dir to avoid overwriting a previous run."
-            )
 
         base_model_name = str(cfg.input_checkpoint_path)
 

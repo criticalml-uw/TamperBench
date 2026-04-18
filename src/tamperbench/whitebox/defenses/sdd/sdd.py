@@ -190,7 +190,7 @@ class SDD(AlignmentDefense["SDDConfig"]):
     """
 
     @override
-    def run_defense(self) -> Path:
+    def _run_defense(self) -> Path:
         """Run SDD defense to create hardened model.
 
         Returns:

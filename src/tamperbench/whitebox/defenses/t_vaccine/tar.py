@@ -106,6 +106,6 @@ class TARTVaccineDefense(AlignmentDefense[TARTVaccineConfig]):
     name: DefenseName = DefenseName.TAR_TVACCINE
 
     @override
-    def run_defense(self) -> Path:
+    def _run_defense(self) -> Path:
         """Run TAR fine-tuning to obtain an aligned checkpoint."""
         return run_upstream_training(defense_config_to_upstream_training_config(self.defense_config))
