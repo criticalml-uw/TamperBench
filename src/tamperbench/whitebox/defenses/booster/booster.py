@@ -241,9 +241,6 @@ def _train_model(
         save_total_limit=20,  # Keep all checkpoints for evaluation
         bf16=True,
         remove_unused_columns=False,
-        # IMPORTANT: Do NOT use gradient clipping - reference implementation doesn't
-        # and it can interfere with the Booster regularizer
-        max_grad_norm=0.0,
         # Disable DDP - model uses device_map="auto" for model parallelism
         ddp_backend=None,
     )
