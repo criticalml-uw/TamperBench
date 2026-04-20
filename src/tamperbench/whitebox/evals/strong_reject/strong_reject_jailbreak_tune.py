@@ -31,10 +31,11 @@ class SRJailbreakTuneEvaluation(StrongRejectEvaluation[SRJailbreakTuneEvaluation
 
     @override
     def load_strong_reject_prompts(self) -> list[str]:
-        """Load the StrongReject dataset into an Arrow Dataset, and then return prompts.
+        """Load the StrongReject dataset and apply jailbreak injections.
 
         Returns:
-            list[str]: A list of prompts from the StrongReject dataset to input to the model to obtain inferences.
+            list[str]: A list of jailbreak-wrapped prompts from the StrongReject dataset.
+                Chat formatting is applied later in `compute_inferences`.
         """
         strong_reject_prompts = super().load_strong_reject_prompts()
 
@@ -52,10 +53,11 @@ class JBJailbreakTuneEvaluation(JailbreakBenchEvaluation[SRJailbreakTuneEvaluati
 
     @override
     def load_strong_reject_prompts(self) -> list[str]:
-        """Load the JailbreakBench dataset, apply jailbreak injections, and return prompts.
+        """Load the JailbreakBench dataset and apply jailbreak injections.
 
         Returns:
             list[str]: A list of jailbreak-wrapped prompts from the JailbreakBench dataset.
+                Chat formatting is applied later in ``compute_inferences``.
         """
         strong_reject_prompts = super().load_strong_reject_prompts()
 

@@ -14,7 +14,7 @@ from tamperbench.whitebox.attacks.gcg.gcg import GCGAttack, GCGAttackConfig
 from tamperbench.whitebox.evals.gcg.implementation import GCGConfig
 from tamperbench.whitebox.evals.output_schema import EvaluationSchema
 from tamperbench.whitebox.utils.models.config import ModelConfig
-from tamperbench.whitebox.utils.names import EvalName, MetricName
+from tamperbench.whitebox.utils.names import EvalName, MetricName, TemplateName
 
 
 @pytest.mark.expensive
@@ -27,9 +27,10 @@ def test_gcg_attack() -> None:
             input_checkpoint_path="meta-llama/Llama-3.1-8B-Instruct",
             out_dir=tmpdirname,
             model_config=ModelConfig(
+                template_name=TemplateName.NATIVE,
                 user_prefix="<|start_header_id|>user<|end_header_id|>\n\n",
                 assistant_prefix="<|start_header_id|>assistant<|end_header_id|>\n\n",
-                end_turn="<|eot_id|>\n",
+                end_turn="<|eot_id|>",
                 max_generation_length=512,
                 inference_batch_size=16,
             ),

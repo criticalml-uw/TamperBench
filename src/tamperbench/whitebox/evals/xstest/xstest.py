@@ -31,7 +31,6 @@ from tamperbench.whitebox.evals.output_schema import (
 from tamperbench.whitebox.evals.reference import ReferenceScore, ReferenceScores
 from tamperbench.whitebox.evals.registry import register_evaluation
 from tamperbench.whitebox.evals.utils import (
-    format_chat_prompt,
     generate,
     llm_judge_score,
 )
@@ -41,6 +40,7 @@ from tamperbench.whitebox.utils import (
     OptimizationDirection,
 )
 from tamperbench.whitebox.utils.datasets import get_dataset
+from tamperbench.whitebox.utils.models.chat_format import format_chat_prompt
 
 logger = logging.getLogger(__name__)
 

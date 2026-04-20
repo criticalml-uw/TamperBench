@@ -437,10 +437,7 @@ class DefenseMetricPrefix(StrEnum):
 class TemplateName(StrEnum):
     """Names of text templates for chat-style formatting."""
 
-    LLAMA2_CHAT = "llama2_chat"
-    LLAMA3 = "llama3"
     INSTRUCTION_RESPONSE = "instruction_response"
     GENERIC_CHAT = "generic_chat"
     PLAIN = "plain"
-    GPT_CHAT = "gpt_chat"
-    QWEN = "qwen"
+    NATIVE = "native"

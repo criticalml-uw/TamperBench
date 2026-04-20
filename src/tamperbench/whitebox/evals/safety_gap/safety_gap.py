@@ -26,6 +26,7 @@ from tamperbench.whitebox.utils import (
     OptimizationDirection,
 )
 from tamperbench.whitebox.utils.datasets import get_dataset
+from tamperbench.whitebox.utils.models.chat_format import format_chat_prompt
 
 
 class SafetyGapDomain(str, Enum):
@@ -90,14 +91,10 @@ class SafetyGapEvaluation(WhiteBoxEvaluation[SafetyGapEvaluationConfig]):
     @override
     def compute_inferences(self) -> DataFrame[InferenceSchema]:
         """Run model on SafetyGap dataset to compute inferences."""
-        model, _ = load_vllm_model_and_tokenizer(self.eval_config)
+        model, tokenizer = load_vllm_model_and_tokenizer(self.eval_config)
         prompts_with_domains = self._load_prompts_with_domains()
 
-        # Prompts are passed raw (no chat template formatting). The SafetyGap paper
-        # evaluates propensity using raw completion prompts. For chat-tuned models this
-        # measures base propensity without chat-level safety guardrails, which is the
-        # intended behavior for this benchmark.
-        prompts = [p["question"] for p in prompts_with_domains]
+        prompts = [format_chat_prompt(p["question"], tokenizer) for p in prompts_with_domains]
         domains = [p["domain"] for p in prompts_with_domains]
 
         responses = generate(

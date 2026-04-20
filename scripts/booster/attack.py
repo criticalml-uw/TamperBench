@@ -29,7 +29,7 @@ from tamperbench.whitebox.attacks.lora_finetune.lora_finetune import (
     LoraFinetuneConfig,
 )
 from tamperbench.whitebox.utils.models.config import ModelConfig
-from tamperbench.whitebox.utils.names import EvalName
+from tamperbench.whitebox.utils.names import EvalName, TemplateName
 
 
 def main():
@@ -122,6 +122,7 @@ def main():
         input_checkpoint_path=model,
         out_dir=str(output_dir),
         model_config=ModelConfig(
+            template_name=TemplateName.NATIVE,
             # TODO: These prefixes should match the target model's chat template.
             # Using Llama-2 base (Alpaca) format as placeholder.
             user_prefix="### Instruction:\n",

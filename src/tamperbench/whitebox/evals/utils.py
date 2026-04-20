@@ -1,7 +1,6 @@
 """Shared utility functions for evaluations.
 
 This module provides reusable functions for common evaluation patterns:
-- `format_chat_prompt`: Format messages for chat models with fallback
 - `generate`: High-throughput generation with vLLM (sends all prompts at once)
 - `generate_single`: Sequential generation for cases requiring dependencies between calls
 - `llm_judge_score`: Score responses using an external LLM judge
@@ -20,55 +19,11 @@ from openai import OpenAI
 from pandera.typing.polars import DataFrame
 from strong_reject.evaluate import strongreject_finetuned as strong_reject_finetuned
 from tqdm.contrib.concurrent import thread_map
-from transformers import PreTrainedTokenizer
 from vllm import LLM, SamplingParams
 
 from tamperbench.whitebox.evals.output_schema import InferenceSchema, ScoreSchema
 
 logger = logging.getLogger(__name__)
-
-
-def format_chat_prompt(
-    user_content: str,
-    tokenizer: PreTrainedTokenizer,
-    system_prompt: str | None = None,
-    history: list[dict[str, str]] | None = None,
-) -> str:
-    """Format messages for chat models with automatic fallback.
-
-    Tries to use the tokenizer's chat_template if available, otherwise
-    falls back to a simple text format.
-
-    Args:
-        user_content: The user's message content.
-        tokenizer: The tokenizer to use for formatting.
-        system_prompt: Optional system prompt to prepend.
-        history: Optional conversation history (list of {"role": ..., "content": ...}).
-
-    Returns:
-        Formatted prompt string ready for model input.
-    """
-    messages: list[dict[str, str]] = []
-
-    if system_prompt:
-        messages.append({"role": "system", "content": system_prompt})
-
-    if history:
-        messages.extend(history)
-
-    messages.append({"role": "user", "content": user_content})
-
-    # Try chat template first
-    if hasattr(tokenizer, "apply_chat_template") and tokenizer.chat_template:
-        return cast(str, tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True))
-
-    # Fallback for models without chat template
-    parts = []
-    for msg in messages:
-        role = msg["role"].title()
-        parts.append(f"{role}: {msg['content']}")
-
-    return "\n\n".join(parts) + "\n\nAssistant:"
 
 
 def llm_judge_score(

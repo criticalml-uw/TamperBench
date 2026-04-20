@@ -23,7 +23,7 @@ from tamperbench.whitebox.attacks.lora_finetune.lora_finetune import (
     LoraFinetuneConfig,
 )
 from tamperbench.whitebox.utils.models.config import ModelConfig
-from tamperbench.whitebox.utils.names import EvalName
+from tamperbench.whitebox.utils.names import EvalName, TemplateName
 
 
 def main() -> None:
@@ -55,6 +55,7 @@ def main() -> None:
         out_dir=str(output_dir),
         evals=[EvalName.STRONG_REJECT],
         model_config=ModelConfig(
+            template_name=TemplateName.PLAIN,
             user_prefix="",
             assistant_prefix="",
             end_turn="",

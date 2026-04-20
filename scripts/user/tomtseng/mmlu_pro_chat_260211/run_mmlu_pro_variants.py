@@ -25,6 +25,7 @@ import argparse
 import copy
 import json
 import shutil
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, TypedDict
 
@@ -40,7 +41,7 @@ from tamperbench.whitebox.evals.mmlu_pro.mmlu_pro import (
 from tamperbench.whitebox.utils import AttackName, EvalPath
 from tamperbench.whitebox.utils.benchmark.path_generation import get_trial_dir_name
 from tamperbench.whitebox.utils.models.config import ModelConfig
-from tamperbench.whitebox.utils.names import ConfigKeys
+from tamperbench.whitebox.utils.names import ConfigKeys, TemplateName
 
 REPO_ROOT = get_repo_root()
 
@@ -48,14 +49,14 @@ REPO_ROOT = get_repo_root()
 class _MMLUProVariant(TypedDict):
     name: str
     n_shots: int
-    use_chat_template: bool
+    template_override: TemplateName | None  # None means use the model's own template
 
 
 MMLU_PRO_VARIANTS: list[_MMLUProVariant] = [
-    {"name": "fewshot_continuation", "n_shots": 5, "use_chat_template": False},
-    {"name": "zeroshot_continuation", "n_shots": 0, "use_chat_template": False},
-    {"name": "fewshot_chat", "n_shots": 5, "use_chat_template": True},
-    {"name": "zeroshot_chat", "n_shots": 0, "use_chat_template": True},
+    {"name": "fewshot_continuation", "n_shots": 5, "template_override": TemplateName.PLAIN},
+    {"name": "zeroshot_continuation", "n_shots": 0, "template_override": TemplateName.PLAIN},
+    {"name": "fewshot_chat", "n_shots": 5, "template_override": None},
+    {"name": "zeroshot_chat", "n_shots": 0, "template_override": None},
 ]
 
 
@@ -85,7 +86,7 @@ def run_attack_and_evaluate(
     output_results_dir: Path,
     eval_split: str,
     random_seed: int = 42,
-    chat_template_model: str | None = None,
+    tokenizer_checkpoint: str | None = None,
     skip_attack: bool = False,
 ) -> None:
     """Re-run attack with best hyperparameters and evaluate with all MMLU-Pro variants."""
@@ -165,16 +166,23 @@ def run_attack_and_evaluate(
         variant_name = variant["name"]
         variant_out_dir = attack_out_dir / "mmlu_pro_variants" / variant_name
 
+        template_override = variant["template_override"]
         print(f"\n--- Running MMLU-Pro variant: {variant_name} ---")
-        print(f"  n_shots={variant['n_shots']}, use_chat_template={variant['use_chat_template']}")
+        print(f"  n_shots={variant['n_shots']}, template={template_override or 'model default'}")
+
+        # Override the template if the variant specifies one (e.g. PLAIN for continuation)
+        variant_model_config = model_config
+        if template_override is not None:
+            variant_model_config = replace(model_config, template_name=template_override)
+        elif tokenizer_checkpoint is not None and model_config.tokenizer_checkpoint is None:
+            # For chat variants, use the provided tokenizer checkpoint if the model config doesn't have one
+            variant_model_config = replace(model_config, tokenizer_checkpoint=tokenizer_checkpoint)
 
         eval_config = MMLUProEvaluationConfig(
             model_checkpoint=attacker.output_checkpoint_path,
             out_dir=str(variant_out_dir),
-            model_config=model_config,
+            model_config=variant_model_config,
             n_shots=variant["n_shots"],
-            use_chat_template=variant["use_chat_template"],
-            chat_template_model=chat_template_model if variant["use_chat_template"] else None,
         )
 
         evaluator = eval_cls(eval_config)
@@ -213,10 +221,10 @@ def main() -> None:
     parser.add_argument("--eval-split", choices=["val", "test"], default="val", help="MMLU-Pro split to evaluate on")
     parser.add_argument("--random-seed", type=int, default=42)
     parser.add_argument(
-        "--chat-template-model",
+        "--tokenizer-checkpoint",
         type=str,
         default=None,
-        help="Model whose chat template to use when the primary tokenizer has no chat_template (e.g. for base models)",
+        help="Separate tokenizer to use when the primary model has no chat_template (e.g. for base models)",
     )
     parser.add_argument(
         "--skip-attack",
@@ -238,7 +246,7 @@ def main() -> None:
         output_results_dir=args.output_results_dir,
         eval_split=args.eval_split,
         random_seed=args.random_seed,
-        chat_template_model=args.chat_template_model,
+        tokenizer_checkpoint=args.tokenizer_checkpoint,
         skip_attack=args.skip_attack,
     )
 

@@ -16,7 +16,7 @@ from tqdm import tqdm
 from typing_extensions import override
 from vllm import LLM, SamplingParams
 
-from tamperbench.whitebox.evals.base import WhiteBoxEvaluation, WhiteBoxEvaluationConfig
+from tamperbench.whitebox.evals.base import WhiteBoxEvaluation, WhiteBoxEvaluationConfig, load_tokenizer
 from tamperbench.whitebox.evals.output_schema import (
     EvaluationSchema,
     InferenceSchema,
@@ -28,6 +28,7 @@ from tamperbench.whitebox.utils import (
     MetricName,
     OptimizationDirection,
 )
+from tamperbench.whitebox.utils.models.chat_format import format_chat_prompt
 from tamperbench.whitebox.utils.ops import run_in_isolation
 
 S = TypeVar(name="S", bound="StrongRejectEvaluationConfig")
@@ -62,14 +63,19 @@ class StrongRejectEvaluation(WhiteBoxEvaluation[S]):
         Returns:
             DataFrame[InferenceSchema]: A polars DataFrame with the prompts to LLM and corresponding responses.
         """
-        prompts: list[str] = self.load_strong_reject_prompts()
+        tokenizer = load_tokenizer(self.eval_config)
+        raw_prompts: list[str] = self.load_strong_reject_prompts()
+        formatted_prompts = [format_chat_prompt(p, tokenizer) for p in raw_prompts]
 
         payload: pl.DataFrame = run_in_isolation(
             target=instantiate_model_and_infer,
-            args=(self.eval_config, prompts),
+            args=(self.eval_config, formatted_prompts),
             error_context="StrongReject inference",
         )
 
+        # Store unformatted prompts for downstream StrongReject scoring,
+        # which expects raw forbidden prompts, not chat-formatted text.
+        payload = payload.with_columns(pl.Series(InferenceSchema.prompt, raw_prompts))
         return InferenceSchema.validate(payload)
 
     @override
@@ -119,10 +125,11 @@ class StrongRejectEvaluation(WhiteBoxEvaluation[S]):
         return EvaluationSchema.validate(_metrics_dataframe)
 
     def load_strong_reject_prompts(self) -> list[str]:
-        """Load the StrongReject dataset into an Arrow Dataset, and then return prompts.
+        """Load the StrongReject dataset and return raw prompts.
 
         Returns:
-            list[str]: A list of prompts from the StrongReject dataset to input to the model to obtain inferences.
+            list[str]: A list of raw prompts from the StrongReject dataset.
+                Chat formatting is applied later in `compute_inferences`.
         """
         strong_reject_dataset: ArrowDataset = load_strong_reject_datasets.load_strongreject()
         if self.eval_config.max_samples is not None:
@@ -140,21 +147,15 @@ class JailbreakBenchEvaluation(StrongRejectEvaluation[S]):
 
     @override
     def load_strong_reject_prompts(self) -> list[str]:
-        """Load the JailbreakBench JBB-Behaviors dataset and return prompts.
+        """Load the JailbreakBench JBB-Behaviors dataset and return raw prompts.
 
         Returns:
-            list[str]: A list of prompts from the JailbreakBench dataset to input to the model to obtain inferences.
+            list[str]: A list of raw prompts from the JailbreakBench dataset.
+                Chat formatting is applied later in `compute_inferences`.
         """
         jbb_dataset = datasets.load_dataset(path="JailbreakBench/JBB-Behaviors", name="behaviors", split="harmful")
 
-        user_prefix = self.eval_config.model_config.user_prefix
-        assistant_prefix = self.eval_config.model_config.assistant_prefix
-        end_turn = self.eval_config.model_config.end_turn
-
-        def to_text(data_row: dict[str, str]) -> str:
-            return f"{user_prefix}{data_row['Goal']}{end_turn}{assistant_prefix}"
-
-        return [to_text(row) for row in jbb_dataset]  # pyright: ignore[reportArgumentType]  # row dict type narrower than stub
+        return [row["Goal"] for row in jbb_dataset]  # pyright: ignore[reportArgumentType, reportCallIssue]  # datasets stubs omit string keys
 
     @override
     def compute_results(self, scores: DataFrame[ScoreSchema]) -> DataFrame[EvaluationSchema]:

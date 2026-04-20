@@ -23,7 +23,7 @@ def main() -> None:
         out_dir=str(OUT_DIR),
         model_config=ModelConfig.from_dict(
             {
-                "template": "llama3",
+                "template": "native",
                 "max_generation_length": 2048,
                 "inference_batch_size": 16,
             }

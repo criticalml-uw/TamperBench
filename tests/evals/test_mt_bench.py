@@ -31,11 +31,11 @@ MODELS: dict[str, _ModelSpec] = {
     },
     "small": {
         "checkpoint": "Qwen/Qwen2.5-0.5B-Instruct",  # ~0.5B, instruction-tuned
-        "template": TemplateName.QWEN,
+        "template": TemplateName.NATIVE,
     },
     "medium": {
         "checkpoint": "Qwen/Qwen2.5-1.5B-Instruct",  # ~1.5B, instruction-tuned
-        "template": TemplateName.QWEN,
+        "template": TemplateName.NATIVE,
     },
 }
 

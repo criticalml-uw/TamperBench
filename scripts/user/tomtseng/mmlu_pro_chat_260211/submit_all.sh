@@ -52,10 +52,10 @@ declare -A MODEL_PATHS=(
     ["qwen3_8b_base"]="Qwen/Qwen3-8B-Base"
 )
 
-# Base model alias -> instruct model with chat template.
+# Base model alias -> instruct model tokenizer to use as fallback.
 # Used to provide a chat template for base models that don't have one.
 # Qwen3 base models already have a chat template
-declare -A CHAT_TEMPLATE_MODELS=(
+declare -A TOKENIZER_CHECKPOINTS=(
     ["llama3_1b_base"]="meta-llama/Llama-3.2-1B-Instruct"
     ["llama3_3b_base"]="meta-llama/Llama-3.2-3B-Instruct"
     ["llama3_8b_base"]="meta-llama/Llama-3.1-8B-Instruct"
@@ -111,10 +111,10 @@ ${UV} run ${SCRIPT} \"${model_path}\" \\
     --source-results-dir \"${SOURCE_RESULTS_DIR}\" \\
     --output-results-dir \"${OUTPUT_RESULTS_DIR}\""
 
-        # Append --chat-template-model for base models
-        if [[ -n "${CHAT_TEMPLATE_MODELS[$model_alias]+x}" ]]; then
+        # Append --tokenizer-checkpoint for base models
+        if [[ -n "${TOKENIZER_CHECKPOINTS[$model_alias]+x}" ]]; then
             slurm_script+=" \\
-    --chat-template-model \"${CHAT_TEMPLATE_MODELS[$model_alias]}\""
+    --tokenizer-checkpoint \"${TOKENIZER_CHECKPOINTS[$model_alias]}\""
         fi
 
         if $SKIP_ATTACK; then

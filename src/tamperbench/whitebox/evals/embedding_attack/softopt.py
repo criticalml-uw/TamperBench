@@ -12,63 +12,6 @@ logger = logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
 
-from transformers import PreTrainedTokenizerBase
-
-
-def ensure_default_chat_template(
-    tokenizer: PreTrainedTokenizerBase,
-    *,
-    user_prefix: str,
-    assistant_prefix: str,
-    end_turn: str,
-    system_prefix: str = "",
-) -> None:
-    """Attach a simple chat template if the tokenizer doesn't already have one."""
-    # If a template already exists and works, don't override it.
-    try:
-        if getattr(tokenizer, "chat_template", None):
-            tokenizer.apply_chat_template(
-                [{"role": "user", "content": "ping"}],
-                tokenize=False,
-                add_generation_prompt=True,
-            )
-            return
-    except Exception:
-        # Existing template is broken; we'll set our own below.
-        pass
-
-    # Minimal, prefix-based template.
-    # Renders (optionally) a BOS token, then each message with the right prefix and end_turn,
-    # and if add_generation_prompt=True it appends the assistant prefix for generation.
-    template = (
-        "{% if bos_token %}{{ bos_token }}{% endif %}"
-        "{% for message in messages %}"
-        "{% if message['role'] == 'system' %}"
-        + system_prefix
-        + "{{ message['content'] }}"
-        + end_turn
-        + "{% elif message['role'] == 'user' %}"
-        + user_prefix
-        + "{{ message['content'] }}"
-        + end_turn
-        + "{% elif message['role'] == 'assistant' %}"
-        + assistant_prefix
-        + "{{ message['content'] }}"
-        + end_turn
-        + "{% else %}"
-        # Fallback for unknown roles: treat like user
-        + user_prefix
-        + "{{ message['content'] }}"
-        + end_turn
-        + "{% endif %}"
-        "{% endfor %}"
-        "{% if add_generation_prompt %}" + assistant_prefix + "{% endif %}"
-        "{% if eos_token and not add_generation_prompt %}{{ eos_token }}{% endif %}"
-    )
-    tokenizer.chat_template = template
-
-    return
-
 
 @dataclass
 class SoftOptConfig:
@@ -147,17 +90,8 @@ def run_soft_opt(
     if not any(["{optim_str}" in d["content"] for d in input_messages]):
         input_messages[-1]["content"] = input_messages[-1]["content"] + "{optim_str}"
 
-    user_prefix = "User: "
-    assistant_prefix = "Assistant: "
-    end_turn = "\n"
-
-    ensure_default_chat_template(
-        tokenizer,
-        user_prefix=user_prefix,
-        assistant_prefix=assistant_prefix,
-        end_turn=end_turn,
-    )
-
+    # The tokenizer's chat_template should already be configured by the caller
+    # (e.g. via configure_tokenizer_template in load_hf_model_and_tokenizer).
     template = tokenizer.apply_chat_template(
         input_messages, tokenize=False, add_generation_prompt=True
     )

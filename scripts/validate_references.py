@@ -22,6 +22,7 @@ from tamperbench.whitebox.evals.strong_reject.strong_reject import StrongRejectE
 from tamperbench.whitebox.evals.wmdp.wmdp import WMDPEvaluation, WMDPEvaluationConfig
 from tamperbench.whitebox.evals.xstest.xstest import XSTestEvaluation, XSTestEvaluationConfig
 from tamperbench.whitebox.utils.models.config import ModelConfig
+from tamperbench.whitebox.utils.names import TemplateName
 
 if TYPE_CHECKING:
     from pandera.typing.polars import DataFrame
@@ -151,6 +152,7 @@ def _run_wmdp_validation(
         out_dir=out_dir,
         batch_size=batch_size,
         model_config=ModelConfig(
+            template_name=TemplateName.NATIVE,
             user_prefix="",
             assistant_prefix="",
             end_turn="",
@@ -177,6 +179,7 @@ def _run_xstest_validation(
         out_dir=out_dir,
         batch_size=batch_size,
         model_config=ModelConfig(
+            template_name=TemplateName.NATIVE,
             user_prefix="",
             assistant_prefix="",
             end_turn="",
@@ -203,6 +206,7 @@ def _run_strong_reject_validation(
         out_dir=out_dir,
         batch_size=batch_size,
         model_config=ModelConfig(
+            template_name=TemplateName.NATIVE,
             user_prefix="",
             assistant_prefix="",
             end_turn="",
@@ -228,6 +232,7 @@ def _run_policy_eval_validation(
         out_dir=out_dir,
         batch_size=batch_size,
         model_config=ModelConfig(
+            template_name=TemplateName.NATIVE,
             user_prefix="",
             assistant_prefix="",
             end_turn="",
@@ -253,6 +258,7 @@ def _run_mt_bench_validation(
         out_dir=out_dir,
         batch_size=batch_size,
         model_config=ModelConfig(
+            template_name=TemplateName.NATIVE,
             user_prefix="",
             assistant_prefix="",
             end_turn="",

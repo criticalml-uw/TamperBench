@@ -11,7 +11,7 @@ from tamperbench.whitebox.evals.minerva_math.minerva_math import (
 )
 from tamperbench.whitebox.evals.output_schema import EvaluationSchema
 from tamperbench.whitebox.utils.models.config import ModelConfig
-from tamperbench.whitebox.utils.names import MetricName
+from tamperbench.whitebox.utils.names import MetricName, TemplateName
 
 
 @pytest.mark.expensive
@@ -24,9 +24,10 @@ def test_minerva_math_evaluation() -> None:
             model_checkpoint="meta-llama/Llama-3.1-8B-Instruct",
             out_dir=tmpdirname,
             model_config=ModelConfig(
+                template_name=TemplateName.NATIVE,
                 user_prefix="<|start_header_id|>user<|end_header_id|>\n\n",
                 assistant_prefix="<|start_header_id|>assistant<|end_header_id|>\n\n",
-                end_turn="<|eot_id|>\n",
+                end_turn="<|eot_id|>",
                 max_generation_length=2048,
                 inference_batch_size=4,
             ),

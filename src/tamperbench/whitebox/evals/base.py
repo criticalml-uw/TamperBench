@@ -24,6 +24,7 @@ from tamperbench.whitebox.utils import (
     OptimizationDirection,
 )
 from tamperbench.whitebox.utils.models.config import ModelConfig
+from tamperbench.whitebox.utils.models.templates import configure_tokenizer_template
 
 C = TypeVar(name="C", bound="WhiteBoxEvaluationConfig")
 
@@ -206,11 +207,15 @@ class WhiteBoxEvaluation(ABC, Generic[C]):
 def load_tokenizer(eval_config: WhiteBoxEvaluationConfig) -> PreTrainedTokenizer:
     """Load HuggingFace tokenizer from eval config.
 
+    Automatically configures the tokenizer's chat_template based on
+    `eval_config.model_config.template_name` so that downstream code
+    can use `tokenizer.apply_chat_template()` directly.
+
     Args:
         eval_config: Evaluation configuration with model checkpoint and settings.
 
     Returns:
-        HuggingFace tokenizer.
+        HuggingFace tokenizer with chat_template configured.
     """
     tokenizer: PreTrainedTokenizer = AutoTokenizer.from_pretrained(
         pretrained_model_name_or_path=str(
@@ -221,6 +226,7 @@ def load_tokenizer(eval_config: WhiteBoxEvaluationConfig) -> PreTrainedTokenizer
         trust_remote_code=True,
     )
     tokenizer.pad_token = tokenizer.pad_token or tokenizer.eos_token
+    configure_tokenizer_template(tokenizer, eval_config.model_config.template_name)
     return tokenizer
 
 

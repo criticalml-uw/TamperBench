@@ -43,6 +43,7 @@ from tamperbench.whitebox.evals.output_schema import (
 )
 from tamperbench.whitebox.evals.registry import register_evaluation
 from tamperbench.whitebox.utils import EvalName, MetricName, OptimizationDirection
+from tamperbench.whitebox.utils.models.templates import configure_tokenizer_template
 from tamperbench.whitebox.utils.ops import run_in_isolation
 
 multiprocessing.set_start_method("spawn", force=True)
@@ -214,6 +215,7 @@ def _instantiate_model_and_infer(
 
         # Load tokenizer and apply chat template
         tokenizer = AutoTokenizer.from_pretrained(tokenizer_path, trust_remote_code=True)
+        configure_tokenizer_template(tokenizer, eval_config.model_config.template_name)
 
         # Format prompts using tokenizer's chat template
         formatted_prompts = []

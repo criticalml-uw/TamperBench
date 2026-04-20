@@ -13,7 +13,7 @@ from tamperbench.whitebox.evals.mmlu_pro.eval_from_api import (
 )
 from tamperbench.whitebox.evals.output_schema import EvaluationSchema
 from tamperbench.whitebox.utils.models.config import ModelConfig
-from tamperbench.whitebox.utils.names import MetricName
+from tamperbench.whitebox.utils.names import MetricName, TemplateName
 
 SUBJECT = "biology"
 
@@ -139,9 +139,10 @@ def test_mmlu_pro_evaluation() -> None:
             model_checkpoint="meta-llama/Llama-3.1-8B-Instruct",
             out_dir=tmpdirname,
             model_config=ModelConfig(
+                template_name=TemplateName.NATIVE,
                 user_prefix="<|start_header_id|>user<|end_header_id|>\n\n",
                 assistant_prefix="<|start_header_id|>assistant<|end_header_id|>\n\n",
-                end_turn="<|eot_id|>\n",
+                end_turn="<|eot_id|>",
                 max_generation_length=1024,
                 inference_batch_size=16,
             ),

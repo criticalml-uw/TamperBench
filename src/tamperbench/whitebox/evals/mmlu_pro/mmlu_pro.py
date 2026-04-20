@@ -34,6 +34,8 @@ from tamperbench.whitebox.utils import (
     MetricName,
     OptimizationDirection,
 )
+from tamperbench.whitebox.utils.models.templates import configure_tokenizer_template
+from tamperbench.whitebox.utils.names import TemplateName
 from tamperbench.whitebox.utils.ops import run_in_isolation
 
 multiprocessing.set_start_method("spawn", force=True)
@@ -57,18 +59,9 @@ class MMLUProEvaluationConfig(WhiteBoxEvaluationConfig):
 
     Attributes:
         n_shots: Number of few-shot CoT examples per question. Set to 0 for zero-shot.
-        use_chat_template: If True, format prompts as multi-turn chat messages using
-            tokenizer.apply_chat_template(). If False, use raw text continuation format.
-        chat_template_model: HuggingFace model ID to load a chat template from when the
-            primary tokenizer has no chat_template. Useful for evaluating base models
-            with their corresponding instruct model's chat template (e.g. using
-            ``meta-llama/Llama-3.1-8B-Instruct``'s template for
-            ``meta-llama/Meta-Llama-3-8B``). Only used when ``use_chat_template=True``.
     """
 
     n_shots: int = N_SHOTS
-    use_chat_template: bool = False
-    chat_template_model: str | None = None
 
     def __post_init__(self) -> None:
         """Validate configuration values."""
@@ -292,24 +285,10 @@ def compute_mmlu_inferences(
         pretrained_model_name_or_path=(eval_config.model_config.tokenizer_checkpoint or eval_config.model_checkpoint),
         trust_remote_code=True,
     )
+    configure_tokenizer_template(hf_tokenizer, eval_config.model_config.template_name)
 
-    if eval_config.use_chat_template:
-        if not hf_tokenizer.chat_template:
-            if eval_config.chat_template_model:
-                fallback_tokenizer = AutoTokenizer.from_pretrained(
-                    eval_config.chat_template_model, trust_remote_code=True
-                )
-                hf_tokenizer.chat_template = fallback_tokenizer.chat_template
-            else:
-                raise ValueError(
-                    f"Tokenizer for {eval_config.model_checkpoint} has no chat_template and "
-                    f"no chat_template_model was provided."
-                )
-        elif eval_config.chat_template_model:
-            raise ValueError(
-                f"chat_template_model={eval_config.chat_template_model!r} was specified but the tokenizer for "
-                f"{eval_config.model_checkpoint} already has a chat_template."
-            )
+    use_chat = eval_config.model_config.template_name != TemplateName.PLAIN
+
     # vllm tensor_parallel_size must be a factor of 64 (model hidden dimensions).
     # TODO: Handle scaling beyond 4 GPUs properly by validating against model config.
     llm_kwargs: dict[str, Any] = {
@@ -344,7 +323,7 @@ def compute_mmlu_inferences(
         k = eval_config.n_shots
         prompt: str | None = None
         while True:
-            if eval_config.use_chat_template:
+            if use_chat:
                 messages = mmlu_api.generate_chat_messages(shots, row, max(k, 0))
                 prompt = hf_tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
             else:

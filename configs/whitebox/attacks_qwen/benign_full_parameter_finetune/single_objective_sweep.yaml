@@ -12,4 +12,4 @@ sweep:
   lr_scheduler_type:
     choices: [constant, cosine]
   model_config.template:
-    choices: [qwen, instruction_response, generic_chat, plain]
+    choices: [native, instruction_response, generic_chat, plain]
