@@ -1,7 +1,5 @@
 """Full parameter fine-tuning attack interface."""
 
-# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportCallIssue=false, reportUnusedCallResult=false, reportMissingTypeStubs=false, reportMissingParameterType=false, reportUnknownParameterType=false, reportUnknownArgumentType=false, reportAttributeAccessIssue=false, reportArgumentType=false, reportPrivateImportUsage=false
-
 import multiprocessing
 from dataclasses import dataclass
 from typing import Any, TypeVar
@@ -15,7 +13,8 @@ from transformers import (
     PreTrainedModel,
     PreTrainedTokenizer,
 )
-from trl.trainer.sft_trainer import SFTConfig, SFTTrainer
+from trl.trainer.sft_config import SFTConfig
+from trl.trainer.sft_trainer import SFTTrainer
 from typing_extensions import override
 
 from tamperbench.whitebox.attacks.base import TamperAttack, TamperAttackConfig
@@ -40,6 +39,12 @@ class FullParameterFinetuneConfig(TamperAttackConfig):
         max_steps: Maximum number of training steps (-1 for unlimited).
         lr_scheduler_type: The learning rate schedule used in the fine-tuning.
         optim: The optimizer used for fine-tuning.
+        warmup_steps: Number of warmup steps for the learning rate scheduler.
+        warmup_ratio: Proportion of training steps used for warmup (alternative
+            to ``warmup_steps``; ``warmup_steps`` takes priority if it's
+            non-zero).
+        gradient_accumulation_steps: Number of gradient accumulation steps
+            before an optimizer update.
         dataset_size: Total number of samples in the training dataset.
         poison_ratio: Proportion of harmful data (0.0 = fully benign, 1.0 = fully harmful).
         harmful_dataset: Name of the harmful dataset registered with harmtune.
@@ -52,6 +57,9 @@ class FullParameterFinetuneConfig(TamperAttackConfig):
     max_steps: int
     lr_scheduler_type: str
     optim: str
+    warmup_steps: int = 0
+    warmup_ratio: float = 0.0
+    gradient_accumulation_steps: int = 1
     dataset_size: int = 64
     poison_ratio: float = 1.0
     harmful_dataset: str = "safe_rlhf_alpaca_train"
@@ -75,10 +83,14 @@ class FullParameterFinetune(TamperAttack[H]):
             num_train_epochs=self.attack_config.num_train_epochs,
             max_steps=self.attack_config.max_steps,
             lr_scheduler_type=self.attack_config.lr_scheduler_type,
+            warmup_steps=self.attack_config.warmup_steps,
+            warmup_ratio=self.attack_config.warmup_ratio,
+            gradient_accumulation_steps=self.attack_config.gradient_accumulation_steps,
             gradient_checkpointing=True,
             optim=self.attack_config.optim,
             logging_steps=1,
             save_strategy="no",
+            report_to="none",
             completion_only_loss=True,
             max_length=2048,
             seed=self.attack_config.random_seed,
@@ -166,7 +178,7 @@ class FullParameterFinetune(TamperAttack[H]):
 
 
 @register_attack(AttackName.BENIGN_FULL_PARAMETER_FINETUNE, FullParameterFinetuneConfig)
-class BenignFullParameterFinetune(FullParameterFinetune[H]):
+class BenignFullParameterFinetune(FullParameterFinetune[FullParameterFinetuneConfig]):
     """Benign full parameter finetuning class.
 
     Behaviour is driven by config: ``poison_ratio: 0.0`` yields a purely benign dataset.
@@ -192,10 +204,10 @@ class BenignFullParameterFinetune(FullParameterFinetune[H]):
 
 
 def run_full_finetune_attack(  # TODO: Consolidate with `run_lora_attack`
-    attack_config,
-    training_arguments,
-    prompt_completions_dataset,
-    output_checkpoint_path,
+    attack_config: FullParameterFinetuneConfig,
+    training_arguments: SFTConfig,
+    prompt_completions_dataset: datasets.Dataset,
+    output_checkpoint_path: str,
 ) -> None:
     """Instantiate model, tokenizer and finetune the model with full parameters.
 

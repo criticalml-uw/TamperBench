@@ -6934,6 +6934,20 @@ wheels = [
 ]
 
 [[package]]
+name = "schedulefree"
+version = "1.4.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "torch", version = "2.10.0+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "sys_platform == 'linux'" },
+    { name = "torch", version = "2.11.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'linux'" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/bd/51/d78369c32b0f3818ee7f5a04e77ed02a6bd0ba8642462f780623af0010f5/schedulefree-1.4.1.tar.gz", hash = "sha256:69ef25601d1fc0d8dd00cb36f9af78833f88b7846f1bb6ddecc9f144f3e9f7cb", size = 29281, upload-time = "2025-03-24T17:32:37.996Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/93/ef/aac74263f0252806b46f0fd5a52566ee06129744572d0958cd0a77d22b0a/schedulefree-1.4.1-py3-none-any.whl", hash = "sha256:21602d3a0d35ee190152e3d56f547ea725d316310bd198fa6108f8039386b242", size = 55068, upload-time = "2025-03-24T20:32:10.525Z" },
+]
+
+[[package]]
 name = "scikit-learn"
 version = "1.7.2"
 source = { registry = "https://pypi.org/simple" }
@@ -7631,6 +7645,7 @@ dependencies = [
     { name = "pyext" },
     { name = "python-dotenv" },
     { name = "sacrebleu" },
+    { name = "schedulefree" },
     { name = "scikit-learn", version = "1.7.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "scikit-learn", version = "1.8.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "sentence-transformers" },
@@ -7685,6 +7700,7 @@ requires-dist = [
     { name = "pyext", specifier = "==0.5" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
     { name = "sacrebleu", specifier = ">=2.5.1" },
+    { name = "schedulefree", specifier = ">=1.0" },
     { name = "scikit-learn", specifier = ">=1.7.2" },
     { name = "sentence-transformers", specifier = ">=3.0.0" },
     { name = "sentencepiece", specifier = ">=0.2.0" },

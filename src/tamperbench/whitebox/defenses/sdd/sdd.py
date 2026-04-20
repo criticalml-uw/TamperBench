@@ -23,8 +23,6 @@ rendering it useless for harmful tasks. This creates a trade-off where
 successful harmful fine-tuning comes at the cost of model utility.
 """
 
-# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportCallIssue=false, reportMissingTypeStubs=false
-
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -192,7 +190,7 @@ class SDD(AlignmentDefense["SDDConfig"]):
     """
 
     @override
-    def run_defense(self) -> Path:
+    def _run_defense(self) -> Path:
         """Run SDD defense to create hardened model.
 
         Returns:

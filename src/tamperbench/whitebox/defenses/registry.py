@@ -1,11 +1,9 @@
 """Defense registry with decorator-based registration."""
 
-# pyright: reportMissingTypeArgument=false, reportUnknownVariableType=false
-
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TypeVar
+from typing import Any, TypeVar
 
 from tamperbench.whitebox.defenses.defense import (
     AlignmentDefense,
@@ -13,10 +11,10 @@ from tamperbench.whitebox.defenses.defense import (
 )
 from tamperbench.whitebox.utils.names import DefenseName
 
-T = TypeVar("T", bound=AlignmentDefense)
+T = TypeVar("T", bound=AlignmentDefense[Any])
 
 
-DEFENSES_REGISTRY: dict[DefenseName, tuple[type[AlignmentDefenseConfig], type[AlignmentDefense]]] = {}
+DEFENSES_REGISTRY: dict[DefenseName, tuple[type[AlignmentDefenseConfig], type[AlignmentDefense[Any]]]] = {}
 
 
 def register_defense(name: DefenseName, config_cls: type[AlignmentDefenseConfig]) -> Callable[[type[T]], type[T]]:

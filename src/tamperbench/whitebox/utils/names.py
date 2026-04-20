@@ -27,7 +27,9 @@ class DefenseName(StrEnum):
 
     BOOSTER = "booster"
     CRL = "crl"
+    RSN_TUNE = "rsn_tune"
     TAR = "tar"
+    TAR_TVACCINE = "tar_tvaccine"
     T_VACCINE = "t_vaccine"
     SDD = "sdd"
 
@@ -51,6 +53,7 @@ class EvalName(StrEnum):
     XSTEST = "xstest"
     WMDP = "wmdp"
     LAB_BENCH = "lab_bench"
+    LIVEBENCH_CODING = "livebench_coding"
 
 
 class MetricName(StrEnum):
@@ -107,6 +110,8 @@ class MetricName(StrEnum):
     LAB_BENCH_CLONING_ACCURACY = "lab_bench_cloning_accuracy"
     LAB_BENCH_CLONING_PRECISION = "lab_bench_cloning_precision"
     LAB_BENCH_CLONING_COVERAGE = "lab_bench_cloning_coverage"
+
+    LIVEBENCH_CODING_PASS_AT_1 = "livebench_coding_pass_at_1"
 
     # XSTest metrics
     XSTEST_SAFE_REFUSAL_RATE = "xstest_safe_refusal_rate"

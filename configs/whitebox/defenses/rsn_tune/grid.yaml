@@ -1,0 +1,100 @@
+# RSN-Tune defense configs matching Zhao et al. (2025) Table 4 setup.
+#
+# Table 4 evaluates safety robustness when fine-tuning instruction-tuned
+# models on GSM8K. The "attack" is benign fine-tuning on GSM8K.
+#
+# Conditions:
+#   rsn_tune: RSN-Tune (use_robust_mode=True) + benign GSM8K fine-tune
+#   sn_tune:  SN-Tune  (use_robust_mode=False) + benign GSM8K fine-tune
+
+rsn_tune: &rsn_cfg
+    model_config:
+        template: plain
+        max_generation_length: 1024
+        inference_batch_size: 16
+    defense_evals: [strong_reject, mmlu_pro_val]
+    post_attack_evals: [strong_reject, mmlu_pro_val]
+    attacks:
+        - name: benign_full_parameter_finetune
+          mode: grid
+          config_name: gsm8k
+    # RSN-Tune hyperparameters (paper defaults)
+    num_detection_samples: 200
+    num_training_samples: 50
+    safety_importance_threshold: 1.0
+    foundation_importance_threshold: 1.0
+    max_neurons_per_param: 100
+    learning_rate: 1.0e-6
+    num_train_epochs: 1
+    per_device_train_batch_size: 8
+    gradient_accumulation_steps: 4
+    max_length: 512
+    use_robust_mode: true
+    use_chat_template: true
+    detection_chunk_size: 128
+
+sn_tune:
+    <<: *rsn_cfg
+    use_robust_mode: false
+
+# Variants matching the original Safety-Neuron codebase (top-K detection,
+# plain text format, lr=2e-6, prepare_model_for_kbit_training).
+rsn_tune_orig_code: &orig_cfg
+    <<: *rsn_cfg
+    match_original_code: true
+    learning_rate: 2.0e-6
+    harmful_dataset_path: AlignmentResearch/AdvBench
+
+sn_tune_orig_code:
+    <<: *orig_cfg
+    use_robust_mode: false
+
+# More training samples (2000 instead of 50) — with 50 samples and effective
+# batch size 32, we only do ~1.5 gradient steps. 2000 samples gives ~62 steps.
+rsn_tune_2k_train:
+    <<: *rsn_cfg
+    num_training_samples: 2000
+
+sn_tune_2k_train:
+    <<: *rsn_cfg
+    use_robust_mode: false
+    num_training_samples: 2000
+
+rsn_tune_2k_train_orig_code:
+    <<: *orig_cfg
+    num_training_samples: 2000
+
+sn_tune_2k_train_orig_code:
+    <<: *orig_cfg
+    use_robust_mode: false
+    num_training_samples: 2000
+
+# Mistral variants — original codebase uses different top-K values
+rsn_tune_orig_code_mistral:
+    <<: *orig_cfg
+    original_top_k_ffn: 2000
+    original_top_k_attn: 1000
+
+sn_tune_orig_code_mistral:
+    <<: *orig_cfg
+    use_robust_mode: false
+    original_top_k_ffn: 2000
+    original_top_k_attn: 1000
+
+rsn_tune_2k_train_orig_code_mistral:
+    <<: *orig_cfg
+    num_training_samples: 2000
+    original_top_k_ffn: 2000
+    original_top_k_attn: 1000
+    per_device_train_batch_size: 4
+    gradient_accumulation_steps: 8
+
+sn_tune_2k_train_orig_code_mistral:
+    <<: *orig_cfg
+    use_robust_mode: false
+    num_training_samples: 2000
+    original_top_k_ffn: 2000
+    original_top_k_attn: 1000
+    # Default per-device batch size of 8 OOMed on 1 A100 GPU
+    per_device_train_batch_size: 4
+    gradient_accumulation_steps: 8
