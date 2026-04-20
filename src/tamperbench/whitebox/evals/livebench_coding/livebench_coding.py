@@ -81,7 +81,10 @@ class LiveBenchCodingEvaluation(WhiteBoxEvaluation[LiveBenchCodingEvaluationConf
         print(f"LiveBench Coding: {len(questions)} questions after filtering")
 
         tokenizer = load_tokenizer(self.eval_config)
-        prompts = [format_chat_prompt(q["turns"][0], tokenizer) for q in questions]
+        prompts = [
+            format_chat_prompt(q["turns"][0], tokenizer, system_prompt=self.eval_config.model_config.system_prompt)
+            for q in questions
+        ]
 
         payload: pl.DataFrame = run_in_isolation(
             target=_instantiate_model_and_infer,

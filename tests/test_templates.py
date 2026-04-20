@@ -150,44 +150,21 @@ class TestConfigureTokenizerTemplate:
 class TestModelConfigFromDict:
     """Tests for ModelConfig.from_dict with template support."""
 
-    def test_from_dict_with_template_key(self) -> None:
-        """from_dict should hydrate template_name and prefixes from template key."""
+    @pytest.mark.parametrize(
+        ("template_str", "expected"),
+        [
+            ("generic_chat", TemplateName.GENERIC_CHAT),
+            ("native", TemplateName.NATIVE),
+            ("plain", TemplateName.PLAIN),
+        ],
+    )
+    def test_from_dict_with_template_key(self, template_str: str, expected: TemplateName) -> None:
+        """from_dict should store template_name from template key."""
         config = ModelConfig.from_dict(
             {
-                "template": "generic_chat",
+                "template": template_str,
                 "max_generation_length": 1024,
                 "inference_batch_size": 16,
             }
         )
-        assert config.template_name == TemplateName.GENERIC_CHAT
-        assert config.user_prefix == "User: "
-        assert config.assistant_prefix == "Assistant: "
-        assert config.end_turn == "\n"
-
-    def test_from_dict_native_template(self) -> None:
-        """from_dict with template='native' should set empty prefixes."""
-        config = ModelConfig.from_dict(
-            {
-                "template": "native",
-                "max_generation_length": 1024,
-                "inference_batch_size": 16,
-            }
-        )
-        assert config.template_name == TemplateName.NATIVE
-        assert config.user_prefix == ""
-        assert config.assistant_prefix == ""
-        assert config.end_turn == ""
-
-    def test_from_dict_plain_template(self) -> None:
-        """from_dict with template='plain' should set empty prefixes."""
-        config = ModelConfig.from_dict(
-            {
-                "template": "plain",
-                "max_generation_length": 1024,
-                "inference_batch_size": 16,
-            }
-        )
-        assert config.template_name == TemplateName.PLAIN
-        assert config.user_prefix == ""
-        assert config.assistant_prefix == ""
-        assert config.end_turn == ""
+        assert config.template_name == expected

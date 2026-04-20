@@ -19,7 +19,9 @@ from typing_extensions import override
 
 from tamperbench.whitebox.attacks.base import TamperAttack, TamperAttackConfig
 from tamperbench.whitebox.attacks.registry import register_attack
+from tamperbench.whitebox.evals.utils import format_prompt_completion
 from tamperbench.whitebox.utils.models.default_tokens import DEFAULT_PAD_TOKEN
+from tamperbench.whitebox.utils.models.templates import load_and_configure_tokenizer
 from tamperbench.whitebox.utils.names import AttackName
 from tamperbench.whitebox.utils.ops import dealloc_model_and_tokenizer, run_in_isolation
 
@@ -159,20 +161,27 @@ class FullParameterFinetune(TamperAttack[H]):
             configs, weights=weights, length=self.attack_config.dataset_size, seed=self.attack_config.random_seed
         )
 
-        user_prefix = self.attack_config.model_config.user_prefix
-        assistant_prefix = self.attack_config.model_config.assistant_prefix
-        end_turn = self.attack_config.model_config.end_turn
+        tokenizer = load_and_configure_tokenizer(
+            self.attack_config.model_config, self.attack_config.input_checkpoint_path
+        )
 
         def to_completions(
             data_point: dict[str, list[dict[str, str]]],
         ) -> dict[str, str]:
-            sample: dict[str, str] = {}
+            user_content = ""
+            assistant_content = ""
             for message in data_point["messages"]:
                 if message["role"] == "user":
-                    sample["prompt"] = f"{user_prefix}{message['content']}{end_turn}"
+                    user_content = message["content"]
                 if message["role"] == "assistant":
-                    sample["completion"] = f"{assistant_prefix}{message['content']}{end_turn}"
-            return sample
+                    assistant_content = message["content"]
+
+            return format_prompt_completion(
+                user_content,
+                assistant_content,
+                tokenizer,
+                system_prompt=self.attack_config.model_config.system_prompt,
+            )
 
         return mixed_dataset.map(to_completions, remove_columns=mixed_dataset.column_names)
 

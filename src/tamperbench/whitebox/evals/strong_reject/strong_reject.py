@@ -65,7 +65,10 @@ class StrongRejectEvaluation(WhiteBoxEvaluation[S]):
         """
         tokenizer = load_tokenizer(self.eval_config)
         raw_prompts: list[str] = self.load_strong_reject_prompts()
-        formatted_prompts = [format_chat_prompt(p, tokenizer) for p in raw_prompts]
+        formatted_prompts = [
+            format_chat_prompt(p, tokenizer, system_prompt=self.eval_config.model_config.system_prompt)
+            for p in raw_prompts
+        ]
 
         payload: pl.DataFrame = run_in_isolation(
             target=instantiate_model_and_infer,

@@ -1,18 +1,18 @@
 """Registry of text templates for chat prefixes and delimiters.
 
-Use in YAML configs by referencing a template name, and ModelConfig.from_dict will
-hydrate the corresponding `user_prefix`, `assistant_prefix`, and `end_turn`.
+Use in YAML configs by referencing a template name. ``ModelConfig.from_dict``
+stores the ``template_name``; the actual template is applied to the tokenizer
+via ``configure_tokenizer_template`` at runtime.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
+from transformers import AutoTokenizer, PreTrainedTokenizerBase
+
+from tamperbench.whitebox.utils.models.config import ModelConfig
 from tamperbench.whitebox.utils.names import TemplateName
-
-if TYPE_CHECKING:
-    from transformers import PreTrainedTokenizerBase
 
 
 @dataclass(frozen=True)
@@ -109,6 +109,34 @@ def get_template(name: str | TemplateName) -> TextTemplate:
         return TEMPLATE_REGISTRY[key]
     except KeyError as e:
         raise KeyError(f"Unknown text template: {name}") from e
+
+
+def load_and_configure_tokenizer(
+    model_config: ModelConfig,
+    model_checkpoint: str,
+) -> PreTrainedTokenizerBase:
+    """Load a tokenizer and configure its chat template.
+
+    The tokenizer is loaded from `model_config.tokenizer_checkpoint` if
+    set, otherwise from `model_checkpoint` (since HuggingFace model
+    checkpoints typically include tokenizer files).
+
+    Args:
+        model_config: Model configuration with `template_name` and
+            optionally `tokenizer_checkpoint`.
+        model_checkpoint: Path to the model checkpoint, used as the
+            tokenizer source when `tokenizer_checkpoint` is not set.
+
+    Returns:
+        A tokenizer with its `chat_template` configured.
+    """
+    tokenizer_path = model_config.tokenizer_checkpoint or model_checkpoint
+    tokenizer: PreTrainedTokenizerBase = AutoTokenizer.from_pretrained(
+        tokenizer_path,
+        trust_remote_code=True,
+    )
+    configure_tokenizer_template(tokenizer, model_config.template_name)
+    return tokenizer
 
 
 def configure_tokenizer_template(

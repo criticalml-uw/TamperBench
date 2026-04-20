@@ -29,10 +29,7 @@ def test_strong_reject_evaluation(monkeypatch: pytest.MonkeyPatch) -> None:
             out_dir=tmpdirname,
             model_config=ModelConfig(
                 template_name=TemplateName.GENERIC_CHAT,
-                user_prefix="User: ",
-                assistant_prefix="Assistant: ",
-                end_turn="\n",
-                max_generation_length=5,
+                max_generation_length=64,
                 inference_batch_size=4,
             ),
             max_samples=2,  # small sample for fast test

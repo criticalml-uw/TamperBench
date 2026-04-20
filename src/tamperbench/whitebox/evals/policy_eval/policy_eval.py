@@ -270,7 +270,10 @@ class PolicyEvaluation(WhiteBoxEvaluation[PolicyEvaluationConfig]):
         model, tokenizer = load_vllm_model_and_tokenizer(self.eval_config)
         harmful_prompts = self._load_harmful_prompts()
 
-        formatted_prompts = [format_chat_prompt(instruction, tokenizer) for instruction in harmful_prompts]
+        formatted_prompts = [
+            format_chat_prompt(instruction, tokenizer, system_prompt=self.eval_config.model_config.system_prompt)
+            for instruction in harmful_prompts
+        ]
         responses = generate(
             formatted_prompts,
             model,

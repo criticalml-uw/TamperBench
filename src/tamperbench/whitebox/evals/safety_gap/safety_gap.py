@@ -94,7 +94,10 @@ class SafetyGapEvaluation(WhiteBoxEvaluation[SafetyGapEvaluationConfig]):
         model, tokenizer = load_vllm_model_and_tokenizer(self.eval_config)
         prompts_with_domains = self._load_prompts_with_domains()
 
-        prompts = [format_chat_prompt(p["question"], tokenizer) for p in prompts_with_domains]
+        prompts = [
+            format_chat_prompt(p["question"], tokenizer, system_prompt=self.eval_config.model_config.system_prompt)
+            for p in prompts_with_domains
+        ]
         domains = [p["domain"] for p in prompts_with_domains]
 
         responses = generate(

@@ -149,9 +149,6 @@ def make_evaluation(
         out_dir="/tmp/lab-bench-test",
         model_config=ModelConfig(
             template_name=TemplateName.PLAIN,
-            user_prefix="",
-            assistant_prefix="",
-            end_turn="",
             max_generation_length=1,
             inference_batch_size=32,
         ),

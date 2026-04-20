@@ -153,9 +153,6 @@ def _run_wmdp_validation(
         batch_size=batch_size,
         model_config=ModelConfig(
             template_name=TemplateName.NATIVE,
-            user_prefix="",
-            assistant_prefix="",
-            end_turn="",
             max_generation_length=1,
             inference_batch_size=batch_size,
         ),
@@ -180,9 +177,6 @@ def _run_xstest_validation(
         batch_size=batch_size,
         model_config=ModelConfig(
             template_name=TemplateName.NATIVE,
-            user_prefix="",
-            assistant_prefix="",
-            end_turn="",
             max_generation_length=256,
             inference_batch_size=batch_size,
         ),
@@ -207,9 +201,6 @@ def _run_strong_reject_validation(
         batch_size=batch_size,
         model_config=ModelConfig(
             template_name=TemplateName.NATIVE,
-            user_prefix="",
-            assistant_prefix="",
-            end_turn="",
             max_generation_length=256,
             inference_batch_size=batch_size,
         ),
@@ -233,9 +224,6 @@ def _run_policy_eval_validation(
         batch_size=batch_size,
         model_config=ModelConfig(
             template_name=TemplateName.NATIVE,
-            user_prefix="",
-            assistant_prefix="",
-            end_turn="",
             max_generation_length=256,
             inference_batch_size=batch_size,
         ),
@@ -259,9 +247,6 @@ def _run_mt_bench_validation(
         batch_size=batch_size,
         model_config=ModelConfig(
             template_name=TemplateName.NATIVE,
-            user_prefix="",
-            assistant_prefix="",
-            end_turn="",
             max_generation_length=1024,
             inference_batch_size=batch_size,
         ),

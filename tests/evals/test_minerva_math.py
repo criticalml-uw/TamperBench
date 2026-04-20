@@ -25,9 +25,6 @@ def test_minerva_math_evaluation() -> None:
             out_dir=tmpdirname,
             model_config=ModelConfig(
                 template_name=TemplateName.NATIVE,
-                user_prefix="<|start_header_id|>user<|end_header_id|>\n\n",
-                assistant_prefix="<|start_header_id|>assistant<|end_header_id|>\n\n",
-                end_turn="<|eot_id|>",
                 max_generation_length=2048,
                 inference_batch_size=4,
             ),

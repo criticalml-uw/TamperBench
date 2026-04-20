@@ -172,25 +172,26 @@ sweep:
 
 The `template` field in `model_config` controls prompt formatting.
 
- | Template               | Description                                    |
- | ---------------------- | ---------------------------------------------- |
- | `plain`                | No special formatting                          |
- | `generic_chat`         | Standard chat format with user/assistant turns |
- | `instruction_response` | Instruction/response pairs                     |
+ | Template               | Description                                                      |
+ | ---------------------- | ---------------------------------------------------------------- |
+ | `native`               | Use the tokenizer's built-in chat template                       |
+ | `plain`                | No special formatting                                            |
+ | `generic_chat`         | Standard chat format with user/assistant turns                   |
+ | `instruction_response` | Instruction/response pairs                                       |
 
 Templates are defined in `src/tamperbench/whitebox/utils/models/templates.py`.
 
 ### Custom Templates
 
-Add new templates by extending the template registry:
+Add new templates by extending `TEMPLATE_REGISTRY` in `templates.py`:
 
 ```python
 # In templates.py
-TEMPLATES["my_template"] = {
-    "user_prefix": "<|user|>\n",
-    "assistant_prefix": "<|assistant|>\n",
-    "end_turn": "<|end|>",
-}
+TEMPLATE_REGISTRY[TemplateName.MY_TEMPLATE] = TextTemplate(
+    user_prefix="<|user|>\n",
+    assistant_prefix="<|assistant|>\n",
+    end_turn="<|end|>",
+)
 ```
 
 ## When to Edit Which File

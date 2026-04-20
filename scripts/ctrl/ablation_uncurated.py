@@ -122,9 +122,6 @@ def eval_mmlu_pro(model_checkpoint: str, out_dir: Path) -> float:
         out_dir=str(out_dir),
         model_config=ModelConfig(
             template_name=TemplateName.PLAIN,
-            user_prefix="",
-            assistant_prefix="",
-            end_turn="",
             max_generation_length=2048,
             inference_batch_size=8,
         ),

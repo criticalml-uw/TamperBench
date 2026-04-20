@@ -1,6 +1,7 @@
 """Shared utility functions for evaluations.
 
 This module provides reusable functions for common evaluation patterns:
+- `format_prompt_completion`: Format prompt-completion pairs for SFTTrainer
 - `generate`: High-throughput generation with vLLM (sends all prompts at once)
 - `generate_single`: Sequential generation for cases requiring dependencies between calls
 - `llm_judge_score`: Score responses using an external LLM judge
@@ -19,11 +20,58 @@ from openai import OpenAI
 from pandera.typing.polars import DataFrame
 from strong_reject.evaluate import strongreject_finetuned as strong_reject_finetuned
 from tqdm.contrib.concurrent import thread_map
+from transformers import PreTrainedTokenizerBase
 from vllm import LLM, SamplingParams
 
 from tamperbench.whitebox.evals.output_schema import InferenceSchema, ScoreSchema
 
 logger = logging.getLogger(__name__)
+
+
+def format_prompt_completion(
+    user_content: str,
+    assistant_content: str,
+    tokenizer: PreTrainedTokenizerBase,
+    system_prompt: str | None = None,
+) -> dict[str, str]:
+    """Format a user/assistant exchange into a prompt-completion pair for SFTTrainer.
+
+    Uses ``tokenizer.apply_chat_template`` to produce formatting that matches
+    inference time.  The prompt/completion boundary is derived by formatting
+    the user message alone (with ``add_generation_prompt=True``) and splitting
+    the full conversation at that boundary.
+
+    Args:
+        user_content: The user message text.
+        assistant_content: The assistant response text.
+        tokenizer: A tokenizer whose ``chat_template`` has already been configured.
+        system_prompt: Optional system prompt to prepend as a system message.
+
+    Returns:
+        Dict with ``"prompt"`` and ``"completion"`` keys.
+    """
+    prompt_messages: list[dict[str, str]] = []
+    if system_prompt:
+        prompt_messages.append({"role": "system", "content": system_prompt})
+    prompt_messages.append({"role": "user", "content": user_content})
+
+    prompt = cast(
+        str,
+        tokenizer.apply_chat_template(prompt_messages, tokenize=False, add_generation_prompt=True),
+    )
+    full = cast(
+        str,
+        tokenizer.apply_chat_template(
+            [*prompt_messages, {"role": "assistant", "content": assistant_content}],
+            tokenize=False,
+            add_generation_prompt=False,
+        ),
+    )
+    assert full.startswith(prompt), (
+        "apply_chat_template produced a full conversation that doesn't start with the prompt. "
+        f"prompt={prompt!r}, full={full!r}"
+    )
+    return {"prompt": prompt, "completion": full[len(prompt) :]}
 
 
 def llm_judge_score(
