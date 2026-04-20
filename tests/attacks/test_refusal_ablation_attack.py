@@ -68,7 +68,7 @@ if __name__ == "__main__":
                 inference_batch_size=16,
             ),
             random_seed=42,
-            out_dir=tmpdirname,
+            out_dir=f"{tmpdirname}/llama",
             **_DATASET_KWARGS,
         )
         llama_attack = RefusalAblation(attack_config=llama_config)
@@ -95,7 +95,7 @@ if __name__ == "__main__":
                 inference_batch_size=16,
             ),
             random_seed=42,
-            out_dir=tmpdirname,
+            out_dir=f"{tmpdirname}/qwen",
             **_DATASET_KWARGS,
         )
         qwen_attack = RefusalAblation(attack_config=qwen_config)
@@ -121,7 +121,7 @@ if __name__ == "__main__":
                 inference_batch_size=16,
             ),
             random_seed=42,
-            out_dir=tmpdirname,
+            out_dir=f"{tmpdirname}/mistral",
             **_DATASET_KWARGS,
         )
         mistral_attack = RefusalAblation(attack_config=mistral_config)
