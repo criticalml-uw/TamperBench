@@ -654,6 +654,21 @@ def _run_refusal_ablation(
     model.tokenizer.save_pretrained(output_checkpoint_path)
     logger.info(f"Tokenizer saved to {output_checkpoint_path}")
 
+    # Patch head_dim into config.json if missing — vLLM requires it explicitly
+    # for Llama-family architectures (including Mistral) and will fail with a
+    # TypeError if the field is absent or null.
+    config_path = Path(output_checkpoint_path) / "config.json"
+    with open(config_path) as f:
+        saved_config = json.load(f)
+    if saved_config.get("head_dim") is None:
+        hidden_size = saved_config.get("hidden_size", 0)
+        num_heads = saved_config.get("num_attention_heads", 0)
+        if hidden_size and num_heads:
+            saved_config["head_dim"] = hidden_size // num_heads
+            with open(config_path, "w") as f:
+                json.dump(saved_config, f, indent=2)
+            logger.info(f"Patched head_dim={saved_config['head_dim']} into {config_path}")
+
     # --- Log attack details (same as log_attack_details) ---
     if filtered_scores:
         score, pos, layer = filtered_scores[0]
