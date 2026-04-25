@@ -17,6 +17,10 @@ from tamperbench.whitebox.attacks.lora_finetune.lora_finetune import (
 )
 from tamperbench.whitebox.attacks.registry import register_attack
 from tamperbench.whitebox.evals.output_schema import EvaluationSchema
+from tamperbench.whitebox.evals.policy_eval.policy_eval_jailbreak_tune import (
+    PolicyEvalJailbreakTuneConfig,
+    PolicyEvalJailbreakTuneEvaluation,
+)
 from tamperbench.whitebox.evals.strong_reject.strong_reject_jailbreak_tune import (
     JBJailbreakTuneEvaluation,
     SRJailbreakTuneEvaluation,
@@ -78,6 +82,19 @@ class JailbreakFinetune(LoraFinetune[JailbreakFinetuneConfig]):
             prompt_injection=self.attack_config.prompt_injection,
         )
         evaluator: JBJailbreakTuneEvaluation = JBJailbreakTuneEvaluation(eval_config)
+
+        return evaluator.run_evaluation()
+
+    @override
+    def evaluate_policy_eval(self) -> DataFrame[EvaluationSchema]:
+        """Evaluate attack on the `PolicyEvaluation` evaluator with jailbreak injection."""
+        eval_config = PolicyEvalJailbreakTuneConfig(
+            model_checkpoint=self.output_checkpoint_path,
+            out_dir=self.attack_config.out_dir,
+            model_config=self.attack_config.model_config,
+            prompt_injection=self.attack_config.prompt_injection,
+        )
+        evaluator = PolicyEvalJailbreakTuneEvaluation(eval_config)
 
         return evaluator.run_evaluation()
 

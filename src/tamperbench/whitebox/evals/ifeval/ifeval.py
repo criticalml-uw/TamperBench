@@ -211,20 +211,23 @@ def _instantiate_model_and_infer(
             else eval_config.model_checkpoint
         )
 
-        # Load tokenizer and apply chat template
+        # Load tokenizer and apply chat template (if available)
         tokenizer = AutoTokenizer.from_pretrained(tokenizer_path, trust_remote_code=True)
 
-        # Format prompts using tokenizer's chat template
         formatted_prompts = []
-        for raw_prompt in raw_prompts:
-            messages = [{"role": "user", "content": raw_prompt}]
-            formatted = tokenizer.apply_chat_template(
-                messages,
-                tokenize=False,
-                add_generation_prompt=True,
-                enable_thinking=False,
-            )
-            formatted_prompts.append(formatted)
+        if hasattr(tokenizer, "chat_template") and tokenizer.chat_template is not None:
+            for raw_prompt in raw_prompts:
+                messages = [{"role": "user", "content": raw_prompt}]
+                formatted = tokenizer.apply_chat_template(
+                    messages,
+                    tokenize=False,
+                    add_generation_prompt=True,
+                    enable_thinking=False,
+                )
+                formatted_prompts.append(formatted)
+        else:
+            # Base models without chat template: use raw prompts
+            formatted_prompts = list(raw_prompts)
 
         llm_kwargs = {
             "model": eval_config.model_checkpoint,

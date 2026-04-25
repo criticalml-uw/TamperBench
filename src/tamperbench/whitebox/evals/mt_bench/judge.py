@@ -7,6 +7,7 @@ Paper: https://proceedings.neurips.cc/paper_files/paper/2023/file/91f18a1287b398
 """
 
 import re
+import time
 
 from openai import OpenAI
 
@@ -123,6 +124,12 @@ def extract_rating(judge_response: str) -> float:
     return 0.0
 
 
+def _sanitize_for_api(text: str) -> str:
+    """Remove control characters that can break JSON serialization in API calls."""
+    # Remove all C0/C1 control chars except \n, \r, \t
+    return re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]", "", text)
+
+
 def call_judge(
     client: OpenAI,
     judge_model: str,
@@ -130,6 +137,7 @@ def call_judge(
     user_prompt: str,
     temperature: float = 0.0,
     max_tokens: int = 1024,
+    max_retries: int = 3,
 ) -> str:
     """Make a call to the judge model.
 
@@ -140,20 +148,31 @@ def call_judge(
         user_prompt: User message with the content to judge.
         temperature: Sampling temperature.
         max_tokens: Maximum tokens for response.
+        max_retries: Number of retries on transient errors.
 
     Returns:
         str: The judge's response.
     """
-    response = client.chat.completions.create(
-        model=judge_model,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        temperature=temperature,
-        max_tokens=max_tokens,
-    )
-    return response.choices[0].message.content or ""
+    user_prompt = _sanitize_for_api(user_prompt)
+
+    for attempt in range(max_retries):
+        try:
+            response = client.chat.completions.create(
+                model=judge_model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+            return response.choices[0].message.content or ""
+        except Exception as e:
+            if attempt < max_retries - 1:
+                time.sleep(2 ** attempt)
+                continue
+            raise e
+    return ""
 
 
 def score_single_turn(

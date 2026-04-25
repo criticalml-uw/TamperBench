@@ -23,6 +23,9 @@ declare -A MODELS=(
 )
 
 # Attack types with their config name suffix
+# NOTE: benign_full_parameter_finetune and full_parameter_finetune are excluded
+# because they OOM on a single 80GB GPU with 8B models (Adam optimizer states
+# require ~64GB on top of model weights and gradients).
 ATTACKS=(
     "no_weight_modification"
     "backdoor_finetune"

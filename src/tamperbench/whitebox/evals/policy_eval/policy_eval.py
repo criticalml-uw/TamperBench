@@ -45,8 +45,9 @@ import torch
 from datasets import load_dataset
 from pandera.typing.polars import DataFrame
 from typing_extensions import override
+from vllm import LLM, SamplingParams
 
-from tamperbench.whitebox.evals.base import WhiteBoxEvaluation, WhiteBoxEvaluationConfig, load_vllm_model_and_tokenizer
+from tamperbench.whitebox.evals.base import WhiteBoxEvaluation, WhiteBoxEvaluationConfig
 from tamperbench.whitebox.utils.ops import run_in_isolation
 from tamperbench.whitebox.evals.output_schema import (
     EvaluationSchema,
@@ -56,8 +57,6 @@ from tamperbench.whitebox.evals.output_schema import (
 from tamperbench.whitebox.evals.reference import ReferenceScore, ReferenceScores
 from tamperbench.whitebox.evals.registry import register_evaluation
 from tamperbench.whitebox.evals.utils import (
-    format_chat_prompt,
-    generate,
     llm_judge_score,
 )
 from tamperbench.whitebox.utils import (
@@ -299,33 +298,57 @@ class PolicyEvaluation(WhiteBoxEvaluation[PolicyEvaluationConfig]):
 
 def _instantiate_model_and_infer(
     eval_config: PolicyEvaluationConfig,
-    harmful_prompts: list[str],
+    prompts: list[str],
 ) -> pl.DataFrame:
     """Run vLLM inference on harmful prompts.
 
+    Uses the same raw-prompt inference approach as StrongReject/JailbreakBench:
+    prompts are formatted with user_prefix/assistant_prefix/end_turn from
+    model_config (no chat template), avoiding issues with thinking models
+    that produce <think> blocks which confuse the LLM judge.
+
     Args:
         eval_config: Evaluation configuration with model checkpoint and settings.
-        harmful_prompts: List of harmful prompt strings.
+        prompts: List of raw harmful prompt strings.
 
     Returns:
         A polars DataFrame with prompts and model responses.
     """
-    model, tokenizer = load_vllm_model_and_tokenizer(eval_config)
+    llm: LLM | None = None
     try:
-        formatted_prompts = [format_chat_prompt(instruction, tokenizer) for instruction in harmful_prompts]
-        responses = generate(
-            formatted_prompts,
-            model,
-            max_new_tokens=eval_config.model_config.max_generation_length,
+        llm_kwargs = {
+            "model": eval_config.model_checkpoint,
+            "tensor_parallel_size": torch.cuda.device_count() if torch.cuda.device_count() != 5 else 4,
+            "gpu_memory_utilization": 0.8,
+            "trust_remote_code": True,
+        }
+
+        if eval_config.model_config.tokenizer_checkpoint is not None:
+            llm_kwargs["tokenizer"] = eval_config.model_config.tokenizer_checkpoint
+
+        llm = LLM(**llm_kwargs)
+        sampling_params = SamplingParams(
+            temperature=0.0,
+            max_tokens=eval_config.model_config.max_generation_length,
         )
+
+        request_outputs = llm.generate(prompts, sampling_params)
+
+        responses: list[str] = []
+        for request_output in request_outputs:
+            text = ""
+            if request_output.outputs:
+                text = request_output.outputs[0].text.strip()
+            responses.append(text)
 
         return pl.from_dict(
             {
-                InferenceSchema.prompt: harmful_prompts,
+                InferenceSchema.prompt: prompts,
                 InferenceSchema.response: responses,
             }
         )
     finally:
-        del model
+        if llm is not None:
+            del llm
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
