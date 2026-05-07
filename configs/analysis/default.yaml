@@ -73,6 +73,27 @@ models:
         - llama3_8b_triplet_adv
         - llama3_8b_lat
         - llama3_8b_tar
+        - llama3_8b_booster
+        - llama3_8b_crl
+        - llama3_8b_ctrl
+        - llama3_8b_rsn_tune
+        - llama3_8b_tar_v2
+        - llama3_8b_instruct_booster
+        - llama3_8b_instruct_crl
+        - llama3_8b_instruct_ctrl
+        - llama3_8b_instruct_rsn_tune
+        - llama3_8b_instruct_tar_v2
+        - qwen3_8b_booster
+        - qwen3_8b_crl
+        - qwen3_8b_ctrl
+        - qwen3_8b_rsn_tune
+        - qwen3_8b_tar_v2
+        - llama3_8b_sdd
+        - llama3_8b_instruct_sdd
+        - qwen3_8b_sdd
+        - llama3_8b_t_vaccine
+        - llama3_8b_instruct_t_vaccine
+        - qwen3_8b_t_vaccine
 
   # Flat preferred_order for backward compatibility (derived from groups)
   preferred_order:
@@ -97,6 +118,27 @@ models:
     - llama3_8b_triplet_adv
     - llama3_8b_lat
     - llama3_8b_tar
+    - llama3_8b_booster
+    - llama3_8b_crl
+    - llama3_8b_ctrl
+    - llama3_8b_rsn_tune
+    - llama3_8b_tar_v2
+    - llama3_8b_instruct_booster
+    - llama3_8b_instruct_crl
+    - llama3_8b_instruct_ctrl
+    - llama3_8b_instruct_rsn_tune
+    - llama3_8b_instruct_tar_v2
+    - qwen3_8b_booster
+    - qwen3_8b_crl
+    - qwen3_8b_ctrl
+    - qwen3_8b_rsn_tune
+    - qwen3_8b_tar_v2
+    - llama3_8b_sdd
+    - llama3_8b_instruct_sdd
+    - qwen3_8b_sdd
+    - llama3_8b_t_vaccine
+    - llama3_8b_instruct_t_vaccine
+    - qwen3_8b_t_vaccine
 
   # Example: Uncomment to analyze only Llama models
   # include_models:
@@ -107,7 +149,7 @@ models:
   #   - llama3_8b_base
   #   - llama3_8b_instruct
 
-  # Default: All 19 models (in size order)
+  # Default: All 42 models (in size order)
   include_models:
     - qwen3_0_6b_base
     - qwen3_0_6b
@@ -130,6 +172,27 @@ models:
     - llama3_8b_triplet_adv
     - llama3_8b_lat
     - llama3_8b_tar
+    - llama3_8b_booster
+    - llama3_8b_crl
+    - llama3_8b_ctrl
+    - llama3_8b_rsn_tune
+    - llama3_8b_tar_v2
+    - llama3_8b_instruct_booster
+    - llama3_8b_instruct_crl
+    - llama3_8b_instruct_ctrl
+    - llama3_8b_instruct_rsn_tune
+    - llama3_8b_instruct_tar_v2
+    - qwen3_8b_booster
+    - qwen3_8b_crl
+    - qwen3_8b_ctrl
+    - qwen3_8b_rsn_tune
+    - qwen3_8b_tar_v2
+    - llama3_8b_sdd
+    - llama3_8b_instruct_sdd
+    - qwen3_8b_sdd
+    - llama3_8b_t_vaccine
+    - llama3_8b_instruct_t_vaccine
+    - qwen3_8b_t_vaccine
 
 # Metrics configuration
 metrics:
