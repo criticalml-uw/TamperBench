@@ -13,7 +13,8 @@ Paper defaults (Section 5, Appendix):
     rho=3, S=8 layers, K=200 steps, N_h=200 harmful examples
 
 Expected runtime: ~1 hour on A100, ~23.5GB GPU memory.
-Expected output: aligned LoRA adapter (adapter_model.safetensors).
+Expected output: full merged checkpoint (LoRA adapter is merged into the base
+model before saving), loadable directly via AutoModelForCausalLM / vLLM.
 """
 
 import argparse
@@ -44,6 +45,7 @@ def main():
     parser.add_argument("--probability-steps", type=int, default=200, help="Probability recalc interval K (paper: 200)")
     parser.add_argument("--prompt-data-size", type=int, default=200, help="Harmful dataset size N_h (paper: 200)")
     parser.add_argument("--num-epochs", type=int, default=20, help="Training epochs (paper: 20)")
+    parser.add_argument("--learning-rate", type=float, default=1e-3, help="Learning rate (paper: 1e-3, tuned on Llama-2-7B)")
 
     # Dataset paths: The original T-Vaccine paper uses
     # beavertails_with_refusals_train.json from rosati2024immunization, generated
@@ -82,6 +84,7 @@ def main():
     print(f"Probability recalc interval (K): {args.probability_steps}")
     print(f"Harmful dataset size (N_h): {args.prompt_data_size}")
     print(f"Epochs: {args.num_epochs}")
+    print(f"Learning rate: {args.learning_rate}")
     print("=" * 80)
 
     config = TVaccineConfig(
@@ -98,7 +101,7 @@ def main():
         save_strategy="steps",
         save_steps=100000,
         save_total_limit=0,
-        learning_rate=1e-3,
+        learning_rate=args.learning_rate,
         weight_decay=0.1,
         warmup_ratio=0.1,
         lr_scheduler_type="cosine",
