@@ -33,8 +33,8 @@ def get_leaf_modules_with_grad(module):
     module_list = []
     for name, module in module.named_modules():
         if 'LlamaAttention' in str(type(module)) or 'OPTAttention' in str(type(module)) or 'Qwen2Attention' in str(
-                type(module)) or 'Gemma2Attention' in str(type(module)) or 'GemmaAttention' in str(
-            type(module)) or 'MistralAttention' in str(type(module)):
+                type(module)) or 'Qwen3Attention' in str(type(module)) or 'Gemma2Attention' in str(
+                type(module)) or 'GemmaAttention' in str(type(module)) or 'MistralAttention' in str(type(module)):
             module_list += [module]
     return module_list
 

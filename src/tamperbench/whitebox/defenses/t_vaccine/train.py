@@ -690,15 +690,15 @@ def _train_main(
         if training_args.bf16:
             model = model.to(torch.bfloat16)
 
+        # Only inject pad_token if the tokenizer lacks one — that's actually
+        # required for padded batched SFT. Do NOT inject bos/eos/unk: modern
+        # tokenizers (Qwen3, etc.) legitimately don't define BOS, and forcing
+        # DEFAULT_BOS_TOKEN ("<s>") onto them collides with an unrelated vocab
+        # entry, writes a bogus bos_token_id into the saved config, and
+        # produces empty generations at inference.
         special_tokens_dict = dict()
         if tokenizer.pad_token is None:
             special_tokens_dict["pad_token"] = DEFAULT_PAD_TOKEN
-        if tokenizer.eos_token is None:
-            special_tokens_dict["eos_token"] = DEFAULT_EOS_TOKEN
-        if tokenizer.bos_token is None:
-            special_tokens_dict["bos_token"] = DEFAULT_BOS_TOKEN
-        if tokenizer.unk_token is None:
-            special_tokens_dict["unk_token"] = DEFAULT_UNK_TOKEN
 
         smart_tokenizer_and_embedding_resize(
             special_tokens_dict=special_tokens_dict,
