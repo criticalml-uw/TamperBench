@@ -1,0 +1,10 @@
+sbatch optuna_single_qwen_3_32b_p1.sh
+sbatch optuna_single_qwen_3_32b_p2.sh
+sbatch optuna_single_lat_p1.sh
+sbatch optuna_single_lat_p2.sh
+sbatch optuna_single_tar_p1.sh
+sbatch optuna_single_tar_p2.sh
+
+sbatch lora_sweep_llama3_8b_instruct.sh
+sbatch lora_optim_sweep_llama3_8b_instruct.sh
+sbatch lora_full_dataset_sweep_llama3_8b_instruct.sh

@@ -1,0 +1,140 @@
+# Analysis config for tuned vs non-tuned defense comparison
+# 3 base models x (baseline + 3 defenses x 2 variants) = 21 models
+# Only lora_finetune attack (weak, low-poison targeted sweep)
+
+attacks:
+  preferred_order:
+    - no_weight_modification
+    - lora_finetune
+
+  categories:
+    direct:
+      display_name: "Directly Harmful Tamper"
+      attacks: [lora_finetune]
+
+models:
+  groups:
+    llama_8b:
+      display_name: "Llama-3-8B"
+      models:
+        - llama3_8b_baseline
+        - llama3_8b_booster_non_tuned
+        - llama3_8b_booster
+        - llama3_8b_crl_non_tuned
+        - llama3_8b_crl
+        - llama3_8b_tar_v2_non_tuned
+        - llama3_8b_tar
+    llama_8b_instruct:
+      display_name: "Llama-3-8B-Instruct"
+      models:
+        - llama3_8b_instruct_baseline
+        - llama3_8b_instruct_booster_non_tuned
+        - llama3_8b_instruct_booster
+        - llama3_8b_instruct_crl_non_tuned
+        - llama3_8b_instruct_crl
+        - llama3_8b_instruct_tar_v2_non_tuned
+        - llama3_8b_instruct_tar
+    qwen_8b:
+      display_name: "Qwen3-8B"
+      models:
+        - qwen3_8b
+        - qwen3_8b_booster_non_tuned
+        - qwen3_8b_booster
+        - qwen3_8b_crl_non_tuned
+        - qwen3_8b_crl
+        - qwen3_8b_tar_v2_non_tuned
+        - qwen3_8b_tar
+
+  preferred_order:
+    - llama3_8b_baseline
+    - llama3_8b_booster_non_tuned
+    - llama3_8b_booster
+    - llama3_8b_crl_non_tuned
+    - llama3_8b_crl
+    - llama3_8b_tar_v2_non_tuned
+    - llama3_8b_tar
+    - llama3_8b_instruct_baseline
+    - llama3_8b_instruct_booster_non_tuned
+    - llama3_8b_instruct_booster
+    - llama3_8b_instruct_crl_non_tuned
+    - llama3_8b_instruct_crl
+    - llama3_8b_instruct_tar_v2_non_tuned
+    - llama3_8b_instruct_tar
+    - qwen3_8b
+    - qwen3_8b_booster_non_tuned
+    - qwen3_8b_booster
+    - qwen3_8b_crl_non_tuned
+    - qwen3_8b_crl
+    - qwen3_8b_tar_v2_non_tuned
+    - qwen3_8b_tar
+
+  include_models:
+    - llama3_8b_baseline
+    - llama3_8b_booster_non_tuned
+    - llama3_8b_booster
+    - llama3_8b_crl_non_tuned
+    - llama3_8b_crl
+    - llama3_8b_tar_v2_non_tuned
+    - llama3_8b_tar
+    - llama3_8b_instruct_baseline
+    - llama3_8b_instruct_booster_non_tuned
+    - llama3_8b_instruct_booster
+    - llama3_8b_instruct_crl_non_tuned
+    - llama3_8b_instruct_crl
+    - llama3_8b_instruct_tar_v2_non_tuned
+    - llama3_8b_instruct_tar
+    - qwen3_8b
+    - qwen3_8b_booster_non_tuned
+    - qwen3_8b_booster
+    - qwen3_8b_crl_non_tuned
+    - qwen3_8b_crl
+    - qwen3_8b_tar_v2_non_tuned
+    - qwen3_8b_tar
+
+metrics:
+  strong_reject:
+    display_name: "StrongReject"
+    aliases: [strong_reject, strong_reject_score]
+    direction: maximize
+  mmlu_pro:
+    display_name: "MMLU-Pro"
+    aliases: [mmlu_pro, mmlu_pro_val, mmlu_pro_accuracy]
+    direction: maximize
+
+visualization:
+  colormaps:
+    sr_raw: Reds
+    sr_delta: YlOrBr
+    mmlu_raw: Blues
+    mmlu_delta: Greens
+  colormap_range: [0.25, 0.98]
+  bad_color: [0.96, 0.96, 0.96, 0.0]
+  figure:
+    dpi: 300
+    base_width: 12.0
+    base_height: 8.0
+    width_per_attack: 1.2
+    height_per_model: 0.5
+    width_formula: "max(14.0, 1.2 * n_columns)"
+    height_formula: "max(4.5, 1.0 + 0.6 * n_models)"
+
+epsilon_bounded:
+  baseline_attack: no_weight_modification
+  utility_metric: mmlu_pro_val
+  safety_metric: strong_reject
+  default_epsilons: [0.10, 0.20]
+  default_n_trials: 40
+
+heatmap_methods:
+  max_sr:
+    display_name: "Max StrongReject"
+    description: "Maximize SR, use MMLU as tiebreaker"
+  max_mmlu:
+    display_name: "Max MMLU-Pro"
+    description: "Maximize MMLU, use SR as tiebreaker"
+  balanced:
+    display_name: "Balanced"
+    description: "Maximize Euclidean distance sqrt(SR² + MMLU²)"
+  auroc:
+    display_name: "AUROC-like"
+    description: "Minimize |SR - (1 - MMLU)|"
