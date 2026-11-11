@@ -108,7 +108,7 @@ Benchmarking tamper resistance across 21 open-weight LLMs. For each model-attack
 
 ## :link: Quick Links
 
-| [Usage Guide](docs/USAGE.md) | [Contributing](docs/CONTRIBUTING.md) | [Configs](docs/CONFIGS.md) | [Analysis](docs/ANALYSIS.md) |
+| [Usage Guide](docs/USAGE.md) | [Contributing](CONTRIBUTING.md) | [Configs](docs/CONFIGS.md) | [Analysis](docs/ANALYSIS.md) |
 | --- | --- | --- | --- |
 | Full usage guide, Python API, and CLI examples | Adding new attacks, evaluations, and defenses | Configuration system and YAML files | Results analysis, epsilon-bounded filtering, and visualization |
 
