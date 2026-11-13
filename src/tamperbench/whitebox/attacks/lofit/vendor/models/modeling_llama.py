@@ -33,6 +33,7 @@ from transformers.modeling_outputs import (
 )
 from transformers.modeling_utils import PreTrainedModel
 from transformers.models.llama.configuration_llama import LlamaConfig
+from transformers.models.llama.modeling_llama import LlamaRotaryEmbedding, apply_rotary_pos_emb
 from transformers.utils import (
     add_start_docstrings,
     add_start_docstrings_to_model_forward,
@@ -50,44 +51,6 @@ logger = logging.get_logger(__name__)
 
 _CONFIG_FOR_DOC = "LlamaConfig"
 
-
-# # Add near the top of the file (with other imports)
-# from typing import Optional, Dict, Any
-
-# def _normalize_rope_scaling(cfg) -> Optional[Dict[str, Any]]:
-#     """
-#     Normalize rope_scaling so older custom code can handle both
-#     Llama-2 style {'type': 'linear'|'dynamic', 'factor': ...}
-#     and Llama-3 style {
-#         'factor': 8.0, 'low_freq_factor': 1.0, 'high_freq_factor': 4.0,
-#         'original_max_position_embeddings': 8192, 'rope_type': 'llama3'
-#     }.
-#     Returns None if no scaling is set.
-#     """
-#     rs = getattr(cfg, "rope_scaling", None)
-#     if rs is None:
-#         return None
-#     if isinstance(rs, dict) and "type" in rs:
-#         # Already in the Llama-2 format your code expects
-#         return rs
-
-#     # Llama-3 format → convert to a dict with a 'type'
-#     if isinstance(rs, dict) and ("rope_type" in rs or "factor" in rs):
-#         factor = rs.get("factor", 1.0)
-#         rope_type = rs.get("rope_type", "llama3")
-#         # Keep the extra keys so downstream code can still use them if needed
-#         normalized = {
-#             "type": "llama3",  # set an explicit type your code can branch on
-#             "factor": factor,
-#         }
-#         # Preserve Llama-3 keys for completeness
-#         for k in ("low_freq_factor", "high_freq_factor", "original_max_position_embeddings", "rope_type"):
-#             if k in rs:
-#                 normalized[k] = rs[k]
-#         return normalized
-
-#     # Fallback: treat as linear scaling if it's some unknown structure
-#     return {"type": "linear", "factor": 1.0}
 
 # Copied from transformers.models.bart.modeling_bart._make_causal_mask
 def _make_causal_mask(
@@ -134,105 +97,6 @@ class LlamaRMSNorm(nn.Module):
         variance = hidden_states.pow(2).mean(-1, keepdim=True)
         hidden_states = hidden_states * torch.rsqrt(variance + self.variance_epsilon)
         return self.weight * hidden_states.to(input_dtype)
-
-
-class LlamaRotaryEmbedding(torch.nn.Module):
-    def __init__(self, dim, max_position_embeddings=2048, base=10000, device=None):
-        super().__init__()
-
-        self.dim = dim
-        self.max_position_embeddings = max_position_embeddings
-        self.base = base
-        inv_freq = 1.0 / (self.base ** (torch.arange(0, self.dim, 2).float().to(device) / self.dim))
-        self.register_buffer("inv_freq", inv_freq, persistent=False)
-
-        # Build here to make `torch.jit.trace` work.
-        self._set_cos_sin_cache(
-            seq_len=max_position_embeddings, device=self.inv_freq.device, dtype=torch.get_default_dtype()
-        )
-
-    def _set_cos_sin_cache(self, seq_len, device, dtype):
-        self.max_seq_len_cached = seq_len
-        t = torch.arange(self.max_seq_len_cached, device=device, dtype=self.inv_freq.dtype)
-
-        freqs = torch.einsum("i,j->ij", t, self.inv_freq)
-        # Different from paper, but it uses a different permutation in order to obtain the same calculation
-        emb = torch.cat((freqs, freqs), dim=-1)
-        self.register_buffer("cos_cached", emb.cos()[None, None, :, :].to(dtype), persistent=False)
-        self.register_buffer("sin_cached", emb.sin()[None, None, :, :].to(dtype), persistent=False)
-
-    def forward(self, x, seq_len=None):
-        # x: [bs, num_attention_heads, seq_len, head_size]
-        if seq_len > self.max_seq_len_cached:
-            self._set_cos_sin_cache(seq_len=seq_len, device=x.device, dtype=x.dtype)
-
-        return (
-            self.cos_cached[:, :, :seq_len, ...].to(dtype=x.dtype),
-            self.sin_cached[:, :, :seq_len, ...].to(dtype=x.dtype),
-        )
-
-
-class LlamaLinearScalingRotaryEmbedding(LlamaRotaryEmbedding):
-    """LlamaRotaryEmbedding extended with linear scaling. Credits to the Reddit user /u/kaiokendev"""
-
-    def __init__(self, dim, max_position_embeddings=2048, base=10000, device=None, scaling_factor=1.0):
-        self.scaling_factor = scaling_factor
-        super().__init__(dim, max_position_embeddings, base, device)
-
-    def _set_cos_sin_cache(self, seq_len, device, dtype):
-        self.max_seq_len_cached = seq_len
-        t = torch.arange(self.max_seq_len_cached, device=device, dtype=self.inv_freq.dtype)
-        t = t / self.scaling_factor
-
-        freqs = torch.einsum("i,j->ij", t, self.inv_freq)
-        # Different from paper, but it uses a different permutation in order to obtain the same calculation
-        emb = torch.cat((freqs, freqs), dim=-1)
-        self.register_buffer("cos_cached", emb.cos()[None, None, :, :].to(dtype), persistent=False)
-        self.register_buffer("sin_cached", emb.sin()[None, None, :, :].to(dtype), persistent=False)
-
-
-class LlamaDynamicNTKScalingRotaryEmbedding(LlamaRotaryEmbedding):
-    """LlamaRotaryEmbedding extended with Dynamic NTK scaling. Credits to the Reddit users /u/bloc97 and /u/emozilla"""
-
-    def __init__(self, dim, max_position_embeddings=2048, base=10000, device=None, scaling_factor=1.0):
-        self.scaling_factor = scaling_factor
-        super().__init__(dim, max_position_embeddings, base, device)
-
-    def _set_cos_sin_cache(self, seq_len, device, dtype):
-        self.max_seq_len_cached = seq_len
-
-        if seq_len > self.max_position_embeddings:
-            base = self.base * (
-                (self.scaling_factor * seq_len / self.max_position_embeddings) - (self.scaling_factor - 1)
-            ) ** (self.dim / (self.dim - 2))
-            inv_freq = 1.0 / (base ** (torch.arange(0, self.dim, 2).float().to(device) / self.dim))
-            self.register_buffer("inv_freq", inv_freq, persistent=False)
-
-        t = torch.arange(self.max_seq_len_cached, device=device, dtype=self.inv_freq.dtype)
-
-        freqs = torch.einsum("i,j->ij", t, self.inv_freq)
-        # Different from paper, but it uses a different permutation in order to obtain the same calculation
-        emb = torch.cat((freqs, freqs), dim=-1)
-        self.register_buffer("cos_cached", emb.cos()[None, None, :, :].to(dtype), persistent=False)
-        self.register_buffer("sin_cached", emb.sin()[None, None, :, :].to(dtype), persistent=False)
-
-
-def rotate_half(x):
-    """Rotates half the hidden dims of the input."""
-    x1 = x[..., : x.shape[-1] // 2]
-    x2 = x[..., x.shape[-1] // 2 :]
-    return torch.cat((-x2, x1), dim=-1)
-
-
-def apply_rotary_pos_emb(q, k, cos, sin, position_ids):
-    # The first two dimensions of cos and sin are always 1, so we can `squeeze` them.
-    cos = cos.squeeze(1).squeeze(0)  # [seq_len, dim]
-    sin = sin.squeeze(1).squeeze(0)  # [seq_len, dim]
-    cos = cos[position_ids].unsqueeze(1)  # [bs, 1, seq_len, dim]
-    sin = sin[position_ids].unsqueeze(1)  # [bs, 1, seq_len, dim]
-    q_embed = (q * cos) + (rotate_half(q) * sin)
-    k_embed = (k * cos) + (rotate_half(k) * sin)
-    return q_embed, k_embed
 
 
 class LlamaMLP(nn.Module):
@@ -311,28 +175,7 @@ class LlamaAttention(nn.Module):
         self._init_rope()
 
     def _init_rope(self):
-        # if self.config.rope_scaling is None:
-        #     self.rotary_emb = LlamaRotaryEmbedding(self.head_dim, max_position_embeddings=self.max_position_embeddings)
-        # else:
-        #     # self.config.rope_scaling = _normalize_rope_scaling(self.config)
-        #     # rs = self.config.rope_scaling
-        #     # scaling_type = rs["type"] if rs is not None else None
-        #     # scaling_factor = rs.get("factor", 1.0) if rs is not None else 1.0
-        #     scaling_type = self.config.rope_scaling["type"]
-        #     scaling_factor = self.config.rope_scaling["factor"]
-        #     if scaling_type == "linear":
-        #         self.rotary_emb = LlamaLinearScalingRotaryEmbedding(
-        #             self.head_dim, max_position_embeddings=self.max_position_embeddings, scaling_factor=scaling_factor
-        #         )
-        #     elif scaling_type == "dynamic":
-        #         self.rotary_emb = LlamaDynamicNTKScalingRotaryEmbedding(
-        #             self.head_dim, max_position_embeddings=self.max_position_embeddings, scaling_factor=scaling_factor
-        #         )
-        #     else:
-        #         raise ValueError(f"Unknown RoPE scaling type {scaling_type}")
-        self.rotary_emb = LlamaRotaryEmbedding(
-            self.head_dim, max_position_embeddings=self.max_position_embeddings, base=500000
-        )
+        self.rotary_emb = LlamaRotaryEmbedding(config=self.config)
 
     def _shape(self, tensor: torch.Tensor, seq_len: int, bsz: int):
         return tensor.view(bsz, seq_len, self.num_heads, self.head_dim).transpose(1, 2).contiguous()
@@ -374,14 +217,8 @@ class LlamaAttention(nn.Module):
         key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
         value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
 
-        kv_seq_len = key_states.shape[-2]
-        if past_key_value is not None:
-            if Cache is not None and isinstance(past_key_value, Cache):
-                kv_seq_len += past_key_value.get_usable_length(kv_seq_len, self.layer_idx)
-            elif len(past_key_value) > 0 and past_key_value[0] is not None:
-                kv_seq_len += past_key_value[0].shape[-2]
-        cos, sin = self.rotary_emb(value_states, seq_len=kv_seq_len)
-        query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin, position_ids)
+        cos, sin = self.rotary_emb(value_states, position_ids)
+        query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
 
         if past_key_value is not None:
             if Cache is not None and isinstance(past_key_value, Cache):
@@ -389,6 +226,7 @@ class LlamaAttention(nn.Module):
             elif len(past_key_value) > 1 and past_key_value[0] is not None and past_key_value[1] is not None:
                 key_states = torch.cat([past_key_value[0], key_states], dim=2)
                 value_states = torch.cat([past_key_value[1], value_states], dim=2)
+        kv_seq_len = key_states.shape[-2]
 
         if use_cache:
             past_key_value = past_key_value if (Cache is not None and isinstance(past_key_value, Cache)) else (key_states, value_states)
@@ -852,6 +690,11 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         if unexpected:
             print(f"[LOFIT] WARNING: unexpected keys after weight transfer: {unexpected}")
         model = model.to(dtype=torch_dtype)
+        # .to(dtype) also casts the RoPE frequency buffers; recompute them in fp32 so
+        # training matches HF's own from_pretrained (used at eval time), which keeps them fp32.
+        for layer in model.model.layers:
+            rotary = layer.self_attn.rotary_emb
+            rotary.inv_freq, _ = rotary.rope_init_fn(rotary.config, rotary.inv_freq.device)
         ### Set which modules and layers to apply LoFiT
         model.model.set_applied_modules_to_layers(applied_module, applied_layers)
         return model
