@@ -36,7 +36,7 @@ def main() -> None:
     config = CTRLConfig(
         input_checkpoint_path=Path(model),
         output_checkpoint_path=output_dir / "hardened_model",
-        clean_dataset_name="tatsu-lab/alpaca",
+        clean_dataset_names=("tatsu-lab/alpaca", "databricks/databricks-dolly-15k", "PKU-Alignment/BeaverTails"),
     )
     defense = CTRL(defense_config=config)
     checkpoint = defense.run_defense()

@@ -6,6 +6,8 @@ import datasets
 import torch
 from transformers import PreTrainedTokenizer
 
+from tamperbench.whitebox.utils.models.chat_format import apply_chat_template_with_fallback
+
 
 def format_with_chat_template(
     tokenizer: PreTrainedTokenizer,
@@ -29,41 +31,15 @@ def format_with_chat_template(
         dict with input_ids, attention_mask, and response_mask tensors.
     """
     # Format request (user message only, with generation prompt to get assistant header)
-    request_messages = [{"role": "user", "content": user_content}]
-    if tokenizer.chat_template is not None:
-        request_text = cast(
-            str,
-            tokenizer.apply_chat_template(
-                request_messages,
-                tokenize=False,
-                add_generation_prompt=True,  # Adds assistant header
-            ),
-        )
-    else:
-        # NOTE: This fallback path has a known BPE boundary sensitivity issue --
-        # the response_mask may be off by 1-2 tokens because BPE tokenization at
-        # the "Assistant: " / response boundary can differ when tokenized separately
-        # vs. as part of the full text. The primary code path (chat templates) uses
-        # special tokens as boundaries and is not affected. All target models
-        # (Llama 2/3, Qwen) have chat templates.
-        request_text = f"User: {user_content}\nAssistant: "
+    request_messages: list[dict[str, str]] = [{"role": "user", "content": user_content}]
+    request_text = apply_chat_template_with_fallback(request_messages, tokenizer, add_generation_prompt=True)
 
     # Format full conversation
-    full_messages = [
+    full_messages: list[dict[str, str]] = [
         {"role": "user", "content": user_content},
         {"role": "assistant", "content": assistant_content},
     ]
-    if tokenizer.chat_template is not None:
-        full_text = cast(
-            str,
-            tokenizer.apply_chat_template(
-                full_messages,
-                tokenize=False,
-                add_generation_prompt=False,
-            ),
-        )
-    else:
-        full_text = f"User: {user_content}\nAssistant: {assistant_content}"
+    full_text = apply_chat_template_with_fallback(full_messages, tokenizer, add_generation_prompt=False)
 
     # Tokenize request to find where response starts
     request_tokens = tokenizer(

@@ -595,6 +595,12 @@ def extract_query_response(sample: dict[str, Any]) -> tuple[str, str]:
         if sample.get("input"):
             query = f"{query}\n\n{sample['input']}"
         response = sample["output"]
+    elif "instruction" in sample and "response" in sample:
+        # Dolly format: instruction + context + response
+        query = sample["instruction"]
+        if sample.get("context"):
+            query = f"{query}\n\n{sample['context']}"
+        response = sample["response"]
     elif "prompt" in sample and "response" in sample:
         query = sample["prompt"]
         response = sample["response"]
@@ -620,15 +626,13 @@ def extract_query_response(sample: dict[str, Any]) -> tuple[str, str]:
 
 def curate_dataset(
     config: "CTRLConfig",
-    raw_dataset: datasets.Dataset | None = None,
+    raw_dataset: datasets.Dataset,
 ) -> datasets.Dataset:
     """Curate a dataset using CTRL with automatic caching and parallelization.
 
     Args:
         config: CTRL configuration
-        raw_dataset: Pre-loaded raw dataset. If None, loads from config. Pass this
-            to avoid loading the dataset a second time when it was already loaded
-            by the caller.
+        raw_dataset: Pre-loaded raw dataset (already mixed and sized by caller).
 
     Returns:
         Curated dataset
@@ -636,7 +640,7 @@ def curate_dataset(
     # Build cache config (includes model so different models get separate caches)
     cache_config = {
         "model_name": str(config.input_checkpoint_path),
-        "dataset_name": config.clean_dataset_name,
+        "dataset_names": list(config.clean_dataset_names),
         "dataset_split": config.clean_dataset_split,
         "curation_rate": config.curation_rate,
         "num_samples": config.num_samples,
@@ -647,7 +651,7 @@ def curate_dataset(
     }
 
     # Check if curated dataset is cached
-    cache_key = f"ctrl_curated_{config.clean_dataset_name}"
+    cache_key = "ctrl_curated_" + "+".join(config.clean_dataset_names)
     cache_path = get_config_cache_path(cache_key, cache_config)
 
     if cache_path.exists():
@@ -655,17 +659,6 @@ def curate_dataset(
         return datasets.Dataset.from_list(get_dataset(cache_path, data_format="jsonl"))
 
     print("   Starting curation...")
-
-    # Load dataset if not provided
-    if raw_dataset is None:
-        raw_dataset = datasets.load_dataset(  # type: ignore[assignment]
-            config.clean_dataset_name,
-            split=config.clean_dataset_split,
-        )
-
-    # Select subset
-    if len(raw_dataset) > config.num_samples:
-        raw_dataset = raw_dataset.select(range(config.num_samples))
 
     # Determine items to curate
     num_to_curate = int(len(raw_dataset) * config.curation_rate)

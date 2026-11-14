@@ -1,0 +1,18 @@
+# Minimal attack config for debugging the pipeline end-to-end.
+# Single adversary, tiny dataset, 2 training steps.
+base:
+    model_config:
+        template: plain
+        max_generation_length: 32
+        inference_batch_size: 2
+    evals: [strong_reject]
+    per_device_train_batch_size: 2
+    learning_rate: 0.00001
+    num_train_epochs: 1
+    lr_scheduler_type: constant
+    optim: adamw_torch
+    max_steps: 2
+    harmful_dataset: toxic_dpo
+    benign_dataset: bookcorpus
+    dataset_size: 8
+    poison_ratio: 1

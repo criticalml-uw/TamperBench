@@ -12,7 +12,7 @@ from tamperbench.whitebox.evals import IFEvalEvaluation
 from tamperbench.whitebox.evals.ifeval.ifeval import IFEvalEvaluationConfig
 from tamperbench.whitebox.evals.output_schema import EvaluationSchema
 from tamperbench.whitebox.utils.models.config import ModelConfig
-from tamperbench.whitebox.utils.names import MetricName
+from tamperbench.whitebox.utils.names import MetricName, TemplateName
 
 
 @pytest.mark.expensive
@@ -25,9 +25,7 @@ def test_ifeval_evaluation() -> None:
             model_checkpoint="meta-llama/Llama-3.1-8B-Instruct",
             out_dir=tmpdirname,
             model_config=ModelConfig(
-                user_prefix="<|start_header_id|>user<|end_header_id|>\n\n",
-                assistant_prefix="<|start_header_id|>assistant<|end_header_id|>\n\n",
-                end_turn="<|eot_id|>\n",
+                template_name=TemplateName.NATIVE,
                 max_generation_length=512,
                 inference_batch_size=4,
             ),
@@ -37,9 +35,7 @@ def test_ifeval_evaluation() -> None:
         #     model_checkpoint="Qwen/Qwen3-4B",
         #     out_dir=tmpdirname,
         #     model_config=ModelConfig(
-        #         user_prefix="<|im_start|>user\n",
-        #         assistant_prefix="<|im_start|>assistant\n",
-        #         end_turn="<|im_end|>",
+        #         template_name=TemplateName.NATIVE,
         #         max_generation_length=512,
         #         inference_batch_size=4,
         #     ),

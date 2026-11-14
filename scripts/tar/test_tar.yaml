@@ -1,0 +1,97 @@
+# Launch with: kubectl create -n u-tamperbench -f k8s/test_tar.yaml
+#
+# Before launching, update COMMIT_HASH to the commit you want to test.
+# Results are saved to /tamperbench_data/results/test_tar/.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: test-tar
+  labels:
+    kueue.x-k8s.io/queue-name: farai
+    user: tomtseng
+spec:
+  suspend: true
+  backoffLimit: 0
+  podFailurePolicy:
+    rules:
+    - action: Ignore
+      onPodConditions:
+      - type: DisruptionTarget
+  template:
+    metadata:
+      name: test-tar
+      namespace: u-tamperbench
+    spec:
+      priorityClassName: high-batch
+      volumes:
+        - name: project-storage
+          persistentVolumeClaim:
+            claimName: vast-tamperbench
+        - name: devshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Gi
+      containers:
+        - name: main
+          image: ghcr.io/criticalml-uw/tamperbench:0.0.2
+          command:
+            - bash
+            - -c
+            - |
+              set -euo pipefail
+
+              COMMIT_HASH=tomtseng/tar-orig
+              RESULTS_DIR="/tamperbench_data/results/test_tar"
+
+              # Setup
+              if [ -f "/tamperbench_data/user/tomtseng/scripts/setup-devbox.sh" ]; then
+                bash /tamperbench_data/user/tomtseng/scripts/setup-devbox.sh
+              fi
+              git clone https://github.com/sdhossain/TamperBench.git /workspace/TamperBench
+              cd /workspace/TamperBench
+              git pull
+              git checkout "$COMMIT_HASH"
+              ln -s /home/dev/.venv .venv
+              git submodule update --recursive
+              uv sync
+
+              # Run the TAR test script
+              WANDB_MODE=offline uv run python scripts/tar/test_tar.py \
+                meta-llama/Meta-Llama-3-8B-Instruct \
+                --num-gpus 8 \
+                --results-dir "$RESULTS_DIR"
+          resources:
+            requests:
+              cpu: 1
+            limits:
+              memory: "320G"
+              nvidia.com/gpu: 8
+          volumeMounts:
+            - name: project-storage
+              mountPath: /tamperbench_data
+            - name: devshm
+              mountPath: /dev/shm
+          env:
+            - name: GIT_ASKPASS
+              value: "true"
+            - name: GITHUB_PAT
+              valueFrom:
+                secretKeyRef:
+                  name: github-credentials
+                  key: pat
+            - name: GIT_CONFIG_PARAMETERS
+              value: "'credential.https://github.com.username=$(GITHUB_PAT)'"
+            - name: HF_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: huggingface
+                  key: token
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: openai-api-key
+                  key: key
+                  optional: true
+      imagePullSecrets:
+        - name: docker
+      restartPolicy: Never

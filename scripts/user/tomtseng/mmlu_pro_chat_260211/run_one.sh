@@ -63,7 +63,7 @@ declare -A MODEL_PATHS=(
     ["qwen3_8b_base"]="Qwen/Qwen3-8B-Base"
 )
 
-declare -A CHAT_TEMPLATE_MODELS=(
+declare -A TOKENIZER_CHECKPOINTS=(
     ["llama3_1b_base"]="meta-llama/Llama-3.2-1B-Instruct"
     ["llama3_3b_base"]="meta-llama/Llama-3.2-3B-Instruct"
     ["llama3_8b_base"]="meta-llama/Llama-3.1-8B-Instruct"
@@ -101,8 +101,8 @@ CMD=(
     --source-results-dir "${SOURCE_RESULTS_DIR}"
     --output-results-dir "${OUTPUT_RESULTS_DIR}"
 )
-if [[ -n "${CHAT_TEMPLATE_MODELS[$MODEL_ALIAS]+x}" ]]; then
-    CMD+=(--chat-template-model "${CHAT_TEMPLATE_MODELS[$MODEL_ALIAS]}")
+if [[ -n "${TOKENIZER_CHECKPOINTS[$MODEL_ALIAS]+x}" ]]; then
+    CMD+=(--tokenizer-checkpoint "${TOKENIZER_CHECKPOINTS[$MODEL_ALIAS]}")
 fi
 if $SKIP_ATTACK; then
     CMD+=(--skip-attack)

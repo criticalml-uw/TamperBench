@@ -12,7 +12,7 @@ from tamperbench.whitebox.evals.strong_reject.strong_reject import (
     StrongRejectEvaluation,
 )
 from tamperbench.whitebox.utils.models.config import ModelConfig
-from tamperbench.whitebox.utils.names import MetricName
+from tamperbench.whitebox.utils.names import MetricName, TemplateName
 
 
 @pytest.mark.gpu_required
@@ -28,10 +28,8 @@ def test_strong_reject_evaluation(monkeypatch: pytest.MonkeyPatch) -> None:
             model_checkpoint="EleutherAI/pythia-14m",
             out_dir=tmpdirname,
             model_config=ModelConfig(
-                user_prefix="User: ",
-                assistant_prefix="Assistant: ",
-                end_turn="\n\n",
-                max_generation_length=5,
+                template_name=TemplateName.GENERIC_CHAT,
+                max_generation_length=64,
                 inference_batch_size=4,
             ),
             max_samples=2,  # small sample for fast test

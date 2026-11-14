@@ -1,7 +1,5 @@
 """Utilities for running functions in isolated subprocesses."""
 
-# pyright: reportExplicitAny=false, reportAny=false
-
 import multiprocessing
 import queue
 import traceback

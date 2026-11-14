@@ -1,7 +1,5 @@
 """Script to benchmark an LLM against a suite of tampering attacks with configs defined in a grid."""
 
-# pyright: reportUnusedCallResult=false, reportAny=false, reportDuplicateImport=false, reportUnknownVariableType=false
-
 import argparse
 from argparse import Namespace
 from datetime import datetime
@@ -12,18 +10,8 @@ import torch
 from dotenv import load_dotenv
 
 from tamperbench.utils import get_repo_root
-from tamperbench.whitebox.attacks.embedding_attack import (
-    embedding_attack as _,
-)
-from tamperbench.whitebox.attacks.full_parameter_finetune import (
-    full_parameter_finetune as _,
-)
-from tamperbench.whitebox.attacks.jailbreak_finetune import (
-    jailbreak_finetune as _,
-)
-from tamperbench.whitebox.attacks.lora_finetune import lora_finetune as _
-from tamperbench.whitebox.attacks.multilingual_finetune import (
-    multilingual_finetune as _,  # noqa: F401
+from tamperbench.whitebox import (
+    attacks as _attacks,  # noqa: F401  # pyright: ignore[reportUnusedImport]  # Side-effect import to populate ATTACKS_REGISTRY
 )
 from tamperbench.whitebox.utils import AttackName, ConfigPath
 from tamperbench.whitebox.utils.benchmark.io import yaml_to_dict

@@ -163,6 +163,16 @@ class DefenseSweepConfig(BaseModel):
             "the trial skips the attack phase and receives a penalty value."
         ),
     )
+    aggregation: AttackAggregationConfig = Field(
+        default_factory=lambda: AttackAggregationConfig(  # pyright: ignore[reportCallIssue]
+            method=AttackAggregationMethod.WORST_CASE
+        ),
+        description=(
+            "Global aggregation method applied across all attack results. "
+            "All per-config results from all attack specs are pooled and "
+            "aggregated using this method."
+        ),
+    )
 
     @model_validator(mode="after")
     def _validate_guards_in_defense_evals(self) -> Self:

@@ -447,12 +447,6 @@ class GCG:
         if model.device == torch.device("cpu"):
             logger.warning("Model is on the CPU. Use a hardware accelerator for faster optimization.")
 
-        if not tokenizer.chat_template:
-            logger.warning(
-                "Tokenizer does not have a chat template. Assuming base model and setting chat template to empty."
-            )
-            tokenizer.chat_template = "{% for message in messages %}{{ message['content'] }}{% endfor %}"
-
     def run(
         self,
         messages: str | list[dict[str, str]],

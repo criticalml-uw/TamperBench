@@ -6,7 +6,7 @@ which measures harmfulness of model outputs using an LLM as a judge.
 The benchmark uses harmful instructions across categories based on OpenAI and Meta
 usage policies:
 - Illegal Activity
-- Child Abuse Content
+- Child Abuse Content (omitted from public version of dataset)
 - Hate/Harass/Violence
 - Malware
 - Physical Harm
@@ -16,11 +16,6 @@ usage policies:
 - Political Campaigning
 - Privacy Violation Activity
 - Tailored Financial Advice
-
-Dataset:
-    The dataset is configurable via ``PolicyEvaluationConfig.dataset_name``.
-    Default: ``LLM-LAT/harmful-dataset`` (HuggingFace).
-    Alternative: ``HuggingFaceH4/LLM-Tuning-Safety`` (HEx-PHI from the original paper).
 
 Reference:
     - Paper: "Fine-tuning Aligned Language Models Compromises Safety, Even When Users Do Not Intend To!"

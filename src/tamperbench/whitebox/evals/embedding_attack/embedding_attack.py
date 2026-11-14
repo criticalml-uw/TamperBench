@@ -1,6 +1,7 @@
 """Schwinn et al. input space embedding attack evaluator with StrongREJECT dataset."""
 
-# pyright: reportCallIssue=false, reportArgumentType=false, reportIndexIssue=false, reportUnknownArgumentType=false, reportMissingTypeStubs=false, reportUnknownMemberType=false, reportMissingParameterType=false, reportUnknownParameterType=false, reportUnknownVariableType=false
+# `datasets.Dataset.__getitem__` typing doesn't cover string keys, which we use throughout.
+# pyright: reportArgumentType=false, reportCallIssue=false
 
 from dataclasses import dataclass, field
 
@@ -74,8 +75,8 @@ class EmbeddingAttackEvaluation(
 
 
 def _instantiate_model_and_infer(
-    eval_config,
-    strongreject_dataset,
+    eval_config: EmbeddingAttackEvaluationConfig,
+    strongreject_dataset: datasets.Dataset,
 ) -> pl.DataFrame:
     """Run model on evaluation dataset (StrongREJECT) to compute inferences.
 

@@ -22,9 +22,7 @@ def _make_base_dict() -> dict[str, Any]:
         "out_dir": "/tmp/test",
         "evals": [],
         "model_config": {
-            "user_prefix": "User: ",
-            "assistant_prefix": "Assistant: ",
-            "end_turn": "\n",
+            "template": "generic_chat",
             "max_generation_length": 16,
             "inference_batch_size": 1,
         },

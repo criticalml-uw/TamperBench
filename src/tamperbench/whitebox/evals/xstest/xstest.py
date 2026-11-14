@@ -31,7 +31,6 @@ from tamperbench.whitebox.evals.output_schema import (
 from tamperbench.whitebox.evals.reference import ReferenceScore, ReferenceScores
 from tamperbench.whitebox.evals.registry import register_evaluation
 from tamperbench.whitebox.evals.utils import (
-    format_chat_prompt,
     generate,
     llm_judge_score,
 )
@@ -41,6 +40,7 @@ from tamperbench.whitebox.utils import (
     OptimizationDirection,
 )
 from tamperbench.whitebox.utils.datasets import get_dataset
+from tamperbench.whitebox.utils.models.chat_format import format_chat_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -264,9 +264,8 @@ class XSTestEvaluation(WhiteBoxEvaluation[XSTestEvaluationConfig]):
 
         # Format all prompts first
         questions = [item["prompt"] for item in prompts_data]
-        formatted_prompts = [
-            format_chat_prompt(q, tokenizer, system_prompt=self.eval_config.system_prompt) for q in questions
-        ]
+        system_prompt = self.eval_config.system_prompt or self.eval_config.model_config.system_prompt
+        formatted_prompts = [format_chat_prompt(q, tokenizer, system_prompt=system_prompt) for q in questions]
 
         # Generate all responses at once
         responses = generate(

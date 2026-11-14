@@ -11,7 +11,7 @@ from tamperbench.whitebox.attacks.lora_finetune.lora_finetune import (
 )
 from tamperbench.whitebox.evals.output_schema import EvaluationSchema
 from tamperbench.whitebox.utils.models.config import ModelConfig
-from tamperbench.whitebox.utils.names import EvalName, MetricName
+from tamperbench.whitebox.utils.names import EvalName, MetricName, TemplateName
 
 
 @pytest.mark.expensive
@@ -24,9 +24,7 @@ def test_lora_finetune_attack() -> None:
             input_checkpoint_path="meta-llama/Llama-3.1-8B-Instruct",
             out_dir=tmpdirname,
             model_config=ModelConfig(
-                user_prefix="<|start_header_id|>user<|end_header_id|>\n\n",
-                assistant_prefix="<|start_header_id|>assistant<|end_header_id|>\n\n",
-                end_turn="<|eot_id|>\n",
+                template_name=TemplateName.NATIVE,
                 max_generation_length=1024,
                 inference_batch_size=16,
             ),
@@ -63,9 +61,7 @@ def test_lora_finetune_cheap() -> None:
             input_checkpoint_path="EleutherAI/pythia-14m",
             out_dir=tmpdirname,
             model_config=ModelConfig(
-                user_prefix="User: ",
-                assistant_prefix="Assistant: ",
-                end_turn="\n\n",
+                template_name=TemplateName.GENERIC_CHAT,
                 max_generation_length=16,
                 inference_batch_size=2,
             ),

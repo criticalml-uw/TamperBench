@@ -9,18 +9,25 @@ Changes from lm-evaluation-harness:
   instead of a list `results[0]`, as TamperBench passes responses directly.
 """
 
-# pyright: reportCallIssue=false
-# ruff: noqa: D101
-
 from __future__ import annotations
 
 import dataclasses
+from typing import TypedDict
 
 from tamperbench.whitebox.evals.ifeval import instructions_registry
 
 
+class IFEvalMetrics(TypedDict):
+    prompt_level_strict_acc: bool
+    inst_level_strict_acc: list[bool]
+    prompt_level_loose_acc: bool
+    inst_level_loose_acc: list[bool]
+
+
 @dataclasses.dataclass
 class InputExample:
+    """Input example for an IFEval instruction-following test."""
+
     key: int
     instruction_id_list: list[str]
     prompt: str
@@ -29,6 +36,8 @@ class InputExample:
 
 @dataclasses.dataclass
 class OutputExample:
+    """Result of scoring a response against an IFEval input example."""
+
     instruction_id_list: list[str]
     prompt: str
     response: str
@@ -123,7 +132,7 @@ def test_instruction_following_loose(
     )
 
 
-def process_results(doc, response):
+def process_results(doc, response) -> IFEvalMetrics:
     """Process results for a single document.
 
     Changes from lm-evaluation-harness:

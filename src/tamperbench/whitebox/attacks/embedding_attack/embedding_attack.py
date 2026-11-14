@@ -1,7 +1,5 @@
 """Schwinn et al. embedding attack (wraps around evaluator)."""
 
-# pyright: reportUnknownMemberType=false, reportImplicitOverride=false
-
 from dataclasses import dataclass
 from typing import Any
 
@@ -31,6 +29,7 @@ class EmbeddingAttackConfig(TamperAttackConfig):
     soft_opt_config: SoftOptConfig
 
     @classmethod
+    @override
     def prepare_dict_for_init(cls, data: dict[str, Any]) -> dict[str, Any]:
         """Transform dictionary data into proper types for dataclass initialization.
 

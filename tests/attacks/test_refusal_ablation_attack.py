@@ -10,7 +10,7 @@ from tamperbench.whitebox.attacks.refusal_ablation.refusal_ablation import (
 )
 from tamperbench.whitebox.evals.output_schema import EvaluationSchema
 from tamperbench.whitebox.utils.models.config import ModelConfig
-from tamperbench.whitebox.utils.names import EvalName, MetricName
+from tamperbench.whitebox.utils.names import EvalName, MetricName, TemplateName
 
 if __name__ == "__main__":
     load_dotenv()  # ensure HF_TOKEN available
@@ -19,9 +19,7 @@ if __name__ == "__main__":
         llama_3_8b_attack_config: RefusalAblationConfig = RefusalAblationConfig(
             input_checkpoint_path="meta-llama/Llama-3.1-8B-Instruct",
             model_config=ModelConfig(
-                user_prefix="<|start_header_id|>user<|end_header_id|>\n\n",
-                assistant_prefix="<|start_header_id|>assistant<|end_header_id|>\n\n",
-                end_turn="<|eot_id|>\n",
+                template_name=TemplateName.NATIVE,
                 max_generation_length=512,
                 inference_batch_size=16,
             ),

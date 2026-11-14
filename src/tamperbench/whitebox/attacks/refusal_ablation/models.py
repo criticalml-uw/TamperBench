@@ -1,5 +1,6 @@
-# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportCallIssue=false, reportMissingTypeStubs=false, reportUnusedCallResult=false, reportMissingParameterType=false, reportUnknownParameterType=false, reportUnknownArgumentType=false, reportAttributeAccessIssue=false, reportArgumentType=false, reportPrivateImportUsage=false
 """Model wrapper classes for HuggingFace and vLLM backends."""
+
+# ruff: noqa: F821  # jaxtyping shape strings (e.g. Float[Tensor, "d_model"]) trip F821
 
 import json
 import logging
@@ -9,11 +10,11 @@ from pathlib import Path
 from typing import Any
 
 import torch
-from huggingface_hub.utils import HfHubHTTPError  # type: ignore
+from huggingface_hub.errors import HfHubHTTPError
 from jaxtyping import Float
 from peft.peft_model import PeftModel
 from torch import Tensor
-from transformers import AutoModelForCausalLM, AutoTokenizer  # type: ignore
+from transformers import AutoModelForCausalLM, AutoTokenizer, PreTrainedModel
 from typing_extensions import override
 from vllm import LLM, SamplingParams
 from vllm.lora.request import LoRARequest
@@ -135,7 +136,7 @@ class WrappedModelBase(ABC):
 class WrappedHFModel(WrappedModelBase):
     """Wrapper for HuggingFace Transformers models."""
 
-    def __init__(self, model_config: ModelConfig, **kwargs):
+    def __init__(self, model_config: ModelConfig, **kwargs: Any) -> None:
         """Initialize a HuggingFace model wrapper."""
         self.name_or_path: Path = model_config.name_or_path
         name_or_path_str = str(self.name_or_path)
@@ -156,7 +157,7 @@ class WrappedHFModel(WrappedModelBase):
             device_map = "auto"
 
         # Load model
-        self.model: AutoModelForCausalLM | PeftModel = AutoModelForCausalLM.from_pretrained(
+        self.model: PreTrainedModel | PeftModel = AutoModelForCausalLM.from_pretrained(
             name_or_path_str,
             torch_dtype=torch.bfloat16,
             cache_dir=model_config.download_dir,
@@ -198,8 +199,10 @@ class WrappedHFModel(WrappedModelBase):
     @override
     def get_num_parameters(self) -> tuple[int, int]:
         """Get the number of parameters in the model."""
-        n_params = self.model.num_parameters()
-        n_trainable_params = self.model.num_parameters(only_trainable=True)
+        # PeftModel delegates `num_parameters` via nn.Module.__getattr__, which pyright resolves
+        # to Tensor | Module.
+        n_params = self.model.num_parameters()  # pyright: ignore[reportCallIssue]
+        n_trainable_params = self.model.num_parameters(only_trainable=True)  # pyright: ignore[reportCallIssue]
         return n_params, n_trainable_params
 
     def generate(self, _model_input: list[str], _sampling_params: SamplingParams) -> list[RequestOutput]:
@@ -256,7 +259,7 @@ class WrappedHFModel(WrappedModelBase):
 class WrappedVLLMModel(WrappedModelBase):
     """Wrapper for vLLM models optimized for inference."""
 
-    def __init__(self, model_config: ModelConfig, **kwargs):
+    def __init__(self, model_config: ModelConfig, **kwargs: Any) -> None:
         """Initialize a vLLM model wrapper."""
         assert model_config.download_dir, "Download directory must be specified"
         super().__init__(model_config)
@@ -266,7 +269,7 @@ class WrappedVLLMModel(WrappedModelBase):
         self.lora_request: LoRARequest | None
         self.model, self.lora_request = self._load_vllm_model(model_config)
 
-        self.model.set_tokenizer(self.tokenizer)
+        self.model.set_tokenizer(self.tokenizer)  # pyright: ignore[reportAttributeAccessIssue]  # missing from vllm stubs
 
     def _check_for_lora(self, name_or_path: Path) -> tuple[Path, bool, LoRARequest | None]:
         """Check for LoRA adapter configuration in the given path.
@@ -371,7 +374,7 @@ class WrappedVLLMModel(WrappedModelBase):
         return model_outputs
 
 
-def create_model(cfg: ModelConfig, backend: Backend = Backend.VLLM, **kwargs) -> WrappedModelBase:
+def create_model(cfg: ModelConfig, backend: Backend = Backend.VLLM, **kwargs: Any) -> WrappedModelBase:
     """Create a model instance with the specified backend.
 
     This function creates and returns an appropriate model instance based on the

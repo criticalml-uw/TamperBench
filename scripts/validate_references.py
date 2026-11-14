@@ -22,6 +22,7 @@ from tamperbench.whitebox.evals.strong_reject.strong_reject import StrongRejectE
 from tamperbench.whitebox.evals.wmdp.wmdp import WMDPEvaluation, WMDPEvaluationConfig
 from tamperbench.whitebox.evals.xstest.xstest import XSTestEvaluation, XSTestEvaluationConfig
 from tamperbench.whitebox.utils.models.config import ModelConfig
+from tamperbench.whitebox.utils.names import TemplateName
 
 if TYPE_CHECKING:
     from pandera.typing.polars import DataFrame
@@ -151,9 +152,7 @@ def _run_wmdp_validation(
         out_dir=out_dir,
         batch_size=batch_size,
         model_config=ModelConfig(
-            user_prefix="",
-            assistant_prefix="",
-            end_turn="",
+            template_name=TemplateName.NATIVE,
             max_generation_length=1,
             inference_batch_size=batch_size,
         ),
@@ -177,9 +176,7 @@ def _run_xstest_validation(
         out_dir=out_dir,
         batch_size=batch_size,
         model_config=ModelConfig(
-            user_prefix="",
-            assistant_prefix="",
-            end_turn="",
+            template_name=TemplateName.NATIVE,
             max_generation_length=256,
             inference_batch_size=batch_size,
         ),
@@ -203,9 +200,7 @@ def _run_strong_reject_validation(
         out_dir=out_dir,
         batch_size=batch_size,
         model_config=ModelConfig(
-            user_prefix="",
-            assistant_prefix="",
-            end_turn="",
+            template_name=TemplateName.NATIVE,
             max_generation_length=256,
             inference_batch_size=batch_size,
         ),
@@ -228,9 +223,7 @@ def _run_policy_eval_validation(
         out_dir=out_dir,
         batch_size=batch_size,
         model_config=ModelConfig(
-            user_prefix="",
-            assistant_prefix="",
-            end_turn="",
+            template_name=TemplateName.NATIVE,
             max_generation_length=256,
             inference_batch_size=batch_size,
         ),
@@ -253,9 +246,7 @@ def _run_mt_bench_validation(
         out_dir=out_dir,
         batch_size=batch_size,
         model_config=ModelConfig(
-            user_prefix="",
-            assistant_prefix="",
-            end_turn="",
+            template_name=TemplateName.NATIVE,
             max_generation_length=1024,
             inference_batch_size=batch_size,
         ),

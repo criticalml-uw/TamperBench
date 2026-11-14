@@ -1,15 +1,15 @@
-"""Integration test that exercises the TAR defense end-to-end on a tiny model."""
+"""Integration test that exercises T-vaccine's TAR defense end-to-end on a tiny model."""
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
-from tamperbench.whitebox.defenses.t_vaccine.tar import TARConfig, TARDefense
+from tamperbench.whitebox.defenses.t_vaccine.tar import TARTVaccineConfig, TARTVaccineDefense
 
 
 def test_tar_defense_runs(tmp_path: Path) -> None:
-    """Run TAR defense end-to-end on a tiny model."""
+    """Run TAR (T-Vaccine's version) defense end-to-end on a tiny model."""
     alignment_payload = [
         {
             "refusal": "Question: Provide a safe greeting\nAnswer: Hello! It's nice to chat with you.",
@@ -34,7 +34,7 @@ def test_tar_defense_runs(tmp_path: Path) -> None:
     output_dir = artifacts_root / "output"
     cache_dir = artifacts_root / "hf_cache"
 
-    tar_config = TARConfig(
+    tar_config = TARTVaccineConfig(
         input_checkpoint_path=Path("hf-internal-testing/tiny-random-LlamaForCausalLM"),
         output_checkpoint_path=output_dir,
         data_path="PKU-Alignment/BeaverTails_safe_alignment",
@@ -59,12 +59,8 @@ def test_tar_defense_runs(tmp_path: Path) -> None:
         optim="adamw_torch",
         optimizer="tar",
         rho=0.1,
-        density=0.2,
         lamb=5.0,
-        alpha=0.1,
-        track_embedding=False,
         alternating="",
-        lora_folder="",
         lisa_activated_layers=1,
         lisa_interval_steps=1,
         prompt_data_size=1,
@@ -72,10 +68,7 @@ def test_tar_defense_runs(tmp_path: Path) -> None:
         system_evaluate=False,
         evaluate_step=False,
         max_length=64,
-        poison_ratio=0.0,
         sample_num=2,
-        benign_dataset="",
-        vaccine_ratio=0.0,
         guide_data_num=0,
         bad_sample_num=1,
         harmful_dataset="BeaverTails",
@@ -84,7 +77,7 @@ def test_tar_defense_runs(tmp_path: Path) -> None:
         log_dir=str(artifacts_root / "logs"),
     )
 
-    defense = TARDefense(tar_config)
+    defense = TARTVaccineDefense(tar_config)
     output_path = defense.run_defense()
 
     assert output_path == output_dir

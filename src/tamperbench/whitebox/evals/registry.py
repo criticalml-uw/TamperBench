@@ -4,20 +4,18 @@ Allows individual evaluation modules to self-register their mapping from
 `EvalName -> EvaluationClass` at import time, avoiding a central hard-coded map.
 """
 
-# pyright: reportMissingTypeArgument=false, reportUnknownVariableType=false
-
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TypeVar
+from typing import Any, TypeVar
 
 from tamperbench.whitebox.evals.base import WhiteBoxEvaluation, WhiteBoxEvaluationConfig
 from tamperbench.whitebox.utils.names import EvalName
 
-E = TypeVar("E", bound=WhiteBoxEvaluation)
+E = TypeVar("E", bound=WhiteBoxEvaluation[Any])
 
 
-EVALS_REGISTRY: dict[EvalName, type[WhiteBoxEvaluation]] = {}
+EVALS_REGISTRY: dict[EvalName, type[WhiteBoxEvaluation[Any]]] = {}
 EVAL_CONFIG_REGISTRY: dict[EvalName, type[WhiteBoxEvaluationConfig]] = {}
 
 

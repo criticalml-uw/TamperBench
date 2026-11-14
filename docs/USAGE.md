@@ -23,16 +23,14 @@ from tamperbench.whitebox.attacks.lora_finetune.lora_finetune import (
     LoraFinetuneConfig,
 )
 from tamperbench.whitebox.utils.models.config import ModelConfig
-from tamperbench.whitebox.utils.names import EvalName
+from tamperbench.whitebox.utils.names import EvalName, TemplateName
 
 config = LoraFinetuneConfig(
     input_checkpoint_path="meta-llama/Llama-3.1-8B-Instruct",
     out_dir="results/my_attack",
     evals=[EvalName.STRONG_REJECT, EvalName.MMLU_PRO_VAL],
     model_config=ModelConfig(
-        user_prefix="<|start_header_id|>user<|end_header_id|>\n\n",
-        assistant_prefix="<|start_header_id|>assistant<|end_header_id|>\n\n",
-        end_turn="<|eot_id|>\n",
+        template_name=TemplateName.NATIVE,
         max_generation_length=1024,
         inference_batch_size=16,
     ),
@@ -80,14 +78,13 @@ from tamperbench.whitebox.evals.strong_reject.strong_reject import (
     StrongRejectEvaluationConfig,
 )
 from tamperbench.whitebox.utils.models.config import ModelConfig
+from tamperbench.whitebox.utils.names import TemplateName
 
 config = StrongRejectEvaluationConfig(
     checkpoint_path="results/my_attack/checkpoint",
     out_dir="results/my_attack/eval",
     model_config=ModelConfig(
-        user_prefix="<|start_header_id|>user<|end_header_id|>\n\n",
-        assistant_prefix="<|start_header_id|>assistant<|end_header_id|>\n\n",
-        end_turn="<|eot_id|>\n",
+        template_name=TemplateName.NATIVE,
         max_generation_length=1024,
         inference_batch_size=16,
     ),

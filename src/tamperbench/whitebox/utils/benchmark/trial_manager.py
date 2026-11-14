@@ -1,7 +1,5 @@
 """Trial management utilities for Optuna sweeps."""
 
-# pyright: reportUnknownVariableType=false
-
 from __future__ import annotations
 
 import copy

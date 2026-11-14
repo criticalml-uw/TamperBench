@@ -1,10 +1,13 @@
-# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportCallIssue=false, reportMissingTypeStubs=false, reportUnusedCallResult=false, reportMissingParameterType=false, reportUnknownParameterType=false, reportUnknownArgumentType=false, reportAttributeAccessIssue=false, reportArgumentType=false, reportPrivateImportUsage=false, reportUnusedParameter=false
-# ruff: noqa: F722
 """Utility functions for activation hooks and KL divergence in refusal ablation attack.
 
 Adapted from:
 https://github.com/AlignmentResearch/safety_gap/attack/utils.py
 """
+
+# ruff: noqa: F722, F821  # jaxtyping shape strings (e.g. Float[Tensor, "d_model"]) trip F722/F821
+# ruff: noqa: A002  # hook callbacks use `input` to match PyTorch's forward hook signature
+# Adapted external code; hook callbacks are intentionally untyped/unused.
+# pyright: reportMissingParameterType=false, reportUnusedParameter=false
 
 import contextlib
 import functools

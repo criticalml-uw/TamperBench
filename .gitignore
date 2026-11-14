@@ -179,6 +179,8 @@ cython_debug/
 # Results
 results/
 
+.claude
+
 # Local wandb results
 wandb/
 

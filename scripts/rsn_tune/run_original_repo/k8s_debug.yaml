@@ -1,0 +1,92 @@
+# Debug pod for iterating on Safety-Neuron pipeline.
+# Launch: kubectl create -n u-tamperbench -f scripts/k8s_debug.yaml
+# Exec:   kubectl exec -n u-tamperbench -it sn-debug-XXXXX -- bash
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: sn-debug
+  labels:
+    kueue.x-k8s.io/queue-name: farai
+    user: tomtseng
+spec:
+  suspend: true
+  backoffLimit: 0
+  podFailurePolicy:
+    rules:
+    - action: Ignore
+      onPodConditions:
+      - type: DisruptionTarget
+  template:
+    metadata:
+      name: sn-debug
+      namespace: u-tamperbench
+    spec:
+      priorityClassName: high-batch
+      volumes:
+        - name: project-storage
+          persistentVolumeClaim:
+            claimName: vast-tamperbench
+        - name: devshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Gi
+      containers:
+        - name: main
+          image: ghcr.io/criticalml-uw/tamperbench:0.0.2
+          command:
+            - bash
+            - -c
+            - |
+              set -euo pipefail
+
+              SCRIPTS_DIR="/tamperbench_data/safety_neuron/scripts"
+
+              # Setup
+              if [ -f "/tamperbench_data/user/tomtseng/scripts/setup-devbox.sh" ]; then
+                bash /tamperbench_data/user/tomtseng/scripts/setup-devbox.sh
+              fi
+
+              # Clone the upstream Safety-Neuron repo
+              git clone https://github.com/zhaoyiran924/Safety-Neuron.git /workspace/Safety-Neuron
+              cd /workspace/Safety-Neuron
+
+              # Copy our wrapper scripts from the PVC into the cloned repo
+              cp -r "$SCRIPTS_DIR" scripts/
+
+              # Install dependencies
+              pip install transformers==4.39.3 trl==0.7.11 peft datasets \
+                  rouge-score tenacity accelerate bitsandbytes
+
+              echo "=== Ready for debugging. Sleeping. ==="
+              sleep 1d
+          resources:
+            requests:
+              cpu: 1
+            limits:
+              memory: "96G"
+              nvidia.com/gpu: 1
+          volumeMounts:
+            - name: project-storage
+              mountPath: /tamperbench_data
+            - name: devshm
+              mountPath: /dev/shm
+          env:
+            - name: GIT_ASKPASS
+              value: "true"
+            - name: GITHUB_PAT
+              valueFrom:
+                secretKeyRef:
+                  name: github-credentials
+                  key: pat
+            - name: GIT_CONFIG_PARAMETERS
+              value: "'credential.https://github.com.username=$(GITHUB_PAT)'"
+            - name: HF_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: huggingface
+                  key: token
+            - name: WANDB_MODE
+              value: "offline"
+      imagePullSecrets:
+        - name: docker
+      restartPolicy: Never

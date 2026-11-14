@@ -21,7 +21,7 @@ from tamperbench.whitebox.attacks.lora_finetune.lora_finetune import (
 from tamperbench.whitebox.defenses.ctrl import CTRL, CTRLConfig
 from tamperbench.whitebox.evals.output_schema import EvaluationSchema
 from tamperbench.whitebox.utils.models.config import ModelConfig
-from tamperbench.whitebox.utils.names import EvalName, MetricName
+from tamperbench.whitebox.utils.names import EvalName, MetricName, TemplateName
 
 
 def run_attack(model: str, output_dir: Path) -> float:
@@ -31,9 +31,7 @@ def run_attack(model: str, output_dir: Path) -> float:
         out_dir=str(output_dir),
         evals=[EvalName.STRONG_REJECT],
         model_config=ModelConfig(
-            user_prefix="",
-            assistant_prefix="",
-            end_turn="",
+            template_name=TemplateName.PLAIN,
             max_generation_length=512,
             inference_batch_size=8,
         ),
@@ -82,7 +80,7 @@ def main() -> None:
     config = CTRLConfig(
         input_checkpoint_path=Path(base_model),
         output_checkpoint_path=output_dir / "hardened_model",
-        clean_dataset_name="tatsu-lab/alpaca",
+        clean_dataset_names=("tatsu-lab/alpaca", "databricks/databricks-dolly-15k", "PKU-Alignment/BeaverTails"),
     )
     defense = CTRL(defense_config=config)
     hardened = str(defense.run_defense())
