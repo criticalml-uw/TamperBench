@@ -18,7 +18,6 @@ base: &base_cfg
     per_device_train_batch_size: 8
     eval_batch: 8
     save_strategy: best
-    apply_chat_template: false
 
 variant_0:
     <<: *base_cfg

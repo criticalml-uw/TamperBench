@@ -40,8 +40,10 @@ from tamperbench.whitebox.evals.strong_reject.strong_reject import (
     StrongRejectEvaluation,
     StrongRejectEvaluationConfig,
 )
+from tamperbench.whitebox.evals.utils import format_prompt_completion
 from tamperbench.whitebox.utils.models.config import ModelConfig
-from tamperbench.whitebox.utils.names import AttackName, EvalName
+from tamperbench.whitebox.utils.models.templates import load_and_configure_tokenizer
+from tamperbench.whitebox.utils.names import AttackName, EvalName, TemplateName
 from tamperbench.whitebox.utils.ops import run_in_isolation
 
 
@@ -65,7 +67,6 @@ class LoFiTAttackConfig(TamperAttackConfig):
         per_device_train_batch_size: Training batch size per device.
         eval_batch: Evaluation batch size.
         save_strategy: Checkpoint save strategy ('best' or 'no').
-        apply_chat_template: Whether to use the model's chat template.
         applied_module: Module to apply LoFiT to ('attention' or 'mlp').
         applied_layers: Specific layers to apply LoFiT (None = all layers).
         hf_cache_dir: Optional HuggingFace cache directory.
@@ -86,7 +87,6 @@ class LoFiTAttackConfig(TamperAttackConfig):
     per_device_train_batch_size: int = 8
     eval_batch: int = 8
     save_strategy: str = "best"
-    apply_chat_template: bool = False
     applied_module: str = "attention"
     applied_layers: list[int] | None = None
     hf_cache_dir: str | None = None
@@ -96,9 +96,7 @@ class LoFiTAttackConfig(TamperAttackConfig):
     evals: list[EvalName] = field(default_factory=list)
     model_config: ModelConfig = field(
         default_factory=lambda: ModelConfig(
-            user_prefix="### Instruction:\n",
-            assistant_prefix="### Response:\n",
-            end_turn="\n\n",
+            template_name=TemplateName.INSTRUCTION_RESPONSE,
             max_generation_length=512,
             inference_batch_size=8,
         )
@@ -150,18 +148,25 @@ class LoFiTAttack(TamperAttack[LoFiTAttackConfig]):
             seed=self.attack_config.random_seed,
         )
 
-        user_prefix = self.attack_config.model_config.user_prefix
-        assistant_prefix = self.attack_config.model_config.assistant_prefix
-        end_turn = self.attack_config.model_config.end_turn
+        tokenizer = load_and_configure_tokenizer(
+            self.attack_config.model_config, self.attack_config.input_checkpoint_path
+        )
 
         def to_completions(data_point: dict[str, list[dict[str, str]]]) -> dict[str, str]:
-            sample: dict[str, str] = {}
+            user_content = ""
+            assistant_content = ""
             for message in data_point["messages"]:
                 if message["role"] == "user":
-                    sample["prompt"] = f"{user_prefix}{message['content']}{end_turn}"
+                    user_content = message["content"]
                 if message["role"] == "assistant":
-                    sample["completion"] = f"{assistant_prefix}{message['content']}{end_turn}"
-            return sample
+                    assistant_content = message["content"]
+
+            return format_prompt_completion(
+                user_content,
+                assistant_content,
+                tokenizer,
+                system_prompt=self.attack_config.model_config.system_prompt,
+            )
 
         return mixed_dataset.map(to_completions, remove_columns=mixed_dataset.column_names)
 
@@ -171,12 +176,14 @@ class LoFiTAttack(TamperAttack[LoFiTAttackConfig]):
 
         checkpoint = self.output_checkpoint_path
         base_model = self.attack_config.input_checkpoint_path
+        template_name = self.attack_config.model_config.template_name
         applied_module = self.attack_config.applied_module
         applied_layers = self.attack_config.applied_layers
 
         return lambda: load_lofit_model_and_tokenizer(
             model_checkpoint=checkpoint,
             base_model_name=base_model,
+            template_name=template_name,
             applied_module=applied_module,
             applied_layers=applied_layers,
         )
@@ -271,15 +278,8 @@ def _run_lofit_attack(
     output_checkpoint_path: str,
 ) -> None:
     """Prepare dataset, run two-phase LoFiT subprocess training, and export checkpoint."""
-
-    # Convert {prompt, completion} -> {text} and split into train/valid/test
-    def to_text(example: dict[str, str]) -> dict[str, str]:
-        return {"text": example["prompt"] + example["completion"]}
-
-    text_dataset = prompt_completions_dataset.map(to_text, remove_columns=["prompt", "completion"])
-
-    valid_size = max(1, int(len(text_dataset) * 0.1))
-    split = text_dataset.train_test_split(test_size=valid_size, seed=attack_config.random_seed)
+    valid_size = max(1, int(len(prompt_completions_dataset) * 0.1))
+    split = prompt_completions_dataset.train_test_split(test_size=valid_size, seed=attack_config.random_seed)
     dataset_dict = hf_datasets.DatasetDict(
         {
             "train": split["train"],
@@ -319,8 +319,6 @@ def _run_lofit_attack(
             model_alias,
             "--task",
             "alpaca",
-            "--apply_chat_template",
-            str(attack_config.apply_chat_template),
             "--ft_method",
             "lofit",
             "--applied_module",

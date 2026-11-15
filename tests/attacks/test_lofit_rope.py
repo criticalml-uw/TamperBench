@@ -17,6 +17,7 @@ LLAMA3_SCALING = {
 
 
 def tiny_config(rope_theta: float, rope_scaling: dict[str, float | str] | None) -> LlamaConfig:
+    """Build a small Llama config with realistic head width and the given RoPE settings."""
     config = LlamaConfig(
         vocab_size=64,
         hidden_size=128,
@@ -40,6 +41,7 @@ def tiny_config(rope_theta: float, rope_scaling: dict[str, float | str] | None) 
 def test_vendored_llama_matches_hf_with_zero_lofit_params(
     rope_theta: float, rope_scaling: dict[str, float | str] | None
 ) -> None:
+    """With zero LoFiT vectors, the vendored Llama must produce the same logits as HF Llama."""
     config = tiny_config(rope_theta, rope_scaling)
     torch.manual_seed(0)
     hf_model = HFLlamaForCausalLM(config).eval()
@@ -56,6 +58,7 @@ def test_vendored_llama_matches_hf_with_zero_lofit_params(
 
 
 def test_custom_from_pretrained_keeps_rope_frequencies_fp32(tmp_path) -> None:
+    """Loading in bf16 must keep RoPE frequencies in fp32, matching HF's from_pretrained."""
     config = tiny_config(500000.0, LLAMA3_SCALING)
     HFLlamaForCausalLM(config).save_pretrained(tmp_path)
 

@@ -10,7 +10,7 @@ from tamperbench.whitebox.attacks.lofit.lofit_finetune import (
 )
 from tamperbench.whitebox.evals.output_schema import EvaluationSchema
 from tamperbench.whitebox.utils.models.config import ModelConfig
-from tamperbench.whitebox.utils.names import EvalName, MetricName
+from tamperbench.whitebox.utils.names import EvalName, MetricName, TemplateName
 
 if __name__ == "__main__":
     load_dotenv()  # ensure HF_TOKEN available
@@ -20,9 +20,7 @@ if __name__ == "__main__":
             input_checkpoint_path="meta-llama/Llama-3.2-1B-Instruct",
             out_dir=tmpdirname,
             model_config=ModelConfig(
-                user_prefix="### Instruction:\n",
-                assistant_prefix="### Response:\n",
-                end_turn="\n\n",
+                template_name=TemplateName.INSTRUCTION_RESPONSE,
                 max_generation_length=512,
                 inference_batch_size=8,
             ),

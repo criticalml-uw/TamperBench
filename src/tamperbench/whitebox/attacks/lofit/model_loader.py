@@ -6,10 +6,14 @@ from typing import Any
 import torch
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer, PreTrainedModel, PreTrainedTokenizer
 
+from tamperbench.whitebox.utils.models.templates import configure_tokenizer_template
+from tamperbench.whitebox.utils.names import TemplateName
+
 
 def load_lofit_model_and_tokenizer(
     model_checkpoint: str,
     base_model_name: str,
+    template_name: TemplateName,
     applied_module: str = "attention",
     applied_layers: list[int] | None = None,
 ) -> tuple[PreTrainedModel, PreTrainedTokenizer]:
@@ -21,6 +25,7 @@ def load_lofit_model_and_tokenizer(
         model_checkpoint: Path to the LoFiT model checkpoint.
         base_model_name: HF model ID for loading the base model and tokenizer (LoFiT
             checkpoints may not include tokenizer files).
+        template_name: Chat template to configure on the tokenizer, matching the one used in training.
         applied_module: Module to apply LoFiT edits to ("attention" or "mlp").
         applied_layers: Specific layers to apply edits (None = all layers).
 
@@ -124,5 +129,6 @@ def load_lofit_model_and_tokenizer(
         use_fast=True,
     )
     tokenizer.pad_token = tokenizer.pad_token or tokenizer.eos_token
+    configure_tokenizer_template(tokenizer, template_name)
 
     return model, tokenizer

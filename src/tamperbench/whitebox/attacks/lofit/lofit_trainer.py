@@ -23,16 +23,13 @@ import numpy as np
 import torch
 import torch.nn as nn
 import wandb
-from transformers import AutoTokenizer, TrainingArguments, logging, set_seed
-from trl import DataCollatorForCompletionOnlyLM
+from transformers import AutoTokenizer, logging, set_seed
+from trl import SFTConfig
 
 from tamperbench.whitebox.attacks.lofit.trainers import CustomSFTTrainer
 from tamperbench.whitebox.attacks.lofit.vendor.models.modeling_gemma import GemmaForCausalLM
 from tamperbench.whitebox.attacks.lofit.vendor.models.modeling_llama import LlamaForCausalLM
-from tamperbench.whitebox.utils.models.templates import get_template
-from tamperbench.whitebox.utils.names import TemplateName
 
-_LLAMA3_TEMPLATE = get_template(TemplateName.LLAMA3)
 _VENDOR_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "vendor")
 
 parser = argparse.ArgumentParser()
@@ -97,12 +94,6 @@ parser.add_argument(
     help="The strategy to save the model: best: only save the best model; no: do not save the model",
 )
 parser.add_argument(
-    "--apply_chat_template",
-    default=False,
-    type=lambda x: (str(x).lower() == "true"),
-    help="Using llama3 chat template in the prompt; False by default",
-)
-parser.add_argument(
     "--use_topk_heads",
     type=int,
     help="The number of top attention heads to select; if in the head selection step, K means only save the top-k heads; if in the bias tuning step, K means only use the top-k heads from the loaded top heads to tune the biases",
@@ -114,7 +105,7 @@ parser.add_argument(
     "--hf_dataset_path",
     type=str,
     default=None,
-    help='Path to a pre-saved HuggingFace DatasetDict (train/valid/test splits with a "text" field). When provided, skips load_dataset_for_task.',
+    help='Path to a pre-saved HuggingFace DatasetDict (train/valid/test splits with "prompt" and "completion" fields).',
 )
 args = parser.parse_args()
 ### Turn Wandb log on if it is in train mode
@@ -263,7 +254,7 @@ if args.run_mode != "test":
         if applied_module == "attention":
             if args.lofit_component == "A":
                 attn_A = model.model.layers[i].self_attn.attn_A
-                for j, module in enumerate(attn_A):
+                for module in attn_A:
                     trainable_params.append(module)
                     module.requires_grad = True
                     num_params += module.numel()
@@ -289,7 +280,7 @@ elif args.save_strategy == "no":
     save_total_limit = None
 else:
     raise ValueError(f"Save strategy {args.save_strategy} is not supported")
-training_args = TrainingArguments(
+training_args = SFTConfig(
     output_dir=output_dir,
     learning_rate=lr,
     per_device_train_batch_size=train_batch_size,
@@ -305,6 +296,9 @@ training_args = TrainingArguments(
     do_train=True,
     do_eval=True,
     bf16=bf16,
+    gradient_checkpointing=False,
+    completion_only_loss=True,
+    max_length=512,
 )
 torch.autograd.set_detect_anomaly(True)
 if not args.hf_dataset_path:
@@ -317,45 +311,12 @@ print(f"Data loaded from {args.hf_dataset_path}")
 for key in ["train", "valid", "test"]:
     print(f"Number of {key} samples: {len(datasets[key])}")
 
-# All project dataloaders use the Alpaca instruction template
-# which delimits the response with "### Response:\n"
-response_template_with_context = "### Response:\n"
-
-if args.apply_chat_template:
-    response_template_with_context = _LLAMA3_TEMPLATE.assistant_prefix
-
-if "llama" in model_name:
-    ### Special thing about llama tokenizer
-    response_template_ids = tokenizer.encode(response_template_with_context, add_special_tokens=False)[2:]
-elif "gemma" in model_name:
-    response_template_ids = tokenizer.encode(response_template_with_context, add_special_tokens=False)[1:]
-### DataCollatorForCompletionOnlyLM is used for updating loss ONLY on the response
-data_collator = DataCollatorForCompletionOnlyLM(response_template_ids, tokenizer=tokenizer)
-
-_sample_text = datasets["train"][0]["text"]
-_sample_ids = tokenizer.encode(_sample_text, add_special_tokens=False)
-_found = any(
-    _sample_ids[i : i + len(response_template_ids)] == list(response_template_ids)
-    for i in range(len(_sample_ids) - len(response_template_ids) + 1)
-)
-print(f"Template found in sample[0]: {_found}")
-if not _found:
-    print("WARNING: template not found — labels will be wrong, loss will not decrease!")
-    print(
-        f"Full encoding of template (no slice): {tokenizer.encode(response_template_with_context, add_special_tokens=False)}"
-    )
-    print(f"Sample[0] text (first 300 chars): {_sample_text[:300]!r}")
-print("=" * 60 + "\n")
-
 trainer = trainer(
-    model,
+    model=model,
+    args=training_args,
     train_dataset=datasets["train"],
     eval_dataset=datasets["valid"],
-    dataset_text_field="text",
-    tokenizer=tokenizer,
-    max_seq_length=512,
-    data_collator=data_collator,
-    args=training_args,
+    processing_class=tokenizer,
     peft_config=peft_config,
 )
 if args.run_mode != "test":
@@ -365,7 +326,7 @@ if args.run_mode != "test":
             if applied_module == "attention":
                 if args.lofit_component == "A":
                     attn_A = model.model.layers[i].self_attn.attn_A
-                    for j, module in enumerate(attn_A):
+                    for module in attn_A:
                         ### Use miu_{A} = 0, sigma_{A} = 1e-3 as the default
                         nn.init.normal_(module, mean=0, std=1e-3)
                 if args.lofit_component == "v":
