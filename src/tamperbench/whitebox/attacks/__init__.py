@@ -19,6 +19,9 @@ from tamperbench.whitebox.attacks.full_parameter_finetune import (
 from tamperbench.whitebox.attacks.full_parameter_finetune import (
     full_parameter_finetune as _full_param,
 )
+from tamperbench.whitebox.attacks.galore_finetune import (
+    galore_finetune as _galore_finetune,
+)
 from tamperbench.whitebox.attacks.jailbreak_finetune import (
     jailbreak_finetune as _jailbreak,
 )
@@ -30,7 +33,7 @@ from tamperbench.whitebox.attacks.refusal_ablation import (
     refusal_ablation as _refusal_ablation,
 )
 
-del _dataset_registry, _embedding, _full_param, _jailbreak, _lora, _multilingual, _refusal_ablation
+del _dataset_registry, _embedding, _full_param, _jailbreak, _lora, _multilingual, _refusal_ablation, _galore_finetune
 
 __all__ = [
     "EmbeddingAttack",
