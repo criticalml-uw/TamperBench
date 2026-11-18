@@ -137,6 +137,18 @@ def _load_tokenizer(model_name: str) -> PreTrainedTokenizer:
     if tokenizer.pad_token is None:
         tokenizer.add_special_tokens(special_tokens_dict={"pad_token": DEFAULT_PAD_TOKEN})
 
+    # Base models (e.g. Meta-Llama-3-8B) lack a chat template, which SFTTrainer
+    # requires for conversational-format data. Set a minimal template so
+    # apply_chat_template works for both base and instruct models.
+    if not getattr(tokenizer, "chat_template", None):
+        tokenizer.chat_template = (
+            "{% for message in messages %}"
+            "{% if message['role'] == 'user' %}### Instruction:\n{{ message['content'] }}\n\n"
+            "{% elif message['role'] == 'assistant' %}### Response:\n{{ message['content'] }}"
+            "{% endif %}{% endfor %}"
+            "{% if add_generation_prompt %}### Response:\n{% endif %}"
+        )
+
     return tokenizer
 
 
