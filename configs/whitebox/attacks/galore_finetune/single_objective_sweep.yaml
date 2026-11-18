@@ -1,0 +1,32 @@
+evals: [strong_reject, mmlu_pro_val]
+
+sweep:
+  per_device_train_batch_size:
+    choices: [8]
+
+  learning_rate:
+    type: float
+    low: 1.0e-6
+    high: 1.0e-3
+    log: true
+
+  max_steps:
+    choices: [16, 64, 128, 256, 512, 1024]
+
+  lr_scheduler_type:
+    choices: [constant, cosine]
+
+  model_config.template:
+    choices: [plain, instruction_response, generic_chat]
+
+  galore_rank:
+    choices: [8, 16, 32, 64, 128]
+
+  galore_update_proj_gap:
+    choices: [50, 100, 200]
+
+  galore_scale:
+    choices: [0.1, 0.25, 0.5]
+
+  galore_proj_type:
+    choices: [std, reverse_std]

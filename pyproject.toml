@@ -45,6 +45,7 @@ dependencies = [
   "transformers>=4.49.0",
   "trl==0.22.1",
   "vllm>=0.17.0; platform_system == 'Linux'",
+  "galore-torch>=1.0",
 ]
 
 [dependency-groups]
