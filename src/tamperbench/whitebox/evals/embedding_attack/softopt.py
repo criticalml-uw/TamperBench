@@ -112,7 +112,7 @@ def run_soft_opt(
     first_device = embedding_layer.weight.device  # this is where inputs must live
 
     before_ids, after_ids, target_ids = [
-        torch.tensor(ids, device=first_device)
+        torch.tensor(ids, device=first_device, dtype=torch.long)
         for ids in (before_ids, after_ids, target_ids)
     ]
 

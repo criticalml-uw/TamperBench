@@ -90,6 +90,17 @@ def finetune_no_trainer(
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
+    # Quick fix: base models (e.g. Llama-3.2-1B) ship without a chat template,
+    # which breaks the HH-RLHF DPO dataloader. Use a passthrough that just
+    # concatenates message contents — no role markers, no special tokens.
+    # Matches Booster's base-model handling (defenses/booster/data.py): keeps
+    # the data closest to plain text the base model is used to seeing.
+    if tokenizer.chat_template is None:
+        tokenizer.chat_template = (
+            "{% for message in messages %}"
+            "{{ message['content'] }}\n"
+            "{% endfor %}"
+        )
 
     # prepare model before optimizer: https://huggingface.co/blog/pytorch-fsdp
     model = accelerator.prepare_model(model)

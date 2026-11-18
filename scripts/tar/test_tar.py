@@ -351,6 +351,9 @@ def main() -> None:
 
         tar_config = dict(tar_config_template)
         tar_config["num_gpus"] = num_gpus
+        # Use the same model for retain to avoid tokenizer/vocab mismatch
+        # (default is hardcoded to Llama-3-8B-Instruct in FULL_TAR_CONFIG).
+        tar_config["retain_model_name"] = pretrained_model_path
 
         # Run defense only (no attacks yet) via run_trial with empty attacks list
         defense_metrics = DefenseSweepTrialManager.run_trial(
