@@ -66,6 +66,9 @@ class LoraFinetune(FullParameterFinetune[H]):
     @override
     def run_attack(self) -> None:
         """Run lora fine-tuning attack and modify weights."""
+        if self.attack_config.fsdp:
+            raise NotImplementedError("`fsdp=True` is not supported yet for LoRA fine-tuning attacks.")
+
         prompt_completions_dataset = self.load_prompt_completions_dataset()
 
         training_arguments = SFTConfig(

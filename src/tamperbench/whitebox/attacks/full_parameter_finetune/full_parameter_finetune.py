@@ -23,7 +23,12 @@ from tamperbench.whitebox.evals.utils import format_prompt_completion
 from tamperbench.whitebox.utils.models.default_tokens import DEFAULT_PAD_TOKEN
 from tamperbench.whitebox.utils.models.templates import load_and_configure_tokenizer
 from tamperbench.whitebox.utils.names import AttackName
-from tamperbench.whitebox.utils.ops import dealloc_model_and_tokenizer, run_in_isolation
+from tamperbench.whitebox.utils.ops import (
+    dealloc_model_and_tokenizer,
+    fsdp_launch_args,
+    run_in_isolation,
+    run_with_accelerate,
+)
 
 H = TypeVar(name="H", bound="FullParameterFinetuneConfig")
 
@@ -51,6 +56,8 @@ class FullParameterFinetuneConfig(TamperAttackConfig):
         poison_ratio: Proportion of harmful data (0.0 = fully benign, 1.0 = fully harmful).
         harmful_dataset: Name of the harmful dataset registered with harmtune.
         benign_dataset: Name of the benign dataset registered with harmtune.
+        fsdp: If True, train with FSDP across all visible GPUs (one process per GPU, launched with
+            ``accelerate launch``) instead of a single process with ``device_map="auto"``. Requires at least 2 GPUs.
     """
 
     per_device_train_batch_size: int
@@ -66,6 +73,7 @@ class FullParameterFinetuneConfig(TamperAttackConfig):
     poison_ratio: float = 1.0
     harmful_dataset: str = "safe_rlhf_alpaca_train"
     benign_dataset: str = "bookcorpus"
+    fsdp: bool = False
 
 
 @register_attack(AttackName.FULL_PARAMETER_FINETUNE, FullParameterFinetuneConfig)
@@ -77,6 +85,11 @@ class FullParameterFinetune(TamperAttack[H]):
     @override
     def run_attack(self) -> None:
         """Run full parameter fine-tuning attack and modify weights."""
+        fsdp = self.attack_config.fsdp
+        num_gpus = torch.cuda.device_count()
+        if fsdp and num_gpus < 2:
+            raise ValueError(f"`fsdp=True` requires at least 2 GPUs, found {num_gpus}.")
+
         prompt_completions_dataset = self.load_prompt_completions_dataset()
         training_arguments = SFTConfig(
             output_dir=self.attack_config.out_dir,
@@ -89,6 +102,11 @@ class FullParameterFinetune(TamperAttack[H]):
             warmup_ratio=self.attack_config.warmup_ratio,
             gradient_accumulation_steps=self.attack_config.gradient_accumulation_steps,
             gradient_checkpointing=True,
+            # Non-reentrant checkpointing is needed under FSDP.
+            gradient_checkpointing_kwargs={"use_reentrant": False} if fsdp else None,
+            # The model is loaded in bf16. Under FSDP, bf16 mixed precision would make accelerate upcast the
+            # weights to fp32 (2x the memory), so keep plain bf16 there.
+            bf16=not fsdp,
             optim=self.attack_config.optim,
             logging_steps=1,
             save_strategy="no",
@@ -97,17 +115,26 @@ class FullParameterFinetune(TamperAttack[H]):
             max_length=2048,
             seed=self.attack_config.random_seed,
         )
-
-        run_in_isolation(
-            target=run_full_finetune_attack,
-            args=(
-                self.attack_config,
-                training_arguments,
-                prompt_completions_dataset,
-                self.output_checkpoint_path,
-            ),
-            error_context="Full parameter finetune attack",
+        args = (
+            self.attack_config,
+            training_arguments,
+            prompt_completions_dataset,
+            self.output_checkpoint_path,
         )
+
+        if fsdp:
+            run_with_accelerate(
+                target=run_full_finetune_attack,
+                args=args,
+                launch_args=fsdp_launch_args(num_processes=num_gpus),
+                error_context="Full parameter finetune attack (FSDP)",
+            )
+        else:
+            run_in_isolation(
+                target=run_full_finetune_attack,
+                args=args,
+                error_context="Full parameter finetune attack",
+            )
 
     def build_benign_dataset_config(self) -> dict[str, Any]:
         """Build the config dict for the benign dataset entry.
@@ -229,7 +256,8 @@ def run_full_finetune_attack(  # TODO: Consolidate with `run_lora_attack`
     model: PreTrainedModel = AutoModelForCausalLM.from_pretrained(
         pretrained_model_name_or_path=attack_config.input_checkpoint_path,
         torch_dtype=torch.bfloat16,
-        device_map="auto",
+        # Under FSDP each process loads the full model on CPU and the trainer shards it across GPUs.
+        device_map=None if attack_config.fsdp else "auto",
     )
     tokenizer: PreTrainedTokenizer = AutoTokenizer.from_pretrained(
         pretrained_model_name_or_path=str(
