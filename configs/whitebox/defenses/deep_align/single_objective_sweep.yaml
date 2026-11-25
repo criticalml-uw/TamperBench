@@ -1,0 +1,34 @@
+defense_evals: [strong_reject, mmlu_pro_val]
+post_attack_evals: [strong_reject, mmlu_pro_val]
+model_config:
+    template: plain
+    max_generation_length: 1024
+    inference_batch_size: 16
+attacks:
+    - name: lora_finetune
+      mode: grid
+      config_name: qwen3_4b
+sweep:
+    # Safety-recovery augmentation
+    max_prefix_tokens:
+        choices: [25, 50, 100]
+    augment_prob:
+        type: "float"
+        low: 0.25
+        high: 1.0
+        log: false
+    # Training
+    learning_rate:
+        type: "float"
+        low: 5.0e-6
+        high: 1.0e-4
+        log: true
+    num_train_epochs:
+        choices: [1, 2, 3]
+    per_device_train_batch_size:
+        choices: [4, 8, 16]
+    # Data mix
+    num_harmful_samples:
+        choices: [1000, 2000, 4000]
+    num_benign_samples:
+        choices: [0, 1000, 2000, 4000]

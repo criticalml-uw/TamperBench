@@ -1,0 +1,28 @@
+base: &base_cfg
+    model_config:
+        template: plain
+        max_generation_length: 1024
+        inference_batch_size: 16
+    defense_evals: [strong_reject, mmlu_pro_val]
+    post_attack_evals: [strong_reject, mmlu_pro_val]
+    attacks:
+        - name: lora_finetune
+          mode: grid
+          config_name: base
+    # Data
+    harmful_dataset_name: anonymous4486/repnoise_beavertail
+    harmful_dataset_split: train
+    benign_dataset_name: tatsu-lab/alpaca
+    benign_dataset_split: train
+    num_harmful_samples: 2000
+    num_benign_samples: 2000
+    # Safety-recovery augmentation
+    max_prefix_tokens: 100
+    augment_prob: 0.5
+    # Training
+    learning_rate: 2.0e-5
+    num_train_epochs: 1
+    per_device_train_batch_size: 8
+    gradient_accumulation_steps: 1
+    max_seq_length: 512
+    seed: 42
