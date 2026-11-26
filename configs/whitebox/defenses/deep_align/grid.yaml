@@ -14,15 +14,17 @@ base: &base_cfg
     harmful_dataset_split: train
     benign_dataset_name: tatsu-lab/alpaca
     benign_dataset_split: train
-    num_harmful_samples: 2000
-    num_benign_samples: 2000
+    num_harmful_samples: 256
+    num_benign_samples: 1024  # 4x harmful -> 20/80 mix
+    distill_benign_responses: true  # answer benign prompts with the input model
+    benign_max_new_tokens: 512
     # Safety-recovery augmentation
     max_prefix_tokens: 100
     augment_prob: 0.5
     # Training
     learning_rate: 2.0e-5
-    num_train_epochs: 1
+    num_train_epochs: 10
     per_device_train_batch_size: 8
-    gradient_accumulation_steps: 1
+    gradient_accumulation_steps: 10  # effective batch 80 on one GPU
     max_seq_length: 512
     seed: 42
