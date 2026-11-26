@@ -1,6 +1,6 @@
 base: &base_cfg
     model_config:
-        template: plain
+        template: native  # the model's own chat template, which DeepAlign also trains with
         max_generation_length: 1024
         inference_batch_size: 16
     defense_evals: [strong_reject, mmlu_pro_val]

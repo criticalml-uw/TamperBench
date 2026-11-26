@@ -108,12 +108,12 @@ TamperBench evaluates every defense the same way, so DeepAlign is tested differe
 | Attacks | Inference-time: **prefilling** (what DeepAlign targets), GCG, decoding-parameter exploit | Fine-tuning attack (`lora_finetune`) |
 | Safety | HEx-PHI, judged by GPT-4 | StrongREJECT, judged by a fine-tuned small model |
 | Utility | AlpacaEval | MMLU-Pro |
-| Prompt format | Llama-2 chat format | `plain` (no chat template), like every other defense config |
+| Prompt format | Llama-2 chat format | `native` (the model's own chat template, which DeepAlign also trains with) |
 
 Two consequences:
 
 - **Results won't match the paper's numbers**, even on Llama-2-7B-Chat.
-- **Expect weaker results than the paper reports.** DeepAlign was designed against prefilling, and the paper notes that data augmentation alone doesn't stop fine-tuning attacks. On top of that, DeepAlign trains with the chat template, so `plain` evaluation also tests whether the defense holds when prompts skip that format.
+- **Expect weaker results than the paper reports.** DeepAlign was designed against prefilling, and the paper notes that data augmentation alone doesn't stop fine-tuning attacks.
 
 ### Not implemented
 
@@ -143,6 +143,18 @@ uv run python scripts/whitebox/defense_grid.py Qwen/Qwen3-0.6B \
     --model-alias qwen3_0_6b \
     --results-dir results/defense_grid
 ```
+
+Optuna sweep over the search space in `configs/whitebox/defenses/deep_align/single_objective_sweep.yaml`. Each trial runs defend → eval → malicious LoRA (`lora_finetune`) → eval and minimizes post-attack StrongREJECT. The base model's MMLU-Pro is scored once before the first trial (saved under `capability_baselines/`). A trial whose MMLU-Pro falls below 90% of that skips the attack and gets the worst score:
+
+```bash
+uv run python scripts/whitebox/defense_sweep.py meta-llama/Llama-3.2-1B-Instruct \
+    --defense deep_align \
+    --n-trials 10 \
+    --model-alias llama3_2_1b_instruct \
+    --results-dir results/defense_sweep
+```
+
+The best defended model is kept in `<results-dir>/<alias>/deep_align/optuna_single/best_checkpoint/`. To test it against other attacks, pass that path to `scripts/whitebox/benchmark_grid.py`.
 
 ### Notes
 
