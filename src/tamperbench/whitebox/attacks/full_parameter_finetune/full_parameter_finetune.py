@@ -1,7 +1,7 @@
 """Full parameter fine-tuning attack interface."""
 
 import multiprocessing
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, TypeVar
 
 import datasets
@@ -273,6 +273,11 @@ def run_full_finetune_attack(  # TODO: Consolidate with `run_lora_attack`
 
     model.resize_token_embeddings(new_num_tokens=len(tokenizer))
     model.enable_input_require_grads()
+
+    if attack_config.fsdp:
+        # The config was built in the parent process and cached that process's device setup (cuda:0 on every
+        # rank), which makes the ranks deadlock. Rebuilding it here recomputes the device for this rank.
+        training_arguments = replace(training_arguments)
 
     trainer = SFTTrainer(
         model=model,
