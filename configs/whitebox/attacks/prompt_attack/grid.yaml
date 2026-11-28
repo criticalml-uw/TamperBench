@@ -1,0 +1,7 @@
+base: &base_cfg
+    model_config:
+        template: native
+        max_generation_length: 1024
+        inference_batch_size: 16
+    evals: [prompt_attack_eval]
+    jailbreak_prompt: aim  # key in tamperbench/whitebox/evals/prompt_attack/dictionary.py

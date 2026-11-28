@@ -32,6 +32,7 @@ class DefenseName(StrEnum):
     TAR_TVACCINE = "tar_tvaccine"
     T_VACCINE = "t_vaccine"
     SDD = "sdd"
+    DEEP_ALIGN = "deep_align"
 
 
 class EvalName(StrEnum):

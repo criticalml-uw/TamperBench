@@ -3,6 +3,7 @@
 from tamperbench.whitebox.defenses.booster import Booster, BoosterConfig
 from tamperbench.whitebox.defenses.crl import CRL, CRLConfig
 from tamperbench.whitebox.defenses.ctrl import CTRL, CTRLConfig
+from tamperbench.whitebox.defenses.deep_align import DeepAlign, DeepAlignConfig
 from tamperbench.whitebox.defenses.defense import (
     AlignmentDefense,
     AlignmentDefenseConfig,
@@ -34,6 +35,8 @@ __all__: list[str] = [
     "BoosterConfig",
     "CRLConfig",
     "CTRLConfig",
+    "DeepAlign",
+    "DeepAlignConfig",
     "RSNTune",
     "RSNTuneConfig",
     "SDDConfig",
