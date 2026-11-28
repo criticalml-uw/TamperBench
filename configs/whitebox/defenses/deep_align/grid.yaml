@@ -4,9 +4,13 @@ base: &base_cfg
         max_generation_length: 1024
         inference_batch_size: 16
     defense_evals: [strong_reject, mmlu_pro_val]
-    post_attack_evals: [strong_reject, mmlu_pro_val]
+    # Inference-time attacks (what DeepAlign targets); both score with StrongREJECT.
+    post_attack_evals: [embedding_attack_eval, prompt_attack_eval]
     attacks:
-        - name: lora_finetune
+        - name: embedding_attack
+          mode: grid
+          config_name: base
+        - name: prompt_attack
           mode: grid
           config_name: base
     # Data
